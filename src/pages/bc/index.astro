@@ -1,0 +1,17 @@
+---
+import Base from '../../layouts/Base.astro';
+import { SYSTEM_INDEX } from '../../lib/data.js';
+const routes = SYSTEM_INDEX.reduce((a, s) => a + s.routes, 0);
+---
+<Base title={`BC Bus Schedules: Timetables for ${SYSTEM_INDEX.length} BC Communities`} description={`Readable bus timetables for ${SYSTEM_INDEX.length} transit systems across British Columbia — ${routes} routes, from Victoria and Kelowna to Smithers and Tofino.`} path="bc">
+<main class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb">British Columbia</nav>
+  <h1>British Columbia bus schedules</h1>
+  <p class="lede">Timetables for {routes} bus routes in {SYSTEM_INDEX.length} BC communities, built from the official schedule data. Every route page shows the whole day at a glance and highlights the next bus.</p>
+  <ul class="grid">
+    {SYSTEM_INDEX.map((s) => (
+      <li><a class="card" href={`/bc/${s.slug}`}><strong>{s.name}</strong><span>{s.routes} route{s.routes === 1 ? '' : 's'} · {s.area}</span></a></li>
+    ))}
+  </ul>
+</main>
+</Base>

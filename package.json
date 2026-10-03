@@ -1,0 +1,21 @@
+{
+  "name": "transit-timetables",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Readable bus timetables for BC Transit systems, built from BC Transit's open GTFS data.",
+  "scripts": {
+    "fetch": "node scripts/fetch-feeds.mjs",
+    "data": "node scripts/build-data.mjs",
+    "dev": "astro dev",
+    "build": "astro build && node scripts/verify-build.mjs",
+    "preview": "astro preview",
+    "deploy": "wrangler deploy",
+    "refresh": "npm run fetch && npm run data && npm run build && npm run deploy"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.7.4",
+    "astro": "^7.3.5",
+    "csv-parse": "^7.0.3"
+  }
+}

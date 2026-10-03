@@ -1,0 +1,67 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description: string;
+  /** Path without the leading slash; '' for the homepage. */
+  path: string;
+  jsonLd?: unknown[];
+  /** Pages that should not be in Google (e.g. a page with nothing on it yet). */
+  noindex?: boolean;
+}
+
+const { title, description, path, jsonLd = [], noindex = false } = Astro.props;
+const SITE = 'https://transit.shivrajsinh.in';
+const canonical = `${SITE}/${path}`.replace(/\/$/, '') || SITE;
+const AD_CLIENT = 'ca-pub-7164999486301748';
+---
+<!doctype html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={canonical} />
+  {noindex && <meta name="robots" content="noindex" />}
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={canonical} />
+  <meta property="og:site_name" content="Bus Times" />
+  <meta name="theme-color" content="#0b6e4f" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <meta name="google-adsense-account" content={AD_CLIENT} />
+  <script is:inline>document.documentElement.classList.add('js')</script>
+  <script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${AD_CLIENT}`} crossorigin="anonymous"></script>
+  {jsonLd.map((j) => <script type="application/ld+json" set:html={JSON.stringify(j)} />)}
+</head>
+<body>
+  <header class="site-head">
+    <div class="wrap">
+      <a class="brand" href="/">
+        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="15" rx="3" fill="var(--accent)"/><rect x="6" y="6" width="12" height="5" rx="1" fill="var(--surface)"/><circle cx="8" cy="15" r="1.4" fill="var(--surface)"/><circle cx="16" cy="15" r="1.4" fill="var(--surface)"/><rect x="6" y="18" width="3" height="3" rx="1" fill="var(--accent)"/><rect x="15" y="18" width="3" height="3" rx="1" fill="var(--accent)"/></svg>
+        Bus Times
+      </a>
+      <nav aria-label="Site">
+        <a href="/bc">BC</a>
+        <a href="/about">About</a>
+      </nav>
+    </div>
+  </header>
+  <slot />
+  <footer class="site-foot">
+    <div class="wrap">
+      <p>
+        Schedule data: BC Transit, used under BC Transit’s
+        <a href="https://www.bctransit.com/open-data/terms-of-use" rel="nofollow">open data terms</a>.
+        Bus Times is an independent site — it is not run by, affiliated with or endorsed by BC Transit
+        or any local government. These are scheduled times, not live arrivals; detours, cancellations
+        and alerts are only on the operator’s own channels.
+      </p>
+      <p><a href="/about">About</a> · <a href="/privacy">Privacy</a> · <a href="/bc">All BC systems</a></p>
+    </div>
+  </footer>
+</body>
+</html>

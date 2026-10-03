@@ -1,0 +1,205 @@
+---
+import Base from '../../../layouts/Base.astro';
+import { allSystems, stopPageCodes, REGION } from '../../../lib/data.js';
+import { clock, clockText, every, shortDate, longDate, routeLabel, runsText, place } from '../../../lib/format.js';
+
+export function getStaticPaths() {
+  return allSystems().flatMap((system) => system.routes.map((route) => ({
+    params: { system: system.slug, route: route.slug },
+    props: { system, route },
+  })));
+}
+
+const { system, route } = Astro.props;
+const stopPages = stopPageCodes(system.slug);
+const label = routeLabel(route);
+const named = route.short && route.name ? `${label} ${route.name}` : label;
+const main = route.days[0];
+const mainSummary = route.summary[main.key];
+const ends = route.directions[0]?.stops;
+const fromStop = ends && place(ends[0].name);
+const toStop = ends && place(ends.at(-1).name);
+
+const fit = (max, ...c) => c.find((s) => s.length <= max) ?? c.at(-1);
+const title = fit(60,
+  `${system.name} ${label} Bus Schedule – ${route.name}`,
+  `${system.name} ${label} Bus Schedule & Times`,
+  `${system.name} ${label} Bus Schedule`);
+const description = fit(160,
+  `${system.name} ${named} bus times: first bus ${clockText(mainSummary.first)}, last ${clockText(mainSummary.last)} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. Full timetable for both directions and every day.`,
+  `${system.name} ${named} bus times: first bus ${clockText(mainSummary.first)}, last ${clockText(mainSummary.last)} ${main.label}. Full timetable for every day.`);
+
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const covered = new Set(route.days.flatMap((d) => d.days));
+const missing = WEEKDAYS.filter((_, i) => !covered.has(i));
+const slugOf = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+// Loops often have both directions ending where they started; then "to <stop>" names both, and
+// the bus sign ("Clockwise", "via Dogwood") is what tells them apart.
+const dests = route.directions.map((d) => place(d.stops.at(-1).name));
+const dirNames = route.directions.map((d, i) => {
+  const clash = dests.filter((x) => x === dests[i]).length > 1;
+  return clash
+    ? { heading: `${label}: ${d.headsign}`, anchor: slugOf(d.headsign) || `direction-${i + 1}` }
+    : { heading: `${label} to ${dests[i]}`, anchor: `to-${slugOf(dests[i])}` };
+});
+dirNames.forEach((n, i) => { if (dirNames.findIndex((m) => m.anchor === n.anchor) !== i) n.anchor += `-${i + 1}`; });
+const others = system.routes.filter((r) => r.slug !== route.slug);
+const holidayList = route.exceptions.filter((e) => e.holiday);
+const otherExceptions = route.exceptions.filter((e) => !e.holiday);
+
+const SITE = 'https://transit.shivrajsinh.in';
+const path = `${REGION.slug}/${system.slug}/${route.slug}`;
+const jsonLd = [{
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: REGION.name, item: `${SITE}/${REGION.slug}` },
+    { '@type': 'ListItem', position: 2, name: `${system.name} buses`, item: `${SITE}/${REGION.slug}/${system.slug}` },
+    { '@type': 'ListItem', position: 3, name: label, item: `${SITE}/${path}` },
+  ],
+}];
+
+// What the next-bus script needs: which table runs today, in the system's own timezone.
+const cfg = { tz: system.timezone, days: route.days.map(({ key, days }) => ({ key, days })), exceptions: route.exceptions.map(({ date, runs }) => ({ date, runs })) };
+---
+<Base title={title} description={description} path={path} jsonLd={jsonLd}>
+<main class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/bc">{REGION.name}</a> › <a href={`/bc/${system.slug}`}>{system.name}</a> › {label}</nav>
+
+  <h1><span class="badge lg" style={route.color ? `background:${route.color};color:${route.textColor || '#fff'}` : ''}>{route.short || '•'}</span> {named}</h1>
+  <p class="lede">
+    {system.name} {label}{fromStop && toStop && fromStop !== toStop ? <> runs between <b>{fromStop}</b> and <b>{toStop}</b></> : <> serves {system.area}</>}.
+    {' '}{main.label} the first bus is at {clockText(mainSummary.first)} and the last at {clockText(mainSummary.last)}{mainSummary.gap ? <>, {every(mainSummary.gap)} during the day</> : null}.
+  </p>
+
+  <table class="facts">
+    <thead><tr><th>Days</th><th>First bus</th><th>Last bus</th><th>Buses</th><th>Daytime</th></tr></thead>
+    <tbody>
+      {route.days.map((d) => {
+        const s = route.summary[d.key];
+        return s && <tr><th>{d.label}</th><td>{clockText(s.first)}</td><td>{clockText(s.last)}</td><td>{s.trips}</td><td>{every(s.gap) || '—'}</td></tr>;
+      })}
+      {missing.length > 0 && <tr><th>{missing.join(', ')}</th><td colspan="4" class="muted">No service</td></tr>}
+    </tbody>
+  </table>
+
+  {(route.exceptions.length > 0 || system.changesOn) && (
+    <div class="notice">
+      {holidayList.length > 0 && <p><b>Holidays:</b></p>}
+      {holidayList.length > 0 && <ul>{holidayList.map((e) => <li>{shortDate(e.date)} ({e.holiday}): {runsText(e, route.days)}</li>)}</ul>}
+      {otherExceptions.length > 0 && <p><b>Also different:</b> {otherExceptions.map((e) => `${shortDate(e.date)} (${runsText(e, route.days)})`).join('; ')}.</p>}
+      {system.changesOn && <p><b>Timetable change:</b> {system.name}’s timetable changes on {longDate(system.changesOn)}. The times below are for the current timetable.</p>}
+    </div>
+  )}
+
+  <div class="ad" aria-hidden="true"></div>
+
+  {route.directions.map((dir, di) => (
+    <section class="direction" id={dirNames[di].anchor} data-dir={di}>
+      <h2>{dirNames[di].heading}</h2>
+      <p class="muted small">Bus sign: “{dir.headsign}” · from {place(dir.stops[0].name)} · {dir.stops.length} stops</p>
+      <div class="tabs" role="tablist" aria-label="Day of the week">
+        {route.days.filter((d) => dir.schedules[d.key]).map((d, i) => (
+          <button type="button" role="tab" data-day={d.key} aria-selected={i === 0 ? 'true' : 'false'}>{d.label}</button>
+        ))}
+      </div>
+      <p class="next-line" aria-live="polite"></p>
+      {route.days.filter((d) => dir.schedules[d.key]).map((d, i) => (
+        <div class={`panel${i === 0 ? ' on' : ''}`} data-day={d.key} role="tabpanel">
+          <h3>{d.label}</h3>
+          <p class="legend">Scheduled times at the main stops · <b>bold = pm</b> · — = this trip doesn’t stop there</p>
+          <div class="tt-wrap">
+            <table class="tt">
+              <thead><tr>{dir.columns.map((c) => <th scope="col">{stopPages.has(c.code) ? <a href={`/bc/${system.slug}/stop/${c.code}`}>{c.name}</a> : c.name}</th>)}</tr></thead>
+              <tbody>
+                {dir.schedules[d.key].map((row) => (
+                  <tr data-m={row[0] ?? ''}>{row.map((m) => {
+                    if (m == null) return <td class="no">—</td>;
+                    const c = clock(m);
+                    return <td class={c.pm ? 'pm' : undefined}>{c.text}</td>;
+                  })}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+      <details class="stops">
+        <summary>All {dir.stops.length} stops, in order</summary>
+        <ol>{dir.stops.map((s) => <li>{stopPages.has(s.code) ? <a href={`/bc/${system.slug}/stop/${s.code}`}>{s.name}</a> : s.name} <span class="muted small">#{s.code}</span></li>)}</ol>
+      </details>
+    </section>
+  ))}
+
+  <h2>Questions about {label}</h2>
+  <dl class="faq">
+    <dt>What time is the first {label} bus?</dt>
+    <dd>{route.days.map((d) => route.summary[d.key] && `${d.label}: ${clockText(route.summary[d.key].first)}`).filter(Boolean).join('. ')}.</dd>
+    <dt>What time is the last {label} bus?</dt>
+    <dd>{route.days.map((d) => route.summary[d.key] && `${d.label}: ${clockText(route.summary[d.key].last)}`).filter(Boolean).join('. ')}. Times after midnight belong to the evening before.</dd>
+    {mainSummary.gap && <dt>How often does {label} run?</dt>}
+    {mainSummary.gap && <dd>{route.days.map((d) => route.summary[d.key]?.gap && `${d.label}: ${every(route.summary[d.key].gap)}`).filter(Boolean).join('. ')} between 7 am and 7 pm, by the median gap between departures.</dd>}
+    <dt>Does {label} run on weekends?</dt>
+    <dd>Saturday: {covered.has(5) ? 'yes' : 'no service'}. Sunday: {covered.has(6) ? 'yes' : 'no service'}.</dd>
+    {holidayList.length > 0 && <dt>Does {label} run on holidays?</dt>}
+    {holidayList.length > 0 && <dd>{holidayList.map((e) => `${e.holiday} (${shortDate(e.date)}): ${runsText(e, route.days)}`).join('. ')}.</dd>}
+    <dt>Are these live bus times?</dt>
+    <dd>No — they are the published schedule, from {system.name}’s official transit data, refreshed {longDate(system.builtOn)}. A bus can run early or late, and detours aren’t shown here.</dd>
+  </dl>
+
+  <div class="ad" aria-hidden="true"></div>
+
+  {others.length > 0 && (
+    <>
+      <h2>Other {system.name} routes</h2>
+      <ul class="routes">
+        {others.map((r) => (
+          <li><a href={`/bc/${system.slug}/${r.slug}`}>
+            <span class="badge" style={r.color ? `background:${r.color};color:${r.textColor || '#fff'}` : ''}>{r.short || '•'}</span>
+            <span>{r.name || routeLabel(r)}<span class="meta">{r.days.map((d) => d.label).join(' · ')}</span></span>
+          </a></li>
+        ))}
+      </ul>
+    </>
+  )}
+</main>
+<script type="application/json" id="tt-cfg" set:html={JSON.stringify(cfg)} />
+<script is:inline>
+(() => {
+  const cfg = JSON.parse(document.getElementById('tt-cfg').textContent);
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: cfg.tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short',
+  }).formatToParts(new Date()).map((p) => [p.type, p.value]));
+  const iso = `${parts.year}-${parts.month}-${parts.day}`;
+  const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(parts.weekday);
+  const now = Number(parts.hour) * 60 + Number(parts.minute);
+  const ex = cfg.exceptions.find((e) => e.date === iso);
+  const todayKey = ex ? (['none', 'special'].includes(ex.runs) ? null : ex.runs) : (cfg.days.find((d) => d.days.includes(wd)) || {}).key;
+  const fmt = (m) => { m %= 1440; const h = Math.floor(m / 60); return `${h % 12 || 12}:${String(m % 60).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`; };
+
+  document.querySelectorAll('.direction').forEach((sec) => {
+    const tabs = [...sec.querySelectorAll('[role=tab]')];
+    const show = (key) => {
+      tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.day === key)));
+      sec.querySelectorAll('.panel').forEach((p) => p.classList.toggle('on', p.dataset.day === key));
+    };
+    tabs.forEach((t) => t.addEventListener('click', () => show(t.dataset.day)));
+    const line = sec.querySelector('.next-line');
+    const panel = todayKey && sec.querySelector(`.panel[data-day="${todayKey}"]`);
+    if (!panel) {
+      if (line) line.textContent = ex && ex.runs === 'special' ? 'Today runs a special timetable — check the operator before you travel.' : 'No buses in this direction today.';
+      return;
+    }
+    show(todayKey);
+    const rows = [...panel.querySelectorAll('tbody tr')].filter((r) => r.dataset.m !== '');
+    const next = rows.find((r) => Number(r.dataset.m) >= now);
+    if (!next) { line.textContent = 'No more buses today from the first stop.'; return; }
+    next.classList.add('next');
+    const wait = Number(next.dataset.m) - now;
+    const b = document.createElement('b');
+    b.textContent = fmt(Number(next.dataset.m));
+    line.replaceChildren(`Next scheduled bus from ${panel.querySelector('thead th').textContent}: `, b, wait <= 90 ? ` (in ${wait} min)` : '');
+  });
+})();
+</script>
+</Base>

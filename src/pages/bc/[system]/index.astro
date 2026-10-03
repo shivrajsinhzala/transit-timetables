@@ -1,0 +1,65 @@
+---
+import Base from '../../../layouts/Base.astro';
+import { allSystems, pageStops, busiestDay, REGION } from '../../../lib/data.js';
+import { clockText, every, shortDate, longDate, routeLabel, runsText } from '../../../lib/format.js';
+
+export function getStaticPaths() {
+  return allSystems().map((system) => ({ params: { system: system.slug }, props: { system } }));
+}
+
+const { system } = Astro.props;
+const n = system.routes.length;
+const title = `${system.name} Bus Schedules: All ${n} Route${n === 1 ? '' : 's'} & Timetables`;
+const description = `Bus timetables for every ${system.name} route — first and last bus, how often each runs, and the full schedule for weekdays, weekends and holidays. ${system.area}.`;
+const holidays = [...new Map(system.routes.flatMap((r) => r.exceptions).filter((e) => e.holiday).map((e) => [e.date, e])).values()].sort((a, b) => a.date.localeCompare(b.date));
+const busiest = [...pageStops(system.slug)].sort((a, b) => busiestDay(b) - busiestDay(a)).slice(0, 24);
+const SITE = 'https://transit.shivrajsinh.in';
+const jsonLd = [{
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: REGION.name, item: `${SITE}/${REGION.slug}` },
+    { '@type': 'ListItem', position: 2, name: `${system.name} buses`, item: `${SITE}/${REGION.slug}/${system.slug}` },
+  ],
+}];
+---
+<Base title={title.length <= 60 ? title : `${system.name} Bus Schedules & Route Timetables`} description={description.slice(0, 160)} path={`bc/${system.slug}`} jsonLd={jsonLd}>
+<main class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/bc">{REGION.name}</a> › {system.name}</nav>
+  <h1>{system.name} bus schedules</h1>
+  <p class="lede">Timetables for all {n} {system.name} bus route{n === 1 ? '' : 's'}, serving {system.area}. Pick a route for its full schedule in both directions, with the next bus highlighted.</p>
+
+  {(holidays.length > 0 || system.changesOn) && (
+    <div class="notice">
+      {holidays.length > 0 && <p><b>Coming up:</b> {holidays.map((e) => `${e.holiday}, ${shortDate(e.date)}`).join(' · ')} — each route page says which timetable it runs that day.</p>}
+      {system.changesOn && <p><b>Timetable change on {longDate(system.changesOn)}.</b> These pages show the current timetable.</p>}
+    </div>
+  )}
+
+  <ul class="routes">
+    {system.routes.map((r) => {
+      const d = r.days[0];
+      const s = r.summary[d.key];
+      return (
+        <li><a href={`/bc/${system.slug}/${r.slug}`}>
+          <span class="badge" style={r.color ? `background:${r.color};color:${r.textColor || '#fff'}` : ''}>{r.short || '•'}</span>
+          <span>{r.name || routeLabel(r)}
+            <span class="meta">{r.days.map((x) => x.label).join(' · ')}{s && ` — ${d.label}: ${clockText(s.first)}–${clockText(s.last)}${s.gap ? `, ${every(s.gap)}` : ''}`}</span>
+          </span>
+        </a></li>
+      );
+    })}
+  </ul>
+
+  {busiest.length > 0 && (
+    <>
+      <h2>Busiest stops</h2>
+      <ul class="grid">
+        {busiest.map((st) => <li><a class="card" href={`/bc/${system.slug}/stop/${st.code}`}><strong>{st.name}</strong><span>Stop #{st.code} · {busiestDay(st)} buses on its busiest day</span></a></li>)}
+      </ul>
+    </>
+  )}
+
+  <p class="small muted">Schedule as published in {system.name}’s official transit data, refreshed {longDate(system.builtOn)}{system.feed.to ? `; the current data runs to ${longDate(system.feed.to)}` : ''}.</p>
+</main>
+</Base>

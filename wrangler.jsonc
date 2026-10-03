@@ -1,0 +1,11 @@
+{
+  // Static site only: no Worker code, just the built pages, served from Cloudflare's edge.
+  // Requests for static assets are free and do not count against the Workers request limit.
+  "name": "transit-timetables",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  },
+  "routes": [{ "pattern": "transit.shivrajsinh.in", "custom_domain": true }]
+}

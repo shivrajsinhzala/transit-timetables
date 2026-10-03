@@ -1,0 +1,102 @@
+---
+import Base from '../../../../layouts/Base.astro';
+import { allSystems, pageStops, REGION } from '../../../../lib/data.js';
+import { clockText, byHour, longDate, place } from '../../../../lib/format.js';
+
+export function getStaticPaths() {
+  return allSystems().flatMap((system) => pageStops(system.slug).map((stop) => ({
+    params: { system: system.slug, code: stop.code },
+    props: { system, stop },
+  })));
+}
+
+const { system, stop } = Astro.props;
+const routeCount = new Set(stop.routes.map((r) => r.route)).size;
+const routeList = [...new Set(stop.routes.map((r) => r.short || r.name))].join(', ');
+const firstAll = Math.min(...stop.routes.flatMap((r) => Object.values(r.times).flat()));
+const fit = (max, ...c) => c.find((s) => s.length <= max) ?? c.at(-1);
+const title = fit(60,
+  `${stop.name} (Stop ${stop.code}) – ${system.name} Bus Times`,
+  `${stop.name} – ${system.name} Bus Times`,
+  `Stop ${stop.code} – ${system.name} Bus Times`);
+const description = `Bus times at ${stop.name}, ${system.name} (stop #${stop.code}): ${routeCount === 1 ? 'route' : 'routes'} ${routeList}. Every scheduled departure for each day of the week, with the next bus highlighted.`.slice(0, 160);
+const SITE = 'https://transit.shivrajsinh.in';
+const path = `bc/${system.slug}/stop/${stop.code}`;
+const jsonLd = [{
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: REGION.name, item: `${SITE}/${REGION.slug}` },
+    { '@type': 'ListItem', position: 2, name: `${system.name} buses`, item: `${SITE}/bc/${system.slug}` },
+    { '@type': 'ListItem', position: 3, name: stop.name, item: `${SITE}/${path}` },
+  ],
+}];
+const exceptions = system.routes.filter((r) => stop.routes.some((x) => x.route === r.slug)).flatMap((r) => r.exceptions.map((e) => ({ ...e, route: r.slug })));
+const cfg = { tz: system.timezone, routes: Object.fromEntries(stop.routes.map((r) => [r.route, system.routes.find((x) => x.slug === r.route)?.days.map(({ key, days }) => ({ key, days })) || []])), exceptions };
+---
+<Base title={title} description={description} path={path} jsonLd={jsonLd}>
+<main class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/bc">{REGION.name}</a> › <a href={`/bc/${system.slug}`}>{system.name}</a> › Stop {stop.code}</nav>
+  <h1>{stop.name}</h1>
+  <p class="lede">
+    Stop #{stop.code} in {system.name}, served by {routeCount === 1 ? 'route' : 'routes'} {routeList}.
+    The first scheduled bus of the day leaves at {clockText(firstAll)}.
+    {stop.lat && <> <a href={`https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lon}`} rel="nofollow">Open on a map</a>.</>}
+  </p>
+  <div class="ad" aria-hidden="true"></div>
+
+  {stop.routes.map((r, ri) => (
+    <section class="direction stop-route" data-route={r.route}>
+      <h2><a href={`/bc/${system.slug}/${r.route}`} class="badge" style={r.color ? `background:${r.color};color:#fff;text-decoration:none` : 'text-decoration:none'}>{r.short || '•'}</a> {r.short ? `Route ${r.short}` : r.name} <span class="muted">towards {place(r.headsign.replace(/^.*-\s*To\s+/i, '').replace(/^To\s+/i, ''))}</span></h2>
+      <div class="tabs" role="tablist" aria-label="Day of the week">
+        {r.days.filter((d) => r.times[d.key]).map((d, i) => <button type="button" role="tab" data-day={d.key} aria-selected={i === 0 ? 'true' : 'false'}>{d.label}</button>)}
+      </div>
+      <p class="next-line" aria-live="polite"></p>
+      {r.days.filter((d) => r.times[d.key]).map((d, i) => (
+        <div class={`panel${i === 0 ? ' on' : ''}`} data-day={d.key} role="tabpanel">
+          <h3>{d.label} · {r.times[d.key].length} buses</h3>
+          <table class="hours">
+            <tbody>
+              {byHour(r.times[d.key]).map((h) => (
+                <tr><th class={h.pm ? 'pm' : undefined}>{h.label}<span class="sr">{h.pm ? ' pm' : ' am'}</span></th><td>{h.mins.map((m) => <span data-m={m.m}>{m.text}</span>)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </section>
+  ))}
+
+  <p class="small muted">Read each row as the hour, then the minutes past it: “7 | 05 35” means 7:05 and 7:35. <b>Bold hours are pm.</b> Scheduled times from {system.name}’s official transit data, refreshed {longDate(system.builtOn)} — not live arrivals.</p>
+</main>
+<script type="application/json" id="stop-cfg" set:html={JSON.stringify(cfg)} />
+<script is:inline>
+(() => {
+  const cfg = JSON.parse(document.getElementById('stop-cfg').textContent);
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: cfg.tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+  const iso = `${p.year}-${p.month}-${p.day}`;
+  const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(p.weekday);
+  const now = Number(p.hour) * 60 + Number(p.minute);
+  const fmt = (m) => { m %= 1440; const h = Math.floor(m / 60); return `${h % 12 || 12}:${String(m % 60).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`; };
+  document.querySelectorAll('.stop-route').forEach((sec) => {
+    const route = sec.dataset.route;
+    const tabs = [...sec.querySelectorAll('[role=tab]')];
+    const show = (key) => { tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.day === key))); sec.querySelectorAll('.panel').forEach((x) => x.classList.toggle('on', x.dataset.day === key)); };
+    tabs.forEach((t) => t.addEventListener('click', () => show(t.dataset.day)));
+    const ex = cfg.exceptions.find((e) => e.route === route && e.date === iso);
+    const key = ex ? (['none', 'special'].includes(ex.runs) ? null : ex.runs) : ((cfg.routes[route] || []).find((d) => d.days.includes(wd)) || {}).key;
+    const line = sec.querySelector('.next-line');
+    const panel = key && sec.querySelector(`.panel[data-day="${key}"]`);
+    if (!panel) { line.textContent = ex && ex.runs === 'special' ? 'Special timetable today — check the operator.' : 'No buses on this route here today.'; return; }
+    show(key);
+    const next = [...panel.querySelectorAll('[data-m]')].find((s) => Number(s.dataset.m) >= now);
+    if (!next) { line.textContent = 'No more buses today.'; return; }
+    next.classList.add('next');
+    const b = document.createElement('b');
+    b.textContent = fmt(Number(next.dataset.m));
+    const wait = Number(next.dataset.m) - now;
+    line.replaceChildren('Next scheduled bus: ', b, wait <= 90 ? ` (in ${wait} min)` : '');
+  });
+})();
+</script>
+</Base>
