@@ -3,8 +3,9 @@ import Base from '../../../../layouts/Base.astro';
 import Icon from '../../../../components/Icon.astro';
 import Ad from '../../../../components/Ad.astro';
 import RouteBadge from '../../../../components/RouteBadge.astro';
+import Faq from '../../../../components/Faq.astro';
 import { allSystems, hubs, routeBadges, busiestDay, REGION } from '../../../../lib/data.js';
-import { inkFor, place, plain, longDate } from '../../../../lib/format.js';
+import { inkFor, place, plain, longDate, clockText, possessive } from '../../../../lib/format.js';
 
 export function getStaticPaths() {
   return allSystems().flatMap((system) => hubs(system.slug).map((hub) => ({ params: { system: system.slug, hub: hub.slug }, props: { system, hub } })));
@@ -30,6 +31,22 @@ const board = {
   })),
 };
 
+// Which bay each route leaves from, and the day's first and last bus, for the answers below.
+const bayFor = allRoutes.map((r) => {
+  const bays = hub.stops.filter((s) => s.routes.some((x) => x.route === r.slug)).map(bay);
+  return `${r.short ? `Route ${r.short}` : plain(r.name)}: ${bays.join(', ')}`;
+});
+const mondayTimes = hub.stops.flatMap((s) => s.routes.flatMap((r) => {
+  const d = system.routes.find((x) => x.slug === r.route)?.days.find((x) => x.days.includes(0));
+  return (d && r.times[d.key]) || [];
+})).sort((a, b) => a - b);
+const faq = [
+  [`Which bay do I need at ${name}?`, `${bayFor.join('. ')}. Each bay's page has its full timetable.`],
+  [`What routes leave from ${name}?`, `${allRoutes.length} route${allRoutes.length === 1 ? '' : 's'}: ${allRoutes.map((r) => (r.short ? `${r.short} ${plain(r.name)}` : plain(r.name))).join(', ')}.`],
+  ...(mondayTimes.length ? [[`When is the first and last bus from ${name}?`, `On a Monday the first bus leaves at ${clockText(mondayTimes[0])} and the last at ${clockText(mondayTimes.at(-1))}, with ${mondayTimes.length} departures across all bays.`]] : []),
+  ['Are these live departures?', `No. They are the scheduled times from ${possessive(system.name)} published timetable, refreshed ${longDate(system.builtOn)}.`],
+];
+
 const fit = (max, ...c) => c.find((s) => s.length <= max) ?? c.at(-1);
 const title = fit(60, `${name}: Bus Times for All ${hub.stops.length} Bays (${system.name})`, `${name}: Bus Times and Bays`, `${name} Bus Times`);
 const description = fit(160, `Next buses from every bay at ${name}, ${system.name}: ${allRoutes.length} routes, which bay each one leaves from, and the full timetable for each bay.`, `Next buses from every bay at ${name}, ${system.name}.`);
@@ -44,7 +61,7 @@ const jsonLd = [
   { '@context': 'https://schema.org', '@type': 'BusStation', name, ...(hub.stops[0].lat ? { geo: { '@type': 'GeoCoordinates', latitude: hub.stops[0].lat, longitude: hub.stops[0].lon } } : {}), containedInPlace: { '@type': 'City', name: system.name } },
 ];
 ---
-<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.slug}>
+<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.slug} modified={system.builtOn} speakable={['.lede', '.faq .answer']}>
 <main class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/bc">{REGION.name}</a> › <a href={`/bc/${system.slug}`}>{system.name}</a> › {name}</nav>
   <div class="page-head">
@@ -59,6 +76,8 @@ const jsonLd = [
     <button class="btn btn-quiet btn-sm" type="button" data-share><Icon name="share-network" /><span data-share-label>Share</span></button>
     {hub.stops[0].lat && <a class="btn btn-quiet btn-sm" href={`https://www.google.com/maps/search/?api=1&query=${hub.stops[0].lat},${hub.stops[0].lon}`} rel="nofollow"><Icon name="map-trifold" /> Directions</a>}
   </div>
+
+  <p class="lede" style="margin-top:1.2rem">{name} is a {system.name} transit exchange with {hub.stops.length} bays served by {allRoutes.length} route{allRoutes.length === 1 ? '' : 's'}. The board shows the next scheduled departures from every bay, and the list below says which bay each route uses.</p>
 
   <div class="board" data-board data-rows="8" style="margin-top:1.4rem" aria-label={`Next scheduled buses at ${name}`}>
     <div class="board-head"><strong>Departures, all bays</strong><span class="board-clock" data-clock></span></div>
@@ -84,6 +103,7 @@ const jsonLd = [
   <ul class="list">
     {allRoutes.map((r) => <li><a href={`/bc/${system.slug}/${r.slug}`}><RouteBadge route={r} /><span>{plain(r.name)}<span class="meta">{r.days.map((d) => d.label).join(', ')}</span></span><Icon name="arrow-right" class="go" /></a></li>)}
   </ul>
-  <p class="small muted">Scheduled times from {system.name}’s official transit data, refreshed {longDate(system.builtOn)}. Not live arrivals.</p>
+  <Faq items={faq} title={`Questions about ${name}`} />
+  <p class="small muted source">Source: <a href="https://www.bctransit.com/open-data/">BC Transit open data</a> (GTFS schedule for {system.name}), refreshed {longDate(system.builtOn)}. Scheduled times, not live arrivals.</p>
 </main>
 </Base>

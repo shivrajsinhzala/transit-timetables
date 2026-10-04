@@ -1,0 +1,24 @@
+---
+/**
+ * Questions and answers, written for answer engines: each question is a real heading (H3), each
+ * answer a short direct paragraph right under it, nothing collapsed. The FAQPage JSON-LD is built
+ * from the same strings, so the markup can never claim anything the page does not show.
+ */
+interface Props { items: [string, string][]; title?: string; id?: string }
+const { items, title, id = 'questions' } = Astro.props;
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: items.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+};
+---
+<section class="faq" id={id}>
+  {title && <h2>{title}</h2>}
+  {items.map(([q, a]) => (
+    <div class="qa">
+      <h3>{q}</h3>
+      <p class="answer">{a}</p>
+    </div>
+  ))}
+  <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+</section>

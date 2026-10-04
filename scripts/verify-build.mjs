@@ -24,7 +24,7 @@ for (const f of files) {
   const canonical = /<link rel="canonical" href="([^"]+)"/.exec(html)?.[1];
   if (!title) problems.push(`${rel}: no <title>`);
   if (!/<meta name="description" content="[^"]{50,}"/.test(html)) problems.push(`${rel}: missing or short description`);
-  if (canonical !== (rel ? `${SITE}/${rel}` : SITE)) problems.push(`${rel}: canonical ${canonical}`);
+  if (canonical !== (rel ? `${SITE}/${rel}` : `${SITE}/`)) problems.push(`${rel}: canonical ${canonical}`);
   if (/^bc\/[^/]+\/stop\/[^/]+$/.test(rel) && !/<table class="hours"/.test(html)) problems.push(`${rel}: stop page without times`);
   if (/^bc\/[^/]+\/hub\/[^/]+$/.test(rel) && !/data-board/.test(html)) problems.push(`${rel}: hub page without a board`);
   // Visible text only: strip scripts, styles and tags before looking for long dashes.

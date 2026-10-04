@@ -3,8 +3,9 @@ import Base from '../../../layouts/Base.astro';
 import Icon from '../../../components/Icon.astro';
 import Ad from '../../../components/Ad.astro';
 import RouteBadge from '../../../components/RouteBadge.astro';
+import Faq from '../../../components/Faq.astro';
 import { allSystems, stopPageCodes, REGION } from '../../../lib/data.js';
-import { clock, clockText, every, shortDate, longDate, routeLabel, runsText, place, plain, slugify } from '../../../lib/format.js';
+import { clock, clockText, every, shortDate, longDate, routeLabel, runsText, place, plain, slugify, possessive } from '../../../lib/format.js';
 
 export function getStaticPaths() {
   return allSystems().flatMap((system) => system.routes.map((route) => ({
@@ -26,8 +27,9 @@ const title = route.short
   ? fit(60, `${system.name} Bus Route ${route.short} Schedule: ${name}`, `${system.name} Bus Route ${route.short} Schedule and Map`, `${system.name} Bus Route ${route.short} Schedule`)
   : fit(60, `${name} Bus Schedule (${system.name})`, `${name} Bus Schedule`);
 const description = fit(160,
-  `${system.name} ${label} ${name} timetable: first bus ${clockText(mainSummary.first)}, last ${clockText(mainSummary.last)} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. Every stop, both directions, route map.`,
-  `${system.name} ${label} timetable: first bus ${clockText(mainSummary.first)}, last ${clockText(mainSummary.last)} ${main.label}. Every stop, both directions.`);
+  `${system.name} ${label} ${name} bus schedule: first bus ${clockText(mainSummary.first)}, last ${clockText(mainSummary.last)} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. All stops, both directions, map and next bus.`,
+  `${system.name} ${label} bus schedule: first bus ${clockText(mainSummary.first)}, last ${clockText(mainSummary.last)} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. All stops, map and next bus.`,
+  `${system.name} ${label} bus schedule: first bus ${clockText(mainSummary.first)}, last ${clockText(mainSummary.last)} ${main.label}. All stops and next bus.`);
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const covered = new Set(route.days.flatMap((d) => d.days));
@@ -35,7 +37,9 @@ const missing = WEEKDAYS.filter((_, i) => !covered.has(i));
 
 // Places served: the route's timepoints, which are the stops the operator itself names.
 const places = [...new Set(route.directions.flatMap((d) => d.columns.map((c) => place(c.name))))];
-const placesText = places.length > 1 ? `${places.slice(0, -1).join(', ')} and ${places.at(-1)}` : places[0];
+// At most five: the two ends and up to three timepoints between, in route order.
+const shown = places.length > 5 ? [places[0], ...places.slice(1, -1).filter((_, i, a) => i % Math.ceil(a.length / 3) === 0).slice(0, 3), places.at(-1)] : places;
+const placesText = shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}` : shown[0];
 
 const dests = route.directions.map((d) => place(d.stops.at(-1).name));
 const dirNames = route.directions.map((d, i) => {
@@ -71,10 +75,10 @@ const faq = [
   [`Does ${label} run on weekends?`, `Saturday: ${covered.has(5) ? 'yes' : 'no service'}. Sunday: ${covered.has(6) ? 'yes' : 'no service'}.`],
   ...(holidayList.length ? [[`Does ${label} run on holidays?`, `${holidayList.map((e) => `${e.holiday} (${shortDate(e.date)}): ${runsText(e, route.days)}`).join('. ')}.`]] : []),
   [`Where does ${label} go?`, `${label} serves ${placesText}. The full list of stops for each direction is below the timetables.`],
-  ['Are these live bus times?', `No. They are the published schedule from ${system.name}’s official transit data, refreshed ${longDate(system.builtOn)}. A bus can run early or late, and detours are not shown.`],
+  ['Are these live bus times?', `No. They are the published schedule from ${possessive(system.name)} official transit data, refreshed ${longDate(system.builtOn)}. A bus can run early or late, and detours are not shown.`],
 ];
 ---
-<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.slug}>
+<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.slug} modified={system.builtOn} speakable={['.lede', '.faq .answer']}>
 <main class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/bc">{REGION.name}</a> › <a href={`/bc/${system.slug}`}>{system.name}</a> › {label}</nav>
 
@@ -92,7 +96,7 @@ const faq = [
   </div>
 
   <p class="lede" style="margin-top:1.2rem">
-    {label} serves {placesText}. {main.label} the first bus is at {clockText(mainSummary.first)} and the last at {clockText(mainSummary.last)}{mainSummary.gap ? <>, {every(mainSummary.gap)} during the day</> : null}.
+    {system.name} {label}{route.short && name ? ` (${name})` : ''} is a bus route in {system.area} serving {placesText}. {main.label} the first bus is at {clockText(mainSummary.first)} and the last at {clockText(mainSummary.last)}{mainSummary.gap ? <>, {every(mainSummary.gap)} during the day</> : null}. Updated {longDate(system.builtOn)}.
   </p>
 
   <h2 class="sr">Timetable summary</h2>
@@ -108,7 +112,7 @@ const faq = [
       {holidayList.length > 0 && <p><b>Holidays</b></p>}
       {holidayList.length > 0 && <ul>{holidayList.map((e) => <li>{shortDate(e.date)} ({e.holiday}): {runsText(e, route.days)}</li>)}</ul>}
       {otherExceptions.length > 0 && <p><b>Also different:</b> {otherExceptions.map((e) => `${shortDate(e.date)} (${runsText(e, route.days)})`).join('; ')}.</p>}
-      {system.changesOn && <p><b>Timetable change:</b> {system.name}’s timetable changes on {longDate(system.changesOn)}. The times below are for the current timetable.</p>}
+      {system.changesOn && <p><b>Timetable change:</b> {possessive(system.name)} timetable changes on {longDate(system.changesOn)}. The times below are for the current timetable.</p>}
     </div></div>
   )}
 
@@ -161,10 +165,8 @@ const faq = [
     </div>
   </section>
 
-  <section>
-    <h2>Questions about {label}</h2>
-    <div class="faq">{faq.map(([q, a]) => <details><summary>{q}</summary><p>{a}</p></details>)}</div>
-  </section>
+  <Faq items={faq} title={`Questions about ${system.name} ${label}`} />
+  <p class="small muted source">Source: <a href="https://www.bctransit.com/open-data/">BC Transit open data</a> (GTFS schedule for {system.name}), refreshed {longDate(system.builtOn)}. These are scheduled times; detours and service alerts are published by BC Transit.</p>
 
   <Ad />
 

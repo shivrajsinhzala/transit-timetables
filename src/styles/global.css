@@ -316,14 +316,12 @@ main { padding: 1.4rem 0 1rem; }
 .map-open .icon { width: 2rem; height: 2rem; }
 .map .maplibregl-canvas { outline: none; }
 
-/* ---------- FAQ ---------- */
-.faq { margin: 1rem 0; border-top: 1px solid var(--line); }
-.faq details { border-bottom: 1px solid var(--line); }
-.faq summary { display: flex; justify-content: space-between; gap: 1rem; padding: 1rem 0; cursor: pointer; font-weight: 700; list-style: none; }
-.faq summary::-webkit-details-marker { display: none; }
-.faq summary::after { content: "+"; font-size: 1.3rem; line-height: 1; color: var(--ink-3); transition: transform .3s var(--ease); }
-.faq details[open] summary::after { transform: rotate(45deg); }
-.faq details p { margin: 0 0 1rem; }
+/* ---------- FAQ: visible questions and direct answers ---------- */
+.faq { margin: 1rem 0; }
+.faq .qa { padding: 1.05rem 0; border-top: 1px solid var(--line); }
+.faq .qa:last-of-type { border-bottom: 1px solid var(--line); }
+.faq h3 { margin: 0 0 .35rem; font-size: 1.05rem; }
+.faq .answer { margin: 0; max-width: 72ch; }
 
 /* ---------- ads ---------- */
 .ad { margin: 2rem 0; text-align: center; }

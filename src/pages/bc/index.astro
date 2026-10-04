@@ -5,11 +5,11 @@ import { SYSTEM_INDEX, REGIONS, getSystem } from '../../lib/data.js';
 const routes = SYSTEM_INDEX.reduce((a, s) => a + s.routes, 0);
 const colorsOf = (slug) => getSystem(slug).routes.map((r) => r.color).filter(Boolean).slice(0, 8);
 ---
-<Base title={`BC Bus Schedules by Town: ${SYSTEM_INDEX.length} Transit Systems | Stopwatch`} description={`Bus timetables for ${routes} routes in ${SYSTEM_INDEX.length} British Columbia towns, from Victoria and Kelowna to Smithers and Tofino. Pick your town.`} path="bc">
+<Base title={`BC Bus Schedules by Town: ${SYSTEM_INDEX.length} Transit Systems | Stopwatch`} description={`Bus timetables for ${routes} routes in ${SYSTEM_INDEX.length} British Columbia towns, from Victoria and Kelowna to Smithers and Tofino. Pick your town.`} path="bc" pageType="CollectionPage">
 <main class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb">British Columbia</nav>
   <h1>British Columbia bus schedules</h1>
-  <p class="lede">{routes} bus routes in {SYSTEM_INDEX.length} towns, built from the official schedule data. Every route shows the whole day and highlights the next bus.</p>
+  <p class="lede">Stopwatch is a free timetable site covering {SYSTEM_INDEX.length} British Columbia transit systems run by BC Transit: {routes} bus routes in total, built from the official schedule data and refreshed every week (last on {new Date(`${SYSTEM_INDEX[0].builtOn}T12:00:00Z`).toLocaleDateString('en-CA', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}). Every route shows the whole day and highlights the next bus.</p>
   <div class="actions">
     <button class="btn btn-primary" type="button" data-search-open><Icon name="magnifying-glass" /> Find a route or stop</button>
     <button class="btn btn-quiet" type="button" data-near-me><Icon name="navigation-arrow" /> Stops near me</button>

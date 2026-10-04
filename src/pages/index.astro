@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import Icon from '../components/Icon.astro';
 import Ad from '../components/Ad.astro';
+import Faq from '../components/Faq.astro';
 import RouteBadge from '../components/RouteBadge.astro';
 import { SYSTEM_INDEX, REGIONS, getSystem, pageStops, busiestDay } from '../lib/data.js';
 import { inkFor, clock, shortDate, place, plain } from '../lib/format.js';
@@ -45,12 +46,8 @@ const holidayRoute = kelowna.routes.find((r) => r.exceptions.some((e) => e.holid
 const holiday = holidayRoute?.exceptions.find((e) => e.holiday);
 const runsLabel = holiday ? (holidayRoute.days.find((d) => d.key === holiday.runs)?.label || 'a special') : '';
 
-const SITE = 'https://transit.shivrajsinh.in';
-const jsonLd = [
-  { '@context': 'https://schema.org', '@type': 'WebSite', name: 'Stopwatch', url: SITE, description: `Bus timetables for ${routes} routes in ${towns} British Columbia towns.` },
-  { '@context': 'https://schema.org', '@type': 'Organization', name: 'Stopwatch', url: SITE, logo: `${SITE}/icon-512.png` },
-];
 const faq = [
+  ['What is Stopwatch?', `Stopwatch is a free, independent website that shows the full bus timetable for ${routes} routes in ${towns} British Columbia towns, including Victoria, Kelowna, Kamloops and Nanaimo. Every route and stop page highlights the next scheduled bus, and pages work offline once opened.`],
   ['Is Stopwatch the official BC Transit site?', 'No. Stopwatch is an independent site built from BC Transit’s open schedule data. For fares, detours and service alerts, use BC Transit’s own channels.'],
   ['Are these live bus times?', 'They are the published schedule. The next bus is worked out from that schedule and your phone’s clock, so a bus running late will not show as late.'],
   ['How do I find my stop number?', 'It is on the sign at the stop. Type it into search, or tap Stops near me to see the closest stops with their numbers.'],
@@ -58,7 +55,7 @@ const faq = [
   ['How often are the timetables updated?', 'Every week, from the data BC Transit publishes. Each page says when its timetable was last refreshed.'],
 ];
 ---
-<Base title="Stopwatch: BC Bus Schedules, Routes and Maps" description={`Full bus timetables for ${routes} routes in ${towns} BC towns, with the next bus first. Victoria, Kelowna, Kamloops, Nanaimo and more. No app needed.`} path="" jsonLd={jsonLd}>
+<Base title="Stopwatch: BC Bus Schedules, Routes and Maps" description={`Full bus timetables for ${routes} routes in ${towns} BC towns, with the next bus first. Victoria, Kelowna, Kamloops, Nanaimo and more. No app needed.`} path="" speakable={['.hero h1', '.hero .lede']}>
 <main class="wrap" style="padding-top:0">
   <section class="hero">
     <div>
@@ -147,11 +144,6 @@ const faq = [
     </div>
   </section>
 
-  <section class="reveal">
-    <h2>Questions</h2>
-    <div class="faq">
-      {faq.map(([q, a]) => <details><summary>{q}</summary><p>{a}</p></details>)}
-    </div>
-  </section>
+  <div class="reveal"><Faq items={faq} title="Questions about Stopwatch" /></div>
 </main>
 </Base>

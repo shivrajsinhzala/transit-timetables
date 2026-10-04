@@ -3,8 +3,9 @@ import Base from '../../../layouts/Base.astro';
 import Icon from '../../../components/Icon.astro';
 import Ad from '../../../components/Ad.astro';
 import RouteBadge from '../../../components/RouteBadge.astro';
+import Faq from '../../../components/Faq.astro';
 import { allSystems, pageStops, busiestDay, hubs, REGION } from '../../../lib/data.js';
-import { clockText, every, shortDate, longDate, routeLabel, plain } from '../../../lib/format.js';
+import { clockText, every, shortDate, longDate, routeLabel, plain, possessive } from '../../../lib/format.js';
 
 export function getStaticPaths() {
   return allSystems().map((system) => ({ params: { system: system.slug }, props: { system } }));
@@ -32,6 +33,7 @@ const description = fit(160,
   `All ${n} ${system.name} bus routes with full schedules, a route map and the next bus.`);
 
 const faq = [
+  [`How many bus routes does ${system.name} have?`, `${system.name} has ${n} bus route${n === 1 ? '' : 's'} in the current timetable, serving ${system.area}.${frequent.length ? ` ${frequent.length} of them run every 15 minutes or better on weekday daytimes: ${frequent.map((r) => routeLabel(r)).join(', ')}.` : ''}`],
   [`What time do ${system.name} buses start and stop?`, `On a weekday the earliest route starts at ${clockText(Math.min(...firsts))} and the last bus leaves at ${clockText(Math.max(...lasts))}. Each route page lists its own first and last bus for every day.`],
   [`Do ${system.name} buses run on Sundays?`, sundayRoutes ? `${sundayRoutes} of the ${n} routes run on Sundays. The others do not; their pages say which days they run.` : `No. None of the ${n} routes run on Sundays in the current timetable.`],
   ...(holidays.length ? [[`Do ${system.name} buses run on holidays?`, `${holidays.map((h) => `${h.holiday} (${shortDate(h.date)})`).join(' and ')} run a different timetable on most routes. Each route page says which one.`]] : []),
@@ -49,11 +51,11 @@ const jsonLd = [{
   ],
 }];
 ---
-<Base title={title} description={description} path={`bc/${system.slug}`} jsonLd={jsonLd} og={system.slug}>
+<Base title={title} description={description} path={`bc/${system.slug}`} jsonLd={jsonLd} og={system.slug} pageType="CollectionPage" modified={system.builtOn} speakable={['.lede', '.faq .answer']}>
 <main class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/bc">{REGION.name}</a> › {system.name}</nav>
   <h1>{system.name} bus routes and schedules</h1>
-  <p class="lede">Timetables for all {n} {system.name} routes, serving {system.area}. Open a route for the whole day in both directions, with the next bus highlighted.</p>
+  <p class="lede">The {system.name} bus network is the BC Transit system serving {system.area}, with {n} route{n === 1 ? '' : 's'} in the current timetable. On weekdays the first bus leaves at {clockText(Math.min(...firsts))} and the last at {clockText(Math.max(...lasts))}{frequent.length ? `, and ${frequent.length} route${frequent.length === 1 ? ' runs' : 's run'} every 15 minutes or better` : ''}. Open a route for the whole day in both directions, with the next bus highlighted.</p>
   <div class="actions">
     <button class="btn btn-primary" type="button" data-search-open><Icon name="magnifying-glass" /> Find a route or stop</button>
     <button class="btn btn-quiet" type="button" data-near-me><Icon name="navigation-arrow" /> Stops near me</button>
@@ -123,10 +125,7 @@ const jsonLd = [{
     </section>
   )}
 
-  <section>
-    <h2>{system.name} bus questions</h2>
-    <div class="faq">{faq.map(([q, a]) => <details><summary>{q}</summary><p>{a}</p></details>)}</div>
-  </section>
-  <p class="small muted">Schedule as published in {system.name}’s official transit data, refreshed {longDate(system.builtOn)}{system.feed.to ? `; the current data runs to ${longDate(system.feed.to)}` : ''}.</p>
+  <Faq items={faq} title={`${system.name} bus questions`} />
+  <p class="small muted source">Source: <a href="https://www.bctransit.com/open-data/">BC Transit open data</a> (GTFS schedule for {system.name}), refreshed {longDate(system.builtOn)}{system.feed.to ? `; the current schedule runs to ${longDate(system.feed.to)}` : ''}. Detours and service alerts are published by BC Transit.</p>
 </main>
 </Base>

@@ -17,11 +17,51 @@ interface Props {
   noindex?: boolean;
   /** Share image path under /og, e.g. 'kelowna' for public/og/kelowna.png. */
   og?: string;
+  /** schema.org page type: WebPage, CollectionPage, AboutPage… */
+  pageType?: string;
+  /** ISO date the page's content last changed (the timetable refresh date). */
+  modified?: string;
+  /** CSS selectors of the parts a voice assistant should read out. */
+  speakable?: string[];
 }
 
-const { title, description, path, jsonLd = [], noindex = false, og = 'default' } = Astro.props;
+const { title, description, path, jsonLd = [], noindex = false, og = 'default', pageType = 'WebPage', modified, speakable } = Astro.props;
 const SITE = 'https://transit.shivrajsinh.in';
-const canonical = path ? `${SITE}/${path}` : SITE;
+// The homepage is canonical with its trailing slash: that is the URL in the sitemap, and the
+// one Search Console and the crawl audit compare against.
+const canonical = path ? `${SITE}/${path}` : `${SITE}/`;
+const updated = modified || SYSTEM_INDEX[0]?.builtOn;
+
+/*
+ * One entity graph for the whole site: the site, the organisation behind it and its founder,
+ * referenced by @id from every page so AI engines see one consistent "Stopwatch" entity.
+ */
+const ORG_ID = `${SITE}/#organization`;
+const SITE_ID = `${SITE}/#website`;
+const PERSON_ID = `${SITE}/about#shivrajsinh`;
+const pageLd = {
+  '@context': 'https://schema.org',
+  '@type': pageType,
+  '@id': `${canonical}#webpage`,
+  url: canonical,
+  name: title,
+  description,
+  inLanguage: 'en-CA',
+  isPartOf: { '@id': SITE_ID },
+  publisher: { '@id': ORG_ID },
+  ...(updated ? { dateModified: updated } : {}),
+  ...(speakable?.length ? { speakable: { '@type': 'SpeakableSpecification', cssSelector: speakable } } : {}),
+};
+const entityLd = [
+  { '@context': 'https://schema.org', '@type': 'WebSite', '@id': SITE_ID, name: 'Stopwatch', alternateName: 'Stopwatch BC bus times', url: `${SITE}/`, inLanguage: 'en-CA', publisher: { '@id': ORG_ID } },
+  {
+    '@context': 'https://schema.org', '@type': 'Organization', '@id': ORG_ID, name: 'Stopwatch', url: `${SITE}/`,
+    logo: { '@type': 'ImageObject', url: `${SITE}/icon-512.png`, width: 512, height: 512 },
+    description: 'Independent website publishing bus timetables for British Columbia transit systems from BC Transit open data.',
+    founder: { '@type': 'Person', '@id': PERSON_ID, name: 'Shivrajsinh Zala', jobTitle: 'Web developer', url: 'https://shivrajsinh.in', sameAs: ['https://shivrajsinh.in', 'https://github.com/shivrajsinhzala'] },
+    areaServed: { '@type': 'AdministrativeArea', name: 'British Columbia, Canada' },
+  },
+];
 const AD_CLIENT = 'ca-pub-7164999486301748';
 const towns = [...SYSTEM_INDEX].sort((a, b) => a.name.localeCompare(b.name));
 ---
@@ -54,7 +94,7 @@ const towns = [...SYSTEM_INDEX].sort((a, b) => a.name.localeCompare(b.name));
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="google-adsense-account" content={AD_CLIENT} />
   <script is:inline>document.documentElement.classList.add('js')</script>
-  {jsonLd.map((j) => <script type="application/ld+json" set:html={JSON.stringify(j)} />)}
+  {[pageLd, ...(path === '' || path === 'about' ? entityLd : []), ...jsonLd].map((j) => <script type="application/ld+json" set:html={JSON.stringify(j)} />)}
 </head>
 <body>
   <a class="sr" href="#main">Skip to content</a>

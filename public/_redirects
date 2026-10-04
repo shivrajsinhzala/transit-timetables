@@ -1,0 +1,18 @@
+# Exchange pages removed on 2026-10-04: the old bay-suffix rule grouped unrelated stops
+# (e.g. "Douglas St at Bay St") into hubs that do not exist. Each goes to its town page.
+/bc/nanaimo/hub/departure-bay-rd-at /bc/nanaimo 301
+/bc/nanaimo/hub/neyland-rd-at-departure /bc/nanaimo 301
+/bc/nanaimo/hub/uplands-dr-at-hammond /bc/nanaimo 301
+/bc/nanaimo/hub/hammond-bay-rd-at-departure /bc/nanaimo 301
+/bc/sunshine-coast/hub/hwy-101-at /bc/sunshine-coast 301
+/bc/sunshine-coast/hub/hwy-101-at-davis /bc/sunshine-coast 301
+/bc/victoria/hub/bay-st-at-rock /bc/victoria 301
+/bc/victoria/hub/cook-st-at /bc/victoria 301
+/bc/victoria/hub/cadboro-bay-rd-at-vista /bc/victoria 301
+/bc/victoria/hub/crescent-rd-at-foul /bc/victoria 301
+/bc/victoria/hub/beach-dr-at-cadboro /bc/victoria 301
+/bc/victoria/hub/douglas-st-at /bc/victoria 301
+/bc/victoria/hub/oak-bay-ave-at-foul /bc/victoria 301
+/bc/victoria/hub/quadra-st-at /bc/victoria 301
+/bc/victoria/hub/tyee-rd-at /bc/victoria 301
+/bc/victoria/hub/richmond-rd-at /bc/victoria 301

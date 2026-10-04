@@ -51,7 +51,9 @@ export function runsText(e, days) {
 
 /** "UBCO Exchange Bay B" -> "UBCO Exchange": the place, without the bay a rider boards at. */
 export function place(stopName) {
-  return String(stopName).replace(/\s+(Bay|Bay\s*#)\s*[A-Z0-9]+$/i, '').replace(/\s*[\u2013\u2014]\s*/g, ' - ').trim();
+  // Only a bay identifier: one capital letter or a number ("Bay F", "Bay 3", "Bay #2"). The
+  // looser /Bay\s*\w+$/i turned "Douglas St at Bay St" into "Douglas St at".
+  return String(stopName).replace(/\s+Bay\s*#?\s*(?:[A-Z]|\d{1,2})$/, '').replace(/\s*[\u2013\u2014]\s*/g, ' - ').trim();
 }
 
 /** [345, 365, 400, 1487] -> [{ hour: 5, label: '5', pm: false, mins: ['45'] }, …] in service-day order. */
@@ -95,4 +97,9 @@ export function inkFor(bg) {
   const onWhite = 1.05 / (L + 0.05);
   const onInk = (L + 0.05) / (0.0035 + 0.05);
   return onWhite >= onInk ? '#ffffff' : '#0b0c0d';
+}
+
+/** "Kelowna" -> "Kelowna’s", "Smithers" -> "Smithers’" */
+export function possessive(name) {
+  return /s$/i.test(name) ? `${name}’` : `${name}’s`;
 }
