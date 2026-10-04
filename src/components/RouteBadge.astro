@@ -1,0 +1,8 @@
+---
+import { inkFor } from '../lib/format.js';
+/** A route number in the operator's own route colour (from the GTFS feed), or graphite. */
+interface Props { route: { short?: string; color?: string | null; textColor?: string | null }; lg?: boolean }
+const { route, lg = false } = Astro.props;
+const style = route.color ? `background:${route.color};color:${inkFor(route.color)}` : '';
+---
+<span class={`badge${lg ? ' lg' : ''}`} style={style} aria-hidden="true">{route.short || '•'}</span>

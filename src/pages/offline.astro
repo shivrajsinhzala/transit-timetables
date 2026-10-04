@@ -1,0 +1,25 @@
+---
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+---
+<Base title="You're offline | Stopwatch" description="No connection. Timetables you have opened before still work." path="offline" noindex>
+<main class="wrap">
+  <div class="page-head" style="margin-top:2rem"><Icon name="wifi-slash" class="lg" /><h1>You’re offline</h1></div>
+  <p class="lede">Any timetable you opened before still works here. Pick one below, or reconnect to see the rest.</p>
+  <ul class="list" id="cached"><li><a href="/">Stopwatch home</a></li></ul>
+</main>
+<script is:inline>
+  caches.open('pages-v1').then((c) => c.keys()).then((keys) => {
+    const ul = document.getElementById('cached');
+    const paths = keys.map((k) => new URL(k.url).pathname).filter((p) => p !== '/offline' && p !== '/');
+    for (const p of paths.reverse()) {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = p;
+      a.textContent = p.replace(/^\/bc\//, '').replace(/\//g, ' › ').replace(/-/g, ' ');
+      li.append(a);
+      ul.append(li);
+    }
+  }).catch(() => {});
+</script>
+</Base>

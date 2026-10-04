@@ -1,15 +1,17 @@
 ---
 import Base from '../layouts/Base.astro';
 ---
-<Base title="About Bus Times" description="Who makes Bus Times, where its schedules come from, and how often they are updated." path="about">
-<main class="wrap">
-  <h1>About Bus Times</h1>
-  <p class="lede">Bus Times turns official transit schedule data into timetables that are quick to read on a phone — the whole day for a route on one screen, with the next bus highlighted.</p>
+<Base title="About Stopwatch" description="Who makes Stopwatch, where its bus schedules come from, how often they are updated, and what it is not." path="about">
+<main class="wrap" style="max-width:760px">
+  <h1>About Stopwatch</h1>
+  <p class="lede">Stopwatch turns official transit schedule data into timetables that are quick to read on a phone: the whole day for a route on one screen, with the next bus first.</p>
+  <h2>Why it exists</h2>
+  <p>Bus schedules usually live in PDFs that are hard to read on a phone, or behind apps that want an install before they show more than the next trip. Stopwatch shows every departure on an ordinary web page that loads fast on a weak signal and keeps working offline once you have opened it.</p>
   <h2>Where the times come from</h2>
-  <p>Every timetable is generated from the operator’s own published schedule data (GTFS). For British Columbia that is BC Transit’s open data, used under <a href="https://www.bctransit.com/open-data/terms-of-use" rel="nofollow">BC Transit’s open data terms</a>. Nothing is typed in by hand, and each page says when its data was last refreshed.</p>
+  <p>Every timetable is generated from the operator’s own published schedule data (GTFS). For British Columbia that is BC Transit’s open data, used under <a href="https://www.bctransit.com/open-data/terms-of-use" rel="nofollow">BC Transit’s open data terms</a>. Nothing is typed in by hand. The data is refreshed every week and each page says when.</p>
   <h2>What it is not</h2>
-  <p>Bus Times is independent. It is not run by, affiliated with or endorsed by BC Transit or any local government, and it shows scheduled times, not live bus positions. For detours, cancellations and service alerts, use the operator’s own website or app.</p>
+  <p>Stopwatch is independent. It is not run by, affiliated with or endorsed by BC Transit or any local government. It shows scheduled times, not live bus positions. For fares, detours, cancellations and service alerts, use the operator’s own website or app.</p>
   <h2>Who makes it</h2>
-  <p>Bus Times is built by <a href="https://shivrajsinh.in" rel="me">Shivrajsinh Zala</a>, a web developer who builds transit and timetable tools.</p>
+  <p>Stopwatch is built by <a href="https://shivrajsinh.in" rel="me">Shivrajsinh Zala</a>, a web developer who builds transit and timetable tools. Found a mistake? Get in touch through that site.</p>
 </main>
 </Base>

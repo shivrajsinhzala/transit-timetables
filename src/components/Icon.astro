@@ -1,0 +1,56 @@
+---
+/**
+ * Phosphor icons (bold), inlined at build time so there is no icon font or extra request.
+ * Only the glyphs the site uses are imported; add one here before using a new name.
+ */
+import i0 from '@phosphor-icons/core/assets/bold/star-bold.svg?raw';
+import i1 from '@phosphor-icons/core/assets/bold/map-trifold-bold.svg?raw';
+import i2 from '@phosphor-icons/core/assets/bold/printer-bold.svg?raw';
+import i3 from '@phosphor-icons/core/assets/bold/magnifying-glass-bold.svg?raw';
+import i4 from '@phosphor-icons/core/assets/bold/navigation-arrow-bold.svg?raw';
+import i5 from '@phosphor-icons/core/assets/bold/clock-bold.svg?raw';
+import i6 from '@phosphor-icons/core/assets/bold/bus-bold.svg?raw';
+import i7 from '@phosphor-icons/core/assets/bold/calendar-blank-bold.svg?raw';
+import i8 from '@phosphor-icons/core/assets/bold/wifi-slash-bold.svg?raw';
+import i9 from '@phosphor-icons/core/assets/bold/arrow-right-bold.svg?raw';
+import i10 from '@phosphor-icons/core/assets/bold/map-pin-bold.svg?raw';
+import i11 from '@phosphor-icons/core/assets/bold/share-network-bold.svg?raw';
+import i12 from '@phosphor-icons/core/assets/bold/warning-bold.svg?raw';
+import i13 from '@phosphor-icons/core/assets/bold/info-bold.svg?raw';
+import i14 from '@phosphor-icons/core/assets/bold/x-bold.svg?raw';
+import i15 from '@phosphor-icons/core/assets/bold/list-numbers-bold.svg?raw';
+import i16 from '@phosphor-icons/core/assets/bold/calendar-check-bold.svg?raw';
+import i17 from '@phosphor-icons/core/assets/bold/device-mobile-bold.svg?raw';
+import i18 from '@phosphor-icons/core/assets/bold/path-bold.svg?raw';
+
+const ICONS: Record<string, string> = {
+  'star': i0,
+  'map-trifold': i1,
+  'printer': i2,
+  'magnifying-glass': i3,
+  'navigation-arrow': i4,
+  'clock': i5,
+  'bus': i6,
+  'calendar-blank': i7,
+  'wifi-slash': i8,
+  'arrow-right': i9,
+  'map-pin': i10,
+  'share-network': i11,
+  'warning': i12,
+  'info': i13,
+  'x': i14,
+  'list-numbers': i15,
+  'calendar-check': i16,
+  'device-mobile': i17,
+  'path': i18,
+};
+
+interface Props { name: string; label?: string; class?: string }
+const { name, label, class: cls = '' } = Astro.props;
+const raw = ICONS[name];
+if (!raw) throw new Error(`Icon "${name}" is not imported in Icon.astro`);
+const svg = raw
+  .replace('<svg ', `<svg class="icon ${cls}" ${label ? `role="img" aria-label="${label}"` : 'aria-hidden="true"'} fill="currentColor" `)
+  .replace(/ width="[^"]*"| height="[^"]*"/g, '');
+---
+<Fragment set:html={svg} />

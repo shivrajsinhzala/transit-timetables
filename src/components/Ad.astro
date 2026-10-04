@@ -1,0 +1,14 @@
+---
+/**
+ * One responsive AdSense unit, labelled. Placed between whole sections, never inside a timetable,
+ * so an ad can never be mistaken for a departure time. Space is reserved (see .ad ins) so a unit
+ * loading late does not push the timetable down. The unit is the account's responsive in-content
+ * unit until site-specific units exist; swap SLOT then.
+ */
+const CLIENT = 'ca-pub-7164999486301748';
+const SLOT = '5213571252';
+---
+<aside class="ad" aria-label="Advertisement">
+  <span class="label">Advertisement</span>
+  <ins class="adsbygoogle" style="display:block" data-ad-client={CLIENT} data-ad-slot={SLOT} data-ad-format="auto" data-full-width-responsive="true"></ins>
+</aside>

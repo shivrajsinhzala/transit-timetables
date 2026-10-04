@@ -8,3 +8,7 @@ data/raw/
 src/data/systems/
 src/data/stops/
 src/data/index.json
+public/geo/
+public/og/
+public/vendor/
+src/data/vendor.json

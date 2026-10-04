@@ -1,5 +1,11 @@
 ---
+import '@fontsource-variable/overpass';
+import '@fontsource-variable/overpass-mono';
+import fontUrl from '@fontsource-variable/overpass/files/overpass-latin-wght-normal.woff2?url';
 import '../styles/global.css';
+import Logo from '../components/Logo.astro';
+import Icon from '../components/Icon.astro';
+import { SYSTEM_INDEX } from '../lib/data.js';
 
 interface Props {
   title: string;
@@ -7,61 +13,103 @@ interface Props {
   /** Path without the leading slash; '' for the homepage. */
   path: string;
   jsonLd?: unknown[];
-  /** Pages that should not be in Google (e.g. a page with nothing on it yet). */
+  /** Pages that should not be in Google (e.g. 404, offline). */
   noindex?: boolean;
+  /** Share image path under /og, e.g. 'kelowna' for public/og/kelowna.png. */
+  og?: string;
 }
 
-const { title, description, path, jsonLd = [], noindex = false } = Astro.props;
+const { title, description, path, jsonLd = [], noindex = false, og = 'default' } = Astro.props;
 const SITE = 'https://transit.shivrajsinh.in';
-const canonical = `${SITE}/${path}`.replace(/\/$/, '') || SITE;
+const canonical = path ? `${SITE}/${path}` : SITE;
 const AD_CLIENT = 'ca-pub-7164999486301748';
+const towns = [...SYSTEM_INDEX].sort((a, b) => a.name.localeCompare(b.name));
 ---
 <!doctype html>
 <html lang="en-CA">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>{title}</title>
   <meta name="description" content={description} />
   <link rel="canonical" href={canonical} />
   {noindex && <meta name="robots" content="noindex" />}
+  <link rel="preload" href={fontUrl} as="font" type="font/woff2" crossorigin />
+  <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
+  <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossorigin />
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Stopwatch" />
   <meta property="og:title" content={title} />
   <meta property="og:description" content={description} />
   <meta property="og:url" content={canonical} />
-  <meta property="og:site_name" content="Bus Times" />
-  <meta name="theme-color" content="#0b6e4f" />
+  <meta property="og:image" content={`${SITE}/og/${og}.png`} />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="theme-color" content="#f4f5f6" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0f1113" media="(prefers-color-scheme: dark)" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/favicon-48.png" sizes="48x48" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="google-adsense-account" content={AD_CLIENT} />
   <script is:inline>document.documentElement.classList.add('js')</script>
-  <script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${AD_CLIENT}`} crossorigin="anonymous"></script>
   {jsonLd.map((j) => <script type="application/ld+json" set:html={JSON.stringify(j)} />)}
 </head>
 <body>
+  <a class="sr" href="#main">Skip to content</a>
   <header class="site-head">
     <div class="wrap">
-      <a class="brand" href="/">
-        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="15" rx="3" fill="var(--accent)"/><rect x="6" y="6" width="12" height="5" rx="1" fill="var(--surface)"/><circle cx="8" cy="15" r="1.4" fill="var(--surface)"/><circle cx="16" cy="15" r="1.4" fill="var(--surface)"/><rect x="6" y="18" width="3" height="3" rx="1" fill="var(--accent)"/><rect x="15" y="18" width="3" height="3" rx="1" fill="var(--accent)"/></svg>
-        Bus Times
-      </a>
-      <nav aria-label="Site">
-        <a href="/bc">BC</a>
-        <a href="/about">About</a>
+      <a class="brand" href="/" aria-label="Stopwatch home"><Logo /> Stopwatch</a>
+      <nav class="head-nav" aria-label="Site">
+        <a href="/bc" class="hide-sm">Towns</a>
+        <a href="/about" class="hide-sm">About</a>
+        <button class="search-trigger" type="button" data-search-open aria-label="Search routes and stops">
+          <Icon name="magnifying-glass" /><span class="label">Route, stop or town</span><kbd>/</kbd>
+        </button>
       </nav>
     </div>
   </header>
-  <slot />
+
+  <div id="main"><slot /></div>
+
   <footer class="site-foot">
-    <div class="wrap">
-      <p>
-        Schedule data: BC Transit, used under BC Transit’s
-        <a href="https://www.bctransit.com/open-data/terms-of-use" rel="nofollow">open data terms</a>.
-        Bus Times is an independent site — it is not run by, affiliated with or endorsed by BC Transit
-        or any local government. These are scheduled times, not live arrivals; detours, cancellations
-        and alerts are only on the operator’s own channels.
-      </p>
-      <p><a href="/about">About</a> · <a href="/privacy">Privacy</a> · <a href="/bc">All BC systems</a></p>
+    <div class="wrap foot-grid">
+      <div>
+        <a class="brand" href="/"><Logo size={26} /> Stopwatch</a>
+        <p style="margin-top:1rem">
+          Every BC bus timetable on one screen, with the next bus first. Built from BC Transit’s open
+          schedule data, used under BC Transit’s <a href="https://www.bctransit.com/open-data/terms-of-use" rel="nofollow">open data terms</a>.
+        </p>
+        <p>
+          Stopwatch is independent. It is not run by, affiliated with or endorsed by BC Transit or any
+          local government. Times are scheduled, not live; detours and alerts are on the operator’s own channels.
+        </p>
+        <p><a href="/about">About</a> · <a href="/privacy">Privacy</a></p>
+      </div>
+      <nav aria-label="All towns">
+        <ul class="foot-towns">
+          {towns.map((t) => <li><a href={`/bc/${t.slug}`}>{t.name}</a></li>)}
+        </ul>
+      </nav>
     </div>
   </footer>
+
+  <dialog class="search" id="search" aria-label="Search">
+    <div class="search-box">
+      <label for="search-input"><Icon name="magnifying-glass" /><span class="sr">Search</span></label>
+      <input id="search-input" type="search" autocomplete="off" spellcheck="false" placeholder="Route 8, Orchard Park, stop 103075, Kelowna…" />
+      <button class="btn btn-sm btn-quiet" type="button" data-search-close aria-label="Close search"><Icon name="x" /></button>
+    </div>
+    <ul class="search-results" id="search-results" role="listbox" aria-label="Results"></ul>
+    <div class="search-foot">
+      <button class="btn btn-sm btn-quiet" type="button" data-near-me><Icon name="navigation-arrow" /> Stops near me</button>
+      <span>Enter to open · Esc to close</span>
+    </div>
+  </dialog>
+
+  <script>
+    import '../scripts/app.js';
+  </script>
 </body>
 </html>

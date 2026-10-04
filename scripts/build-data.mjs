@@ -127,6 +127,31 @@ function thin(idx, max) {
   return [...new Set(out)];
 }
 
+/** Douglas-Peucker on [lon, lat] pairs; `tol` in degrees (0.0001 is about 10 m). */
+function simplify(pts, tol) {
+  if (pts.length < 3) return pts;
+  const keep = new Uint8Array(pts.length);
+  keep[0] = keep[pts.length - 1] = 1;
+  const stack = [[0, pts.length - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop();
+    const [ax, ay] = pts[a];
+    const [bx, by] = pts[b];
+    const dx = bx - ax, dy = by - ay, len = dx * dx + dy * dy || 1e-12;
+    let max = 0, idx = -1;
+    for (let i = a + 1; i < b; i++) {
+      const t = Math.max(0, Math.min(1, ((pts[i][0] - ax) * dx + (pts[i][1] - ay) * dy) / len));
+      const ex = ax + t * dx - pts[i][0], ey = ay + t * dy - pts[i][1];
+      const d = ex * ex + ey * ey;
+      if (d > max) { max = d; idx = i; }
+    }
+    if (max > tol * tol && idx > 0) { keep[idx] = 1; stack.push([a, idx], [idx, b]); }
+  }
+  return pts.filter((_, i) => keep[i]);
+}
+
+const round5 = (n) => Math.round(n * 1e5) / 1e5;
+
 async function buildSystem(feedId, meta) {
   const zip = path.join(RAW, `${feedId}.zip`);
   const agency = readCsv(zip, 'agency.txt')[0] || {};
@@ -154,6 +179,13 @@ async function buildSystem(feedId, meta) {
   // --- trips and stop times for every service that runs in the range -----------------------
   const routes = readCsv(zip, 'routes.txt');
   const stops = new Map(readCsv(zip, 'stops.txt').map((s) => [s.stop_id, s]));
+  const shapes = new Map();
+  for (const p of readCsv(zip, 'shapes.txt')) {
+    if (!shapes.has(p.shape_id)) shapes.set(p.shape_id, []);
+    shapes.get(p.shape_id).push([Number(p.shape_pt_sequence), Number(p.shape_pt_lon), Number(p.shape_pt_lat)]);
+  }
+  for (const [id, pts] of shapes) shapes.set(id, pts.sort((a, b) => a[0] - b[0]).map(([, lon, lat]) => [lon, lat]));
+  const geo = { routes: [] };
   const rangeServices = new Set([...servicesOn.values()].flatMap((set) => [...set]));
   const trips = new Map();
   for (const t of readCsv(zip, 'trips.txt')) {
@@ -246,6 +278,7 @@ async function buildSystem(feedId, meta) {
     usedSlugs.add(slug);
 
     const directions = [];
+    const geoDirs = [];
     for (const dirId of [...new Set(routeTrips.map((t) => t.direction_id || '0'))].sort()) {
       const dirTrips = routeTrips.filter((t) => (t.direction_id || '0') === dirId);
       const patterns = new Map();
@@ -297,6 +330,15 @@ async function buildSystem(feedId, meta) {
       }
       if (!Object.keys(schedules).length) continue;
 
+      const line = shapes.get(base.shape_id) || base.stops.map((x) => [Number(stops.get(x.id)?.stop_lon), Number(stops.get(x.id)?.stop_lat)]);
+      geoDirs.push({
+        headsign,
+        line: simplify(line, 0.00008).map(([lon, lat]) => [round5(lon), round5(lat)]),
+        stops: base.stops.map((x) => {
+          const st = stops.get(x.id) || {};
+          return [round5(Number(st.stop_lon)), round5(Number(st.stop_lat)), stopCode(x.id), stopName(x.id), x.tp ? 1 : 0];
+        }),
+      });
       directions.push({
         id: dirId,
         headsign,
@@ -328,6 +370,8 @@ async function buildSystem(feedId, meta) {
       if (sig === perDay[weekday(e.date)].sig) continue;
       routeExceptions.push({ date: e.date, holiday: e.holiday, runs: sig === '' ? 'none' : sigs.get(sig) || 'special' });
     }
+
+    geo.routes.push({ slug, short: r.route_short_name || '', name: r.route_long_name || '', color: r.route_color ? `#${r.route_color}` : null, dirs: geoDirs });
 
     outRoutes.push({
       slug,
@@ -369,7 +413,7 @@ async function buildSystem(feedId, meta) {
     };
   }).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
 
-  return { system, stops: stopsOut };
+  return { system, stops: stopsOut, geo };
 }
 
 fs.mkdirSync(OUT, { recursive: true });
@@ -378,10 +422,19 @@ const index = [];
 for (const [feedId, meta] of Object.entries(SYSTEMS)) {
   if (!fs.existsSync(path.join(RAW, `${feedId}.zip`))) { console.warn(`skip ${feedId}: not downloaded`); continue; }
   const t0 = Date.now();
-  const { system, stops } = await buildSystem(feedId, meta);
+  const { system, stops, geo } = await buildSystem(feedId, meta);
   fs.writeFileSync(path.join(OUT, `${meta.slug}.json`), JSON.stringify(system));
+  // Map data is fetched by the browser only when a rider opens a map, so it lives in public/,
+  // outside the pages: one file per route, plus a lighter overview of the whole system.
+  const geoDir = path.join('public/geo', meta.slug);
+  fs.rmSync(geoDir, { recursive: true, force: true });
+  fs.mkdirSync(geoDir, { recursive: true });
+  for (const r of geo.routes) fs.writeFileSync(path.join(geoDir, `${r.slug}.json`), JSON.stringify(r));
+  fs.writeFileSync(path.join('public/geo', `${meta.slug}.json`), JSON.stringify({
+    routes: geo.routes.map((r) => ({ slug: r.slug, short: r.short, name: r.name, color: r.color, line: simplify(r.dirs[0]?.line || [], 0.0004) })),
+  }));
   fs.writeFileSync(path.join(STOPS_OUT, `${meta.slug}.json`), JSON.stringify(stops));
-  index.push({ slug: meta.slug, name: meta.name, area: meta.area, routes: system.routes.length, stops: stops.length, builtOn: system.builtOn });
+  index.push({ slug: meta.slug, name: meta.name, area: meta.area, region: meta.region, routes: system.routes.length, stops: stops.length, builtOn: system.builtOn });
   console.log(`${meta.slug.padEnd(20)} ${String(system.routes.length).padStart(3)} routes ${String(stops.length).padStart(5)} stops  day types: ${system.dayTypes.map((d) => d.key).join(', ') || '-'}  exceptions: ${system.exceptions.length}  (${Date.now() - t0} ms)`);
 }
 fs.writeFileSync('src/data/index.json', JSON.stringify(index.sort((a, b) => b.routes - a.routes), null, 1));

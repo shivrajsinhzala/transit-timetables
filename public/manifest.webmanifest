@@ -1,0 +1,15 @@
+{
+  "name": "Stopwatch: BC bus timetables",
+  "short_name": "Stopwatch",
+  "description": "Every BC bus timetable on one screen, with the next bus first. Works offline for pages you have opened.",
+  "start_url": "/?source=homescreen",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f5f6",
+  "theme_color": "#15171a",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

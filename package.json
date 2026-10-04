@@ -8,14 +8,22 @@
     "fetch": "node scripts/fetch-feeds.mjs",
     "data": "node scripts/build-data.mjs",
     "dev": "astro dev",
-    "build": "astro build && node scripts/verify-build.mjs",
+    "build": "node scripts/vendor.mjs && astro build && node scripts/verify-build.mjs",
     "preview": "astro preview",
     "deploy": "wrangler deploy",
-    "refresh": "npm run fetch && npm run data && npm run build && npm run deploy"
+    "refresh": "npm run fetch && npm run data && node scripts/make-images.mjs && npm run build && npm run deploy && npm run indexnow",
+    "indexnow": "node scripts/indexnow.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
+    "@fontsource-variable/overpass": "^5.3.0",
+    "@fontsource-variable/overpass-mono": "^5.3.0",
+    "@phosphor-icons/core": "^2.1.1",
     "astro": "^7.3.5",
     "csv-parse": "^7.0.3"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "maplibre-gl": "^6.12.0"
   }
 }

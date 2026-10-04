@@ -1,0 +1,465 @@
+/**
+ * Stopwatch client script: everything that needs the rider's clock, location or browser.
+ * The pages are complete without it (every timetable is in the HTML); this adds the next bus,
+ * departure boards, search, near me, saved stops, maps and offline support on top.
+ */
+
+const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DEFAULT_TZ = 'America/Vancouver';
+
+/** The current date, weekday (0 = Monday) and minute of the day in a given timezone. */
+function now(tz = DEFAULT_TZ) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short',
+  }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+  return { iso: `${p.year}-${p.month}-${p.day}`, wd: WD.indexOf(p.weekday), min: Number(p.hour) * 60 + Number(p.minute) };
+}
+
+function yesterday(iso) {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** White or graphite text, whichever reads better on a route colour (mirrors inkFor in format.js). */
+function ink(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return '#ffffff';
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return 1.05 / (L + 0.05) >= (L + 0.05) / 0.0535 ? '#ffffff' : '#0b0c0d';
+}
+
+const fmt = (m) => { m = ((m % 1440) + 1440) % 1440; const h = Math.floor(m / 60); return `${h % 12 || 12}:${String(m % 60).padStart(2, '0')}`; };
+const ampm = (m) => (((m % 1440) + 1440) % 1440 >= 720 ? 'pm' : 'am');
+const waitText = (w) => (w <= 0 ? 'now' : w < 60 ? `in ${w} min` : `in ${Math.floor(w / 60)} h ${w % 60 ? `${w % 60} min` : ''}`.trim());
+
+/** Which of a route's day types runs on a date: an exception first, else the weekday's. */
+function dayKey(route, iso, wd) {
+  const ex = (route.exceptions || []).find((e) => e.date === iso);
+  if (ex) return ['none', 'special'].includes(ex.runs) ? null : ex.runs;
+  return (route.days.find((d) => d.days.includes(wd)) || {}).key || null;
+}
+
+const cfgEl = document.getElementById('cfg');
+const CFG = cfgEl ? JSON.parse(cfgEl.textContent) : null;
+
+/* ---------- tabs + next bus (route, stop and hub pages) ---------- */
+function setupSections() {
+  if (!CFG) return;
+  const t = now(CFG.tz);
+  document.querySelectorAll('[data-section]').forEach((sec) => {
+    const route = CFG.routes[sec.dataset.route];
+    const tabs = [...sec.querySelectorAll('[role=tab]')];
+    const show = (key) => {
+      tabs.forEach((b) => b.setAttribute('aria-selected', String(b.dataset.day === key)));
+      sec.querySelectorAll('.panel').forEach((p) => p.classList.toggle('on', p.dataset.day === key));
+    };
+    tabs.forEach((b) => b.addEventListener('click', () => show(b.dataset.day)));
+    if (!route) return;
+    const key = dayKey(route, t.iso, t.wd);
+    const line = sec.querySelector('.next-line');
+    const panel = key && sec.querySelector(`.panel[data-day="${key}"]`);
+    if (!panel) {
+      const ex = (route.exceptions || []).find((e) => e.date === t.iso);
+      if (line) line.textContent = ex && ex.runs === 'special' ? 'Today runs a special timetable. Check the operator before you travel.' : 'No buses here today.';
+      return;
+    }
+    show(key);
+    const marks = [...panel.querySelectorAll('[data-m]')].filter((el) => el.dataset.m !== '');
+    const next = marks.find((el) => Number(el.dataset.m) >= t.min);
+    if (!line) return;
+    if (!next) { line.textContent = 'No more buses today.'; return; }
+    next.classList.add('next');
+    const b = document.createElement('b');
+    const m = Number(next.dataset.m);
+    b.textContent = `${fmt(m)} ${ampm(m)}`;
+    line.replaceChildren(`Next scheduled bus${sec.dataset.from ? ` from ${sec.dataset.from}` : ''}: `, b, ` (${waitText(m - t.min)})`);
+  });
+}
+
+/* ---------- departure boards ---------- */
+/**
+ * Rows come from embedded JSON (home page) or are read off the hour grids on the page
+ * (stop and hub pages), so a board never shows anything the timetable below it does not.
+ */
+function boardRows(board) {
+  const src = board.querySelector('script[type="application/json"]');
+  if (src) return JSON.parse(src.textContent);
+  if (!CFG) return null;
+  return {
+    tz: CFG.tz,
+    rows: [...document.querySelectorAll('[data-section]')].map((sec) => {
+      const route = CFG.routes[sec.dataset.route];
+      const times = {};
+      sec.querySelectorAll('.panel').forEach((p) => { times[p.dataset.day] = [...p.querySelectorAll('[data-m]')].map((el) => Number(el.dataset.m)); });
+      return { ...route, short: sec.dataset.short, color: sec.dataset.color, text: sec.dataset.text, to: sec.dataset.to, at: sec.dataset.at, url: sec.dataset.url, times };
+    }),
+  };
+}
+
+function renderBoard(board) {
+  const data = boardRows(board);
+  if (!data) return;
+  const t = now(data.tz);
+  const y = yesterday(t.iso);
+  const ywd = (t.wd + 6) % 7;
+  const upcoming = [];
+  for (const r of data.rows) {
+    const k = dayKey(r, t.iso, t.wd);
+    for (const m of (k && r.times[k]) || []) if (m >= t.min && m < t.min + 180) upcoming.push({ r, m, w: m - t.min });
+    // After midnight, last night's late buses (GTFS times past 24:00) are still to come.
+    const yk = dayKey(r, y, ywd);
+    for (const m of (yk && r.times[yk]) || []) if (m >= 1440 && m - 1440 >= t.min && m - 1440 < t.min + 180) upcoming.push({ r, m, w: m - 1440 - t.min });
+  }
+  upcoming.sort((a, b) => a.w - b.w);
+  const list = board.querySelector('ol');
+  const clock = board.querySelector('[data-clock]');
+  if (clock) clock.textContent = `${fmt(t.min)} ${ampm(t.min)}`;
+  const max = Number(board.dataset.rows || 5);
+  if (!upcoming.length) {
+    list.innerHTML = '';
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = 'No scheduled buses in the next three hours.';
+    list.append(li);
+    return;
+  }
+  list.replaceChildren(...upcoming.slice(0, max).map(({ r, m, w }, i) => {
+    const li = document.createElement('li');
+    li.style.setProperty('--i', i);
+    const badge = document.createElement('span');
+    badge.className = 'badge';
+    badge.textContent = r.short || '•';
+    if (r.color) { badge.style.background = r.color; badge.style.color = r.text || '#fff'; }
+    const to = document.createElement(r.url ? 'a' : 'span');
+    to.className = 'to';
+    if (r.url) { to.href = r.url; to.style.textDecoration = 'none'; }
+    to.textContent = `To ${r.to}`;
+    if (r.at) { const s = document.createElement('small'); s.textContent = r.at; to.append(s); }
+    const time = document.createElement('time');
+    time.textContent = fmt(m);
+    const s = document.createElement('small');
+    s.textContent = waitText(w);
+    time.append(s);
+    li.append(badge, to, time);
+    return li;
+  }));
+}
+
+function setupBoards() {
+  const boards = document.querySelectorAll('[data-board]');
+  if (!boards.length) return;
+  const tick = () => boards.forEach(renderBoard);
+  tick();
+  setInterval(tick, 30_000);
+}
+
+/* ---------- saved stops and routes (this browser only) ---------- */
+const FAV_KEY = 'stopwatch:saved';
+const readFavs = () => { try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch { return []; } };
+const writeFavs = (v) => { try { localStorage.setItem(FAV_KEY, JSON.stringify(v.slice(0, 30))); } catch { /* private mode */ } };
+
+function setupFavs() {
+  const favs = readFavs();
+  document.querySelectorAll('[data-fav]').forEach((btn) => {
+    const id = btn.dataset.fav;
+    const label = btn.querySelector('[data-fav-label]');
+    const sync = () => {
+      const on = readFavs().some((f) => f.id === id);
+      btn.setAttribute('aria-pressed', String(on));
+      if (label) label.textContent = on ? 'Saved' : 'Save';
+    };
+    sync();
+    btn.addEventListener('click', () => {
+      const list = readFavs();
+      const i = list.findIndex((f) => f.id === id);
+      if (i >= 0) list.splice(i, 1); else list.unshift({ id, name: btn.dataset.name, sub: btn.dataset.sub, url: location.pathname });
+      writeFavs(list);
+      sync();
+    });
+  });
+  document.querySelectorAll('[data-saved]').forEach((box) => {
+    const scope = box.dataset.saved;
+    const items = favs.filter((f) => !scope || f.url.startsWith(scope));
+    if (!items.length) return;
+    const ul = box.querySelector('ul');
+    ul.replaceChildren(...items.slice(0, 8).map((f) => {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = f.url;
+      const span = document.createElement('span');
+      span.textContent = f.name;
+      const meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.textContent = f.sub || '';
+      span.append(meta);
+      a.append(span);
+      li.append(a);
+      return li;
+    }));
+    box.hidden = false;
+  });
+}
+
+/* ---------- search + near me ---------- */
+let INDEX = null;
+async function loadIndex() {
+  if (!INDEX) INDEX = fetch('/search.json').then((r) => r.json()).then((d) => d.items);
+  return INDEX;
+}
+const norm = (s) => String(s).toLowerCase().normalize('NFKD').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+const KIND = ['Town', 'Route', 'Hub', 'Stop'];
+
+function score(item, q, tokens) {
+  const [type, name, sub, , , , , short] = item;
+  const hay = item._h || (item._h = ` ${norm(`${name} ${sub}`)} `);
+  for (const t of tokens) if (!hay.includes(` ${t}`)) return -1;
+  let s = [40, 30, 25, 10][type];
+  if (type === 1 && short && tokens.includes(norm(short))) s += 50;
+  if (norm(name).startsWith(q)) s += 15;
+  if (type === 3 && /^\d{5,}$/.test(q) && hay.includes(` ${q} `)) s += 100;
+  return s;
+}
+
+function renderResults(items, empty) {
+  const ul = document.getElementById('search-results');
+  if (!items.length) {
+    const li = document.createElement('li');
+    li.className = 'search-empty';
+    li.textContent = empty;
+    ul.replaceChildren(li);
+    return;
+  }
+  ul.replaceChildren(...items.map((it, i) => {
+    const [type, name, sub, url, , , color, short, dist] = it;
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.href = url;
+    a.setAttribute('role', 'option');
+    a.setAttribute('aria-selected', String(i === 0));
+    const kind = document.createElement('span');
+    kind.className = 'kind';
+    if (type === 1) {
+      const b = document.createElement('span');
+      b.className = 'badge';
+      b.textContent = short || '•';
+      if (color) { b.style.background = color; b.style.color = ink(color); }
+      kind.append(b);
+    } else kind.textContent = KIND[type];
+    const text = document.createElement('span');
+    text.textContent = name;
+    const small = document.createElement('small');
+    small.textContent = dist != null ? `${sub} · ${dist < 1000 ? `${Math.round(dist / 10) * 10} m` : `${(dist / 1000).toFixed(1)} km`} away` : sub;
+    text.append(small);
+    a.append(kind, text);
+    li.append(a);
+    return li;
+  }));
+}
+
+function setupSearch() {
+  const dialog = document.getElementById('search');
+  const input = document.getElementById('search-input');
+  if (!dialog || !input) return;
+  const open = () => { if (!dialog.open) dialog.showModal(); input.focus(); loadIndex(); };
+  document.querySelectorAll('[data-search-open]').forEach((b) => b.addEventListener('click', open));
+  document.querySelector('[data-search-close]')?.addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && !dialog.open && !/input|textarea|select/i.test(document.activeElement?.tagName || '')) { e.preventDefault(); open(); }
+  });
+  let seq = 0;
+  input.addEventListener('input', async () => {
+    const q = norm(input.value);
+    const mine = ++seq;
+    if (!q) { renderResults([], 'Type a town, a route number, a stop name or a 6-digit stop number.'); return; }
+    const items = await loadIndex();
+    if (mine !== seq) return;
+    const tokens = q.split(' ');
+    const hits = [];
+    for (const it of items) { const s = score(it, q, tokens); if (s >= 0) hits.push([s, it]); }
+    hits.sort((a, b) => b[0] - a[0]);
+    renderResults(hits.slice(0, 30).map((h) => h[1]), 'Nothing matches. Try the town name, or fewer words.');
+  });
+  input.addEventListener('keydown', (e) => {
+    const links = [...document.querySelectorAll('#search-results a')];
+    if (!links.length) return;
+    let i = links.findIndex((a) => a.getAttribute('aria-selected') === 'true');
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      i = (i + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+      links.forEach((a, j) => a.setAttribute('aria-selected', String(j === i)));
+      links[i].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && i >= 0) {
+      e.preventDefault();
+      location.href = links[i].href;
+    }
+  });
+  renderResults([], 'Type a town, a route number, a stop name or a 6-digit stop number.');
+
+  document.querySelectorAll('[data-near-me]').forEach((btn) => btn.addEventListener('click', () => {
+    open();
+    if (!('geolocation' in navigator)) { renderResults([], 'This browser cannot share a location.'); return; }
+    renderResults([], 'Finding stops near you…');
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude: la, longitude: lo } = pos.coords;
+      const items = await loadIndex();
+      const rad = Math.PI / 180;
+      const near = items.filter((it) => it[0] === 3 && it[4]).map((it) => {
+        const dLat = (it[4] - la) * rad, dLon = (it[5] - lo) * rad;
+        const x = Math.sin(dLat / 2) ** 2 + Math.cos(la * rad) * Math.cos(it[4] * rad) * Math.sin(dLon / 2) ** 2;
+        const d = 2 * 6371000 * Math.asin(Math.sqrt(x));
+        return [...it.slice(0, 8), d];
+      }).sort((a, b) => a[8] - b[8]).slice(0, 12);
+      renderResults(near[0] && near[0][8] < 50_000 ? near : [], 'No covered stops within 50 km. Stopwatch covers British Columbia towns served by BC Transit.');
+    }, () => renderResults([], 'Location is off. Search by stop name or number instead.'), { enableHighAccuracy: false, timeout: 10_000, maximumAge: 120_000 });
+  }));
+}
+
+/* ---------- maps (loaded only when asked for) ---------- */
+// MapLibre is served unbundled from /vendor (see scripts/vendor.mjs) and only fetched when a
+// rider opens a map: its stylesheet alone is 65 KB, and it would otherwise sit in every page.
+import vendor from '../data/vendor.json';
+function loadMapCss() {
+  if (document.querySelector('link[data-map-css]')) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = `${vendor.maplibre}/maplibre-gl.css`;
+  link.dataset.mapCss = '';
+  document.head.append(link);
+}
+
+function setupMaps() {
+  document.querySelectorAll('[data-map]').forEach((box) => {
+    const btn = box.querySelector('.map-open');
+    btn?.addEventListener('click', async () => {
+      btn.textContent = 'Loading map…';
+      try {
+        const [{ Map: MLMap, NavigationControl, Popup }, data] = await Promise.all([
+          import(/* @vite-ignore */ `${vendor.maplibre}/maplibre-gl.mjs`).then((m) => { loadMapCss(); return m; }),
+          fetch(box.dataset.map).then((r) => r.json()),
+        ]);
+        const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+        btn.remove();
+        const lines = data.dirs
+          ? data.dirs.map((d) => ({ coords: d.line, color: data.color || '#15171a' }))
+          : data.routes.map((r) => ({ coords: r.line, color: r.color || '#15171a', slug: r.slug, label: r.short ? `Route ${r.short} ${r.name}` : r.name }));
+        const all = lines.flatMap((l) => l.coords);
+        const lons = all.map((c) => c[0]), lats = all.map((c) => c[1]);
+        // The view starts on the routes, and the routes are drawn as soon as the style is
+        // parsed ('style.load'), not after every street tile and font has arrived ('load'),
+        // which on a slow connection meant several seconds of an empty grey box.
+        const map = new MLMap({
+          container: box,
+          style: `https://tiles.openfreemap.org/styles/${dark ? 'dark' : 'positron'}`,
+          bounds: [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+          fitBoundsOptions: { padding: 36 },
+          attributionControl: { compact: true },
+          cooperativeGestures: true,
+        });
+        map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+        map.once('style.load', () => {
+          map.addSource('routes', { type: 'geojson', data: { type: 'FeatureCollection', features: lines.map((l) => ({ type: 'Feature', properties: { color: l.color, slug: l.slug || '', label: l.label || '' }, geometry: { type: 'LineString', coordinates: l.coords } })) } });
+          map.addLayer({ id: 'casing', type: 'line', source: 'routes', paint: { 'line-color': dark ? '#0f1113' : '#ffffff', 'line-width': 7 }, layout: { 'line-cap': 'round', 'line-join': 'round' } });
+          map.addLayer({ id: 'routes', type: 'line', source: 'routes', paint: { 'line-color': ['get', 'color'], 'line-width': 4 }, layout: { 'line-cap': 'round', 'line-join': 'round' } });
+          if (data.dirs) {
+            const stops = new Map();
+            for (const d of data.dirs) for (const [lon, lat, code, name, tp] of d.stops) if (lon) stops.set(code, { lon, lat, code, name, tp });
+            map.addSource('stops', { type: 'geojson', data: { type: 'FeatureCollection', features: [...stops.values()].map((s) => ({ type: 'Feature', properties: { name: s.name, code: s.code, tp: s.tp }, geometry: { type: 'Point', coordinates: [s.lon, s.lat] } })) } });
+            map.addLayer({ id: 'stops', type: 'circle', source: 'stops', paint: { 'circle-radius': ['case', ['==', ['get', 'tp'], 1], 5.5, 3.5], 'circle-color': '#ffffff', 'circle-stroke-color': data.color || '#15171a', 'circle-stroke-width': 2.5 } });
+            map.on('click', 'stops', (e) => {
+              const f = e.features[0];
+              const base = location.pathname.split('/').slice(0, 3).join('/');
+              const el = document.createElement('div');
+              const a = document.createElement('a');
+              a.href = `${base}/stop/${f.properties.code}`;
+              a.textContent = f.properties.name;
+              el.append(a, document.createTextNode(` #${f.properties.code}`));
+              new Popup({ closeButton: false }).setLngLat(e.lngLat).setDOMContent(el).addTo(map);
+            });
+          } else {
+            map.on('click', 'routes', (e) => { const slug = e.features[0].properties.slug; if (slug) location.href = `${location.pathname}/${slug}`; });
+            map.on('mouseenter', 'routes', () => { map.getCanvas().style.cursor = 'pointer'; });
+            map.on('mouseleave', 'routes', () => { map.getCanvas().style.cursor = ''; });
+          }
+        });
+      } catch {
+        btn.textContent = 'The map could not load. Check your connection and try again.';
+      }
+    }, { once: true });
+  });
+}
+
+/* ---------- small things ---------- */
+function setupActions() {
+  document.querySelectorAll('[data-print]').forEach((b) => b.addEventListener('click', () => window.print()));
+  document.querySelectorAll('[data-share]').forEach((b) => b.addEventListener('click', async () => {
+    const data = { title: document.title, url: location.href };
+    try {
+      if (navigator.share) await navigator.share(data);
+      else { await navigator.clipboard.writeText(location.href); const l = b.querySelector('[data-share-label]'); if (l) { l.textContent = 'Link copied'; setTimeout(() => { l.textContent = 'Share'; }, 2000); } }
+    } catch { /* cancelled */ }
+  }));
+}
+
+/**
+ * Each ad is requested when its slot comes within a screen of the viewport, not on load:
+ * a slot with no width yet makes AdSense throw "No slot size for availableWidth=0", and an ad
+ * that loads far below the fold is an impression nobody sees, which drags down what every
+ * impression earns.
+ */
+/**
+ * The AdSense library (about 230 KB of script) is fetched after the page has painted, or on the
+ * rider's first scroll or tap, whichever comes first. Loaded in <head>, its parsing held the
+ * homepage headline back 1.7 s on a mid-range phone. Slots queued before it arrives are filled
+ * when it does, and Auto Ads still run.
+ */
+const AD_SRC = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7164999486301748';
+function loadAdSense() {
+  if (window.__stopwatchAds) return;
+  window.__stopwatchAds = true;
+  const s = document.createElement('script');
+  s.async = true;
+  s.src = AD_SRC;
+  s.crossOrigin = 'anonymous';
+  document.head.append(s);
+}
+function scheduleAdSense() {
+  const go = () => loadAdSense();
+  ['scroll', 'pointerdown', 'keydown'].forEach((e) => addEventListener(e, go, { once: true, passive: true }));
+  const idle = () => (window.requestIdleCallback ? requestIdleCallback(go, { timeout: 3000 }) : setTimeout(go, 1500));
+  if (document.readyState === 'complete') idle(); else addEventListener('load', idle, { once: true });
+}
+
+function setupAds() {
+  const slots = [...document.querySelectorAll('ins.adsbygoogle:not([data-adsbygoogle-status])')];
+  if (!slots.length) return;
+  const fill = (ins) => {
+    if (ins.dataset.requested || !ins.offsetWidth) return false;
+    ins.dataset.requested = '1';
+    try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch { /* blocked */ }
+    return true;
+  };
+  if (!('IntersectionObserver' in window)) { slots.forEach(fill); return; }
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting && fill(e.target)) io.unobserve(e.target);
+  }, { rootMargin: '600px 0px' });
+  slots.forEach((ins) => io.observe(ins));
+}
+
+function setupOffline() {
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  }
+}
+
+setupSections();
+setupBoards();
+setupFavs();
+setupSearch();
+setupMaps();
+setupActions();
+scheduleAdSense();
+setupAds();
+setupOffline();

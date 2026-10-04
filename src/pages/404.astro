@@ -1,9 +1,14 @@
 ---
 import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
 ---
-<Base title="Page not found — Bus Times" description="This page does not exist." path="404" noindex>
+<Base title="Page not found | Stopwatch" description="This page does not exist. Search for your route, stop or town instead." path="404" noindex>
 <main class="wrap">
   <h1>That page isn’t here</h1>
-  <p>The route may have been renumbered or withdrawn. <a href="/bc">Find your town’s routes</a>.</p>
+  <p class="lede">The route may have been renumbered or withdrawn, or the stop retired.</p>
+  <div class="actions">
+    <button class="btn btn-primary" type="button" data-search-open><Icon name="magnifying-glass" /> Search routes and stops</button>
+    <a class="btn btn-quiet" href="/bc">All towns</a>
+  </div>
 </main>
 </Base>

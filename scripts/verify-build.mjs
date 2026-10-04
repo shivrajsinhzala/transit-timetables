@@ -26,6 +26,10 @@ for (const f of files) {
   if (!/<meta name="description" content="[^"]{50,}"/.test(html)) problems.push(`${rel}: missing or short description`);
   if (canonical !== (rel ? `${SITE}/${rel}` : SITE)) problems.push(`${rel}: canonical ${canonical}`);
   if (/^bc\/[^/]+\/stop\/[^/]+$/.test(rel) && !/<table class="hours"/.test(html)) problems.push(`${rel}: stop page without times`);
+  if (/^bc\/[^/]+\/hub\/[^/]+$/.test(rel) && !/data-board/.test(html)) problems.push(`${rel}: hub page without a board`);
+  // Visible text only: strip scripts, styles and tags before looking for long dashes.
+  const text = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ');
+  if (/[\u2013\u2014]/.test(text)) problems.push(`${rel}: long dash in visible text (${/.{0,30}[\u2013\u2014].{0,30}/.exec(text)[0].trim()})`);
   if (/^bc\/[^/]+\/[^/]+$/.test(rel)) {
     routePages++;
     if (!/<table class="tt"/.test(html)) problems.push(`${rel}: route page without a timetable`);
