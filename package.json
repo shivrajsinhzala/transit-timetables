@@ -3,16 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Readable bus timetables for BC Transit systems, built from BC Transit's open GTFS data.",
+  "description": "Stopwatch: readable bus, tram, train and ferry timetables for 90+ transit systems in six countries, built from open GTFS data.",
   "scripts": {
     "fetch": "node scripts/fetch-feeds.mjs",
     "data": "node scripts/build-data.mjs",
     "dev": "astro dev",
-    "build": "node scripts/vendor.mjs && astro build && node scripts/verify-build.mjs",
+    "build": "node scripts/build-all.mjs",
     "preview": "astro preview",
-    "deploy": "wrangler deploy",
-    "refresh": "npm run fetch && npm run data && node scripts/make-images.mjs && npm run build && npm run deploy && npm run indexnow",
-    "indexnow": "node scripts/indexnow.mjs"
+    "deploy": "node scripts/deploy-all.mjs",
+    "refresh": "npm run fetch && npm run data && node scripts/make-images.mjs && node scripts/build-all.mjs --deploy && npm run indexnow",
+    "indexnow": "node scripts/indexnow.mjs",
+    "build:one": "node scripts/vendor.mjs && astro build && node scripts/verify-build.mjs",
+    "search": "node scripts/search-index.mjs",
+    "release": "node scripts/build-all.mjs --deploy"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
@@ -20,7 +23,8 @@
     "@fontsource-variable/overpass-mono": "^5.3.0",
     "@phosphor-icons/core": "^2.1.1",
     "astro": "^7.3.5",
-    "csv-parse": "^7.0.3"
+    "csv-parse": "^7.0.3",
+    "date-holidays": "^3.37.0"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

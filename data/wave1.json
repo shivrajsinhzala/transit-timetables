@@ -1,0 +1,532 @@
+[
+ {
+  "id": "mdb-732",
+  "cc": "CA",
+  "provider": "Toronto Transit Commission (TTC)",
+  "muni": "North York",
+  "sub": "Ontario",
+  "license": "https://open.toronto.ca/dataset/ttc-routes-and-schedules/",
+  "latest": "https://files.mobilitydatabase.org/mdb-732/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-728",
+  "cc": "CA",
+  "provider": "York Region Transit",
+  "muni": "Aurora",
+  "sub": "Ontario",
+  "license": "https://www.yrt.ca/en/about-us/open-data-licence-agreement.aspx",
+  "latest": "https://files.mobilitydatabase.org/mdb-728/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-763",
+  "cc": "CA",
+  "provider": "Soci\u00e9t\u00e9 de transport de L\u00e9vis",
+  "muni": "L\u00e9vis",
+  "sub": "Quebec",
+  "license": "https://creativecommons.org/licenses/by/4.0/deed.fr",
+  "latest": "https://files.mobilitydatabase.org/mdb-763/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1928",
+  "cc": "GB",
+  "provider": "Brighton & Hove Bus",
+  "muni": "Brighton and Hove",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1928/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1929",
+  "cc": "GB",
+  "provider": "Borders Buses",
+  "muni": "Scottish Borders",
+  "sub": "Scotland",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1929/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1930",
+  "cc": "GB",
+  "provider": "Blackpool Transport",
+  "muni": "Blackpool",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1930/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1931",
+  "cc": "GB",
+  "provider": "Cardiff Bus",
+  "muni": "Cardiff",
+  "sub": "Wales",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1931/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1932",
+  "cc": "GB",
+  "provider": "Carousel Buses",
+  "muni": "Windsor and Maidenhead",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1932/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1933",
+  "cc": "GB",
+  "provider": "East Yorkshire",
+  "muni": "East Riding of Yorkshire",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1933/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1934",
+  "cc": "GB",
+  "provider": "Go Cornwall Bus",
+  "muni": "Cornwall",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1934/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1935",
+  "cc": "GB",
+  "provider": "Go North East",
+  "muni": "Gateshead",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1935/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1936",
+  "cc": "GB",
+  "provider": "Go North West",
+  "muni": "",
+  "sub": "Manchester",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1936/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1937",
+  "cc": "GB",
+  "provider": "Green Line 702",
+  "muni": "Slough",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1937/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1938",
+  "cc": "GB",
+  "provider": "Hedingham and Chambers",
+  "muni": "Essex",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1938/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1939",
+  "cc": "GB",
+  "provider": "Intalink",
+  "muni": "Hertfordshire",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1939/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1940",
+  "cc": "GB",
+  "provider": "konectbus",
+  "muni": "Norfolk",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1940/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1941",
+  "cc": "GB",
+  "provider": "McGill's Buses",
+  "muni": "Renfrewshire",
+  "sub": "Scotland",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1941/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1942",
+  "cc": "GB",
+  "provider": "Metrobus",
+  "muni": "Surrey",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1942/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1943",
+  "cc": "GB",
+  "provider": "Morebus",
+  "muni": "",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1943/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1944",
+  "cc": "GB",
+  "provider": "Newbury & District",
+  "muni": "West Berkshire",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1944/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1945",
+  "cc": "GB",
+  "provider": "Newport Bus",
+  "muni": "Newport",
+  "sub": "Wales",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1945/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1946",
+  "cc": "GB",
+  "provider": "Nottingham City Transport",
+  "muni": "City of Nottingham",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1946/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1947",
+  "cc": "GB",
+  "provider": "Oxford Bus",
+  "muni": "Oxfordshire",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1947/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1948",
+  "cc": "GB",
+  "provider": "Plymouth Citybus",
+  "muni": "Devon",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1948/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1949",
+  "cc": "GB",
+  "provider": "Reading Buses",
+  "muni": "Reading",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1949/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1950",
+  "cc": "GB",
+  "provider": "Salisbury Reds",
+  "muni": "Wiltshire",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1950/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1951",
+  "cc": "GB",
+  "provider": "Southern Vectis",
+  "muni": "Isle of Wight",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1951/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1952",
+  "cc": "GB",
+  "provider": "Swindon's Bus Company",
+  "muni": "Swindon",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1952/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1953",
+  "cc": "GB",
+  "provider": "Transdev Blazefield",
+  "muni": "Lancashire",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1953/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1954",
+  "cc": "GB",
+  "provider": "Unibus",
+  "muni": "",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1954/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1955",
+  "cc": "GB",
+  "provider": "Unilink",
+  "muni": "Southampton",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1955/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1956",
+  "cc": "GB",
+  "provider": "Warrington's Own Buses",
+  "muni": "St Helens",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1956/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-1957",
+  "cc": "GB",
+  "provider": "West Coast Motors",
+  "muni": "Glasgow City",
+  "sub": "Scotland",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-1957/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2906",
+  "cc": "GB",
+  "provider": "Xplore Dundee",
+  "muni": "Dundee City",
+  "sub": "Scotland",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-2906/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2907",
+  "cc": "GB",
+  "provider": "Bluestar Bus",
+  "muni": "Hampshire",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-2907/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2909",
+  "cc": "GB",
+  "provider": "Coach Services",
+  "muni": "Norfolk",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-2909/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2911",
+  "cc": "GB",
+  "provider": "Midland Bluebird",
+  "muni": "City of Edinburgh",
+  "sub": "Scotland",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-2911/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2912",
+  "cc": "GB",
+  "provider": "Sanders Coaches",
+  "muni": "Norfolk",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-2912/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2913",
+  "cc": "GB",
+  "provider": "Thames Valley Buses",
+  "muni": "Slough",
+  "sub": "England",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "https://files.mobilitydatabase.org/mdb-2913/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2914",
+  "cc": "GB",
+  "provider": "Fastrack",
+  "muni": "Dartford",
+  "sub": "Kent",
+  "license": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+  "latest": "",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2635",
+  "cc": "IE",
+  "provider": "Dublin Bus",
+  "muni": "County Dublin",
+  "sub": "Leinster",
+  "license": "https://www.transportforireland.ie/transitData/PT_Data.html",
+  "latest": "https://files.mobilitydatabase.org/mdb-2635/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2636",
+  "cc": "IE",
+  "provider": "Bus \u00c9ireann",
+  "muni": "The Metropolitan District of Limerick City",
+  "sub": "Munster",
+  "license": "https://www.transportforireland.ie/transitData/PT_Data.html",
+  "latest": "https://files.mobilitydatabase.org/mdb-2636/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2637",
+  "cc": "IE",
+  "provider": "Irish Rail",
+  "muni": "County Dublin",
+  "sub": "Leinster",
+  "license": "https://www.transportforireland.ie/transitData/PT_Data.html",
+  "latest": "https://files.mobilitydatabase.org/mdb-2637/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2638",
+  "cc": "IE",
+  "provider": "LUAS",
+  "muni": "County Dublin",
+  "sub": "Leinster",
+  "license": "https://www.transportforireland.ie/transitData/PT_Data.html",
+  "latest": "https://files.mobilitydatabase.org/mdb-2638/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2639",
+  "cc": "IE",
+  "provider": "GoAhead Ireland",
+  "muni": "County Dublin",
+  "sub": "Leinster",
+  "license": "https://www.transportforireland.ie/transitData/PT_Data.html",
+  "latest": "https://files.mobilitydatabase.org/mdb-2639/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-3340",
+  "cc": "AU",
+  "provider": "Public Transport Victoria (PTV)",
+  "muni": "Melbourne",
+  "sub": "Victoria",
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "latest": "https://files.mobilitydatabase.org/mdb-3340/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-935",
+  "cc": "AU",
+  "provider": "Canberra Metro Operations",
+  "muni": "Australian Capital Territory",
+  "sub": "Australian Capital Territory",
+  "license": "https://creativecommons.org/licenses/by/4.0/legalcode",
+  "latest": "https://files.mobilitydatabase.org/mdb-935/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-983",
+  "cc": "NZ",
+  "provider": "Otago Regional Council (ORC)",
+  "muni": "Dunedin City",
+  "sub": "Otago",
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "latest": "https://files.mobilitydatabase.org/mdb-983/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-147",
+  "cc": "US",
+  "provider": "Valley Metro (VM)",
+  "muni": "Avondale",
+  "sub": "Arizona",
+  "license": "http://www.opendefinition.org/licenses/odc-by",
+  "latest": "https://files.mobilitydatabase.org/mdb-147/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-3143",
+  "cc": "US",
+  "provider": "San Francisco Bay Area Water Emergency Transportation Authority (WETA)",
+  "muni": "San Francisco",
+  "sub": "California",
+  "license": "https://opendatacommons.org/licenses/by/summary/",
+  "latest": "https://files.mobilitydatabase.org/mdb-3143/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2883",
+  "cc": "US",
+  "provider": "Mountain View Community Shuttle",
+  "muni": "Mountain View",
+  "sub": "California",
+  "license": "https://opendatacommons.org/licenses/by/summary/",
+  "latest": "https://files.mobilitydatabase.org/mdb-2883/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-373",
+  "cc": "US",
+  "provider": "Piedmont Authority for Regional Transportation (PART)",
+  "muni": "Guilford County",
+  "sub": "North Carolina",
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "latest": "https://files.mobilitydatabase.org/mdb-373/latest.zip",
+  "status": "active"
+ },
+ {
+  "id": "mdb-2433",
+  "cc": "US",
+  "provider": "Avon Transit",
+  "muni": "Eagle County",
+  "sub": "Colorado",
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "latest": "https://files.mobilitydatabase.org/mdb-2433/latest.zip",
+  "status": "active"
+ }
+]

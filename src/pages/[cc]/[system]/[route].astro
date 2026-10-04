@@ -1,0 +1,203 @@
+---
+import Base from '../../../layouts/Base.astro';
+import Icon from '../../../components/Icon.astro';
+import Ad from '../../../components/Ad.astro';
+import RouteBadge from '../../../components/RouteBadge.astro';
+import Faq from '../../../components/Faq.astro';
+import Source from '../../../components/Source.astro';
+import { shardSystems, stopPageCodes } from '../../../lib/data.js';
+import { clock, every, shortDate, routeLabel, runsText, place, plain, slugify, possessive, modeName, vehicle, plural, brandFor, cap, stopWord } from '../../../lib/format.js';
+import { ctxFor, dateFor } from '../../../lib/page.js';
+
+export function getStaticPaths() {
+  return shardSystems().flatMap((system) => system.routes.map((route) => ({
+    params: { cc: system.cc, system: system.slug, route: route.slug },
+    props: { system, route },
+  })));
+}
+
+const { system, route } = Astro.props;
+const x = ctxFor(system);
+const { t, base, h24, Word, word } = x;
+const stopPages = stopPageCodes(system.key);
+const label = routeLabel(route);
+const longName = plain(route.name);
+// The long name is a subtitle only when it adds something ("Line 1 (Yonge-University)" already says Line 1).
+const name = longName && !longName.toLowerCase().includes(label.toLowerCase()) && longName !== label ? longName : '';
+const main = route.days[0];
+const mainSummary = route.summary[main.key];
+const m = modeName(route.type, system);
+const v = vehicle(route.type, system);
+const vs = plural(v);
+const brand = brandFor(system, route.type);
+const stopW = stopWord([route.type], system);
+const lineWord = /train|subway/.test(m) ? 'line' : 'route';
+
+// Titles lead with what riders type: "<town> bus route <n>", "dublin bus 46a timetable".
+const fit = (max, ...c) => c.find((s) => s.length <= max) ?? c.at(-1);
+const head = route.label ? `${brand}: ${label}` : `${brand} ${label}`;
+const title = fit(60, `${head} ${Word}${name ? `: ${name}` : ''}`, `${head} ${Word} and Map`, `${head} ${Word}`, `${label} ${Word} (${system.name})`, `${label} ${Word}`);
+const description = fit(160,
+  `${system.name} ${label}${name ? ` ${name}` : ''} ${word}: first ${v} ${t(mainSummary.first)}, last ${t(mainSummary.last)} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. All ${stopW}s, both directions, map and next ${v}.`,
+  `${system.name} ${label} ${word}: first ${v} ${t(mainSummary.first)}, last ${t(mainSummary.last)} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. All ${stopW}s, map and next ${v}.`,
+  `${system.name} ${label} ${word}: first ${v} ${t(mainSummary.first)}, last ${t(mainSummary.last)} ${main.label}. All ${stopW}s and next ${v}.`);
+
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const covered = new Set(route.days.flatMap((d) => d.days));
+const missing = WEEKDAYS.filter((_, i) => !covered.has(i));
+
+// Places served: the route's timepoints, which are the stops the operator itself names.
+const places = [...new Set(route.directions.flatMap((d) => d.columns.map((c) => place(plain(c.name)))))];
+// At most five: the two ends and up to three timepoints between, in route order.
+const shown = places.length > 5 ? [places[0], ...places.slice(1, -1).filter((_, i, a) => i % Math.ceil(a.length / 3) === 0).slice(0, 3), places.at(-1)] : places;
+const placesText = shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}` : shown[0];
+
+const dests = route.directions.map((d) => place(plain(d.stops.at(-1).name)));
+const dirNames = route.directions.map((d, i) => {
+  const clash = dests.filter((y) => y === dests[i]).length > 1;
+  return clash
+    ? { heading: `${label}: ${plain(d.headsign) || `direction ${i + 1}`}`, anchor: slugify(d.headsign) || `direction-${i + 1}` }
+    : { heading: `${label} to ${dests[i]}`, anchor: `to-${slugify(dests[i])}` };
+});
+dirNames.forEach((y, i) => { if (dirNames.findIndex((z) => z.anchor === y.anchor) !== i) y.anchor += `-${i + 1}`; });
+
+// Big networks (Melbourne has 700 bus routes) link the 40 routes either side of this one, not all of them.
+const idx = system.routes.findIndex((r) => r.slug === route.slug);
+const near = system.routes.length > 61 ? system.routes.slice(Math.max(0, Math.min(idx - 20, system.routes.length - 41)), Math.max(0, Math.min(idx - 20, system.routes.length - 41)) + 41) : system.routes;
+const others = near.filter((r) => r.slug !== route.slug);
+const holidayList = route.exceptions.filter((e) => e.holiday);
+const otherExceptions = route.exceptions.filter((e) => !e.holiday);
+const routeColor = route.color || 'var(--ink)';
+const stopHref = (code) => `${base}/stop/${encodeURIComponent(code)}`;
+
+const SITE = 'https://transit.shivrajsinh.in';
+const path = `${base.slice(1)}/${route.slug}`;
+const jsonLd = [{
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: x.c.name, item: `${SITE}/${system.cc}` },
+    { '@type': 'ListItem', position: 2, name: system.name, item: `${SITE}${base}` },
+    { '@type': 'ListItem', position: 3, name: label, item: `${SITE}/${path}` },
+  ],
+}];
+const cfg = { tz: system.timezone, h24, routes: { [route.slug]: { days: route.days.map(({ key, days }) => ({ key, days })), exceptions: route.exceptions.map(({ date, runs }) => ({ date, runs })) } } };
+
+const faq = [
+  [`What time is the first ${label} ${v}?`, `${route.days.map((d) => route.summary[d.key] && `${d.label}: ${t(route.summary[d.key].first)}`).filter(Boolean).join('. ')}.`],
+  [`What time is the last ${label} ${v}?`, `${route.days.map((d) => route.summary[d.key] && `${d.label}: ${t(route.summary[d.key].last)}`).filter(Boolean).join('. ')}. A time after midnight belongs to the evening before.`],
+  ...(mainSummary.gap ? [[`How often does ${label} run?`, `${route.days.map((d) => route.summary[d.key]?.gap && `${d.label}: ${every(route.summary[d.key].gap)}`).filter(Boolean).join('. ')}, between ${t(420)} and ${t(1140)}.`]] : []),
+  [`Does ${label} run at weekends?`, `Saturday: ${covered.has(5) ? 'yes' : 'no service'}. Sunday: ${covered.has(6) ? 'yes' : 'no service'}.`],
+  ...(holidayList.length ? [[`Does ${label} run on public holidays?`, `${holidayList.map((e) => `${e.holiday} (${shortDate(e.date)}): ${runsText(e, route.days)}`).join('. ')}.`]] : []),
+  [`Where does ${label} go?`, `${label} serves ${placesText}. The full list of ${stopW}s for each direction is below the ${word}s.`],
+  [`Are these live ${v} times?`, `No. They are the published ${word} from ${possessive(plain(system.attribution?.text || system.name))} open data, refreshed ${dateFor(system.builtOn, system.cc)}. A ${v} can run early or late, and disruptions are not shown.`],
+];
+---
+<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system}>
+<main class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a> › {label}</nav>
+
+  <div class="page-head">
+    <RouteBadge route={route} lg />
+    <div>
+      <h1>{route.label ? `${system.name}: ${label}` : `${system.name} ${label}`}{name ? <>: {name}</> : null}</h1>
+      <p class="sub">{cap(m)} {word} and {lineWord} map · {route.days.map((d) => d.label).join(', ')}</p>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-quiet btn-sm" type="button" data-fav={`route:${system.key}/${route.slug}`} data-name={`${system.name} ${label}`} data-sub={name}><Icon name="star" /><span data-fav-label>Save</span></button>
+    <button class="btn btn-quiet btn-sm" type="button" data-print><Icon name="printer" /> Print or PDF</button>
+    <button class="btn btn-quiet btn-sm" type="button" data-share><Icon name="share-network" /><span data-share-label>Share</span></button>
+  </div>
+
+  <p class="lede" style="margin-top:1.2rem">
+    {system.name} {label}{name ? ` (${name})` : ''} is a {m} {lineWord} in {system.area}, serving {placesText}. {main.label} the first {v} is at {t(mainSummary.first)} and the last at {t(mainSummary.last)}{mainSummary.gap ? <>, {every(mainSummary.gap)} during the day</> : null}. Updated {dateFor(system.builtOn, system.cc)}.
+  </p>
+
+  <h2 class="sr">{Word} summary</h2>
+  <div class="days">
+    {route.days.map((d) => { const s = route.summary[d.key]; return s && (
+      <div class="day"><h3>{d.label}</h3><dl><dt>First</dt><dd>{t(s.first)}</dd><dt>Last</dt><dd>{t(s.last)}</dd><dt>{cap(vs)}</dt><dd>{s.trips}</dd>{s.gap && <><dt>Daytime</dt><dd>{every(s.gap)}</dd></>}</dl></div>
+    ); })}
+    {missing.length > 0 && <div class="day"><h3>{missing.join(', ')}</h3><p class="muted" style="margin:0">No service</p></div>}
+  </div>
+
+  {(route.exceptions.length > 0 || system.changesOn) && (
+    <div class="notice"><Icon name="calendar-check" /><div>
+      {holidayList.length > 0 && <p><b>Public holidays</b></p>}
+      {holidayList.length > 0 && <ul>{holidayList.map((e) => <li>{shortDate(e.date)} ({e.holiday}): {runsText(e, route.days)}</li>)}</ul>}
+      {otherExceptions.length > 0 && <p><b>Also different:</b> {otherExceptions.slice(0, 8).map((e) => `${shortDate(e.date)} (${runsText(e, route.days)})`).join('; ')}.</p>}
+      {system.changesOn && <p><b>{Word} change:</b> {possessive(system.name)} {word} changes on {dateFor(system.changesOn, system.cc)}. The times below are for the current {word}.</p>}
+    </div></div>
+  )}
+
+  {route.directions.map((dir, di) => (
+    <>
+      <section class="direction" id={dirNames[di].anchor} data-section data-route={route.slug} data-from={place(plain(dir.columns[0].name))}>
+        <h2>{dirNames[di].heading}</h2>
+        <p class="muted small" style="margin:0">{dir.headsign ? <>Destination sign “{plain(dir.headsign)}” · </> : null}from {place(plain(dir.stops[0].name))} · {dir.stops.length} {stopW}s</p>
+        <div class="tabs" role="tablist" aria-label="Day of the week">
+          {route.days.filter((d) => dir.schedules[d.key]).map((d, i) => <button type="button" role="tab" data-day={d.key} aria-selected={i === 0 ? 'true' : 'false'}>{d.label}</button>)}
+        </div>
+        <p class="next-line" aria-live="polite"></p>
+        {route.days.filter((d) => dir.schedules[d.key]).map((d, i) => (
+          <div class={`panel${i === 0 ? ' on' : ''}`} data-day={d.key} role="tabpanel">
+            <h3>{d.label}</h3>
+            <p class="legend">Times at the main {stopW}s.{h24 ? ' 24-hour clock.' : <> <b>Bold is pm.</b></>} A dot means that trip does not stop there.</p>
+            <div class="tt-wrap">
+              <table class="tt">
+                <thead><tr>{dir.columns.map((c) => <th scope="col">{stopPages.has(c.code) ? <a href={stopHref(c.code)}>{plain(c.name)}</a> : plain(c.name)}</th>)}</tr></thead>
+                <tbody>
+                  {dir.schedules[d.key].map((row) => (
+                    <tr data-m={row[0] ?? ''}>{row.map((mm) => {
+                      if (mm == null) return <td class="no">·</td>;
+                      const c = clock(mm, h24);
+                      return <td class={c.pm ? 'pm' : undefined}>{c.text}</td>;
+                    })}</tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+        <details class="stops-detail">
+          <summary class="btn btn-quiet btn-sm"><Icon name="path" /> All {dir.stops.length} {stopW}s in this direction</summary>
+          <ol class="diagram" style={`--route:${routeColor}`}>
+            {dir.stops.map((s) => { const tp = dir.columns.some((c) => c.code === s.code); return (
+              <li class={tp ? 'tp' : undefined}>{stopPages.has(s.code) ? <a href={stopHref(s.code)}>{plain(s.name)}</a> : plain(s.name)} <small>#{s.code}</small></li>
+            ); })}
+          </ol>
+        </details>
+      </section>
+      {di === 0 && <Ad />}
+    </>
+  ))}
+
+  <section>
+    <h2>{label} {lineWord} map</h2>
+    <div class="map" data-map={`/geo/${system.key}/${route.slug}.json`}>
+      <button class="map-open" type="button"><Icon name="map-trifold" />Show {label} on a map</button>
+    </div>
+  </section>
+
+  <Faq items={faq} title={`Questions about ${system.name} ${label}`} />
+  <Source system={system} extra="These are scheduled times; disruptions and service alerts are published by the operator." />
+
+  <Ad />
+
+  {others.length > 0 && (
+    <section>
+      <h2>Other {system.name} {lineWord}s</h2>
+      <div class="list-cols">
+        {[others.slice(0, Math.ceil(others.length / 2)), others.slice(Math.ceil(others.length / 2))].map((col) => col.length > 0 && (
+          <ul class="list">
+            {col.map((r) => <li><a href={`${base}/${r.slug}`}><RouteBadge route={r} /><span>{plain(r.label || r.name || routeLabel(r))}<span class="meta">{r.days.map((d) => d.label).join(', ')}</span></span><Icon name="arrow-right" class="go" /></a></li>)}
+          </ul>
+        ))}
+      </div>
+      {others.length < system.routes.length - 1 && <p><a class="btn btn-quiet btn-sm" href={base}>All {system.routes.length} {system.name} {lineWord}s <Icon name="arrow-right" /></a></p>}
+    </section>
+  )}
+</main>
+<script type="application/json" id="cfg" set:html={JSON.stringify(cfg)} />
+</Base>

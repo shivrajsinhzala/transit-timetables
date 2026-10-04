@@ -4,63 +4,60 @@ import Icon from '../components/Icon.astro';
 import Ad from '../components/Ad.astro';
 import Faq from '../components/Faq.astro';
 import RouteBadge from '../components/RouteBadge.astro';
-import { SYSTEM_INDEX, REGIONS, getSystem, pageStops, busiestDay } from '../lib/data.js';
-import { inkFor, clock, shortDate, place, plain } from '../lib/format.js';
+import { SYSTEM_INDEX, countries, getSystem } from '../lib/data.js';
+import { clock, shortDate, place, plain, sharedMode, plural } from '../lib/format.js';
+import { FEATURED } from '../lib/featured.js';
 
 const routes = SYSTEM_INDEX.reduce((a, s) => a + s.routes, 0);
-const towns = SYSTEM_INDEX.length;
+const stops = SYSTEM_INDEX.reduce((a, s) => a + s.stops, 0);
+const systems = SYSTEM_INDEX.length;
+const all = countries();
+const nf = (n) => n.toLocaleString('en');
 
-// The board: the busiest stop in the province's busiest system, with real scheduled times.
-const victoria = getSystem('victoria');
-const featured = [...pageStops('victoria')].sort((a, b) => busiestDay(b) - busiestDay(a))[0];
-const boardData = {
-  tz: victoria.timezone,
-  rows: featured.routes.map((r) => {
-    const route = victoria.routes.find((x) => x.slug === r.route);
-    return {
-      short: r.short, color: r.color, text: inkFor(r.color), to: place(r.headsign.replace(/^.*-\s*To\s+/i, '').replace(/^To\s+/i, '')),
-      url: `/bc/victoria/${r.route}`,
-      days: route?.days.map(({ key, days }) => ({ key, days })) || [],
-      exceptions: route?.exceptions.map(({ date, runs }) => ({ date, runs })) || [],
-      times: r.times,
-    };
-  }),
-};
+// Country tiles: counts and the three biggest systems in each.
+const tiles = all.map((c) => {
+  const list = [...c.systems].sort((a, b) => b.routes - a.routes);
+  return { cc: c.cc, name: c.name, word: c.word, systems: list.length, routes: list.reduce((a, s) => a + s.routes, 0), top: list.slice(0, 3).map((s) => s.name) };
+}).sort((a, b) => b.routes - a.routes);
 
-const TILE_ORDER = ['victoria', 'kelowna', 'fraser-valley', 'kamloops', 'nanaimo'];
-const tiles = TILE_ORDER.map((slug) => {
-  const sys = getSystem(slug);
-  return { slug, name: sys.name, area: sys.area, routes: sys.routes.length, colors: sys.routes.map((r) => r.color).filter(Boolean).slice(0, 10) };
+// The biggest networks, each with its own colours.
+const big = [...SYSTEM_INDEX].sort((a, b) => b.routes - a.routes).slice(0, 8).map((s) => {
+  const sys = getSystem(s.key);
+  return { key: s.key, name: s.name, area: s.area, routes: s.routes, country: all.find((c) => c.cc === s.cc)?.name, mode: sharedMode(sys.routes, sys), colors: sys.routes.map((r) => r.color).filter(Boolean).slice(0, 10) };
 });
 
 // A real excerpt for the "whole day" preview: Kelowna Route 8's first weekday departures.
-const kelowna = getSystem('kelowna');
-const r8 = kelowna.routes.find((r) => r.slug === 'route-8');
-const r8dir = r8.directions[0];
-const r8key = r8.days[0].key;
-const previewCols = r8dir.columns.slice(0, 4);
-const previewRows = r8dir.schedules[r8key].filter((row) => row[0] != null).slice(0, 6).map((row) => row.slice(0, 4));
+const kelowna = getSystem('ca/kelowna');
+const r8 = kelowna?.routes.find((r) => r.slug === 'route-8');
+const r8dir = r8?.directions[0];
+const r8key = r8?.days[0].key;
+const previewCols = r8dir ? r8dir.columns.slice(0, 4) : [];
+const previewRows = r8dir ? r8dir.schedules[r8key].filter((row) => row[0] != null).slice(0, 6).map((row) => row.slice(0, 4)) : [];
 
-// A real holiday line for the "holidays" preview.
-const holidayRoute = kelowna.routes.find((r) => r.exceptions.some((e) => e.holiday));
+// A real holiday line for the "holidays" preview, from Dublin Bus if it has one coming up.
+const holidaySys = ['ie/dublin-bus', 'ca/kelowna', 'uk/brighton-hove-bus'].map(getSystem).find((s) => s?.routes.some((r) => r.exceptions.some((e) => e.holiday)));
+const holidayRoute = holidaySys?.routes.find((r) => r.exceptions.some((e) => e.holiday));
 const holiday = holidayRoute?.exceptions.find((e) => e.holiday);
 const runsLabel = holiday ? (holidayRoute.days.find((d) => d.key === holiday.runs)?.label || 'a special') : '';
 
+const boards = FEATURED.map((f) => ({ key: f.key, city: f.city, tz: f.tz, src: `/boards/${f.key.replace('/', '-')}.json` }));
+const countryList = `${all.slice(0, -1).map((c) => c.name).join(', ')} and ${all.at(-1).name}`;
+
 const faq = [
-  ['What is Stopwatch?', `Stopwatch is a free, independent website that shows the full bus timetable for ${routes} routes in ${towns} British Columbia towns, including Victoria, Kelowna, Kamloops and Nanaimo. Every route and stop page highlights the next scheduled bus, and pages work offline once opened.`],
-  ['Is Stopwatch the official BC Transit site?', 'No. Stopwatch is an independent site built from BC Transit’s open schedule data. For fares, detours and service alerts, use BC Transit’s own channels.'],
-  ['Are these live bus times?', 'They are the published schedule. The next bus is worked out from that schedule and your phone’s clock, so a bus running late will not show as late.'],
-  ['How do I find my stop number?', 'It is on the sign at the stop. Type it into search, or tap Stops near me to see the closest stops with their numbers.'],
+  ['What is Stopwatch?', `Stopwatch is a free, independent website with the full timetable for ${nf(routes)} bus, tram, train and ferry routes from ${systems} transit systems in ${countryList}. Every route and stop page highlights the next scheduled departure, and pages work offline once opened.`],
+  ['Is Stopwatch an official transit site?', 'No. Stopwatch is independent. It is built from the open timetable data that operators and transport authorities publish, and each page names its source. For fares, disruptions and service alerts, use the operator’s own channels.'],
+  ['Are these live times?', 'They are the published timetable. The next departure is worked out from that timetable and your phone’s clock, so a bus running late will not show as late.'],
+  ['Which cities are covered?', `${systems} systems including Toronto, Melbourne, Dublin, Phoenix, Victoria, Kelowna, Brighton, Oxford, Nottingham, Cardiff and Dunedin. Pick a country below to see them all.`],
   ['Does it work without signal?', 'Yes, for timetables you have opened before on this phone. Add Stopwatch to your home screen and they open like an app.'],
-  ['How often are the timetables updated?', 'Every week, from the data BC Transit publishes. Each page says when its timetable was last refreshed.'],
+  ['How often are the timetables updated?', 'Every week, from the data each operator publishes. Each page says when its timetable was last refreshed.'],
 ];
 ---
-<Base title="Stopwatch: BC Bus Schedules, Routes and Maps" description={`Full bus timetables for ${routes} routes in ${towns} BC towns, with the next bus first. Victoria, Kelowna, Kamloops, Nanaimo and more. No app needed.`} path="" speakable={['.hero h1', '.hero .lede']}>
+<Base title="Stopwatch: Bus, Tram and Train Timetables in 6 Countries" description={`Full timetables for ${nf(routes)} routes from ${systems} transit systems in ${countryList}, with the next departure first. No app needed.`} path="" speakable={['.hero h1', '.hero .lede']}>
 <main class="wrap" style="padding-top:0">
   <section class="hero">
     <div>
-      <h1>Every BC bus, <em>on the clock</em>.</h1>
-      <p class="lede">Full timetables for {routes} routes in {towns} towns, with your next bus first. No app, no PDF, works offline.</p>
+      <h1>Every bus, tram and train, <em>on the clock</em>.</h1>
+      <p class="lede">Full timetables for {nf(routes)} routes and {nf(stops)} stops in {systems} transit systems across {all.length} countries, with your next departure first. No app, no PDF, works offline.</p>
       <button class="hero-search" type="button" data-search-open>
         <Icon name="magnifying-glass" /><span>Route, stop or town</span><span class="btn btn-primary btn-sm">Search</span>
       </button>
@@ -68,11 +65,15 @@ const faq = [
         <button class="btn btn-quiet" type="button" data-near-me><Icon name="navigation-arrow" /> Stops near me</button>
       </div>
     </div>
-    <div class="board" data-board data-rows="6" aria-label={`Next scheduled buses at ${featured.name}`}>
-      <div class="board-head"><strong><a href={`/bc/victoria/stop/${featured.code}`}>{place(featured.name)}</a></strong><span class="board-clock" data-clock></span></div>
-      <ol><li class="empty">Loading the next buses…</li></ol>
-      <p class="board-foot">Scheduled departures in Victoria, from the published timetable.</p>
-      <script type="application/json" set:html={JSON.stringify(boardData)} />
+    <div>
+      <div class="board" data-board data-rows="6" data-boards={JSON.stringify(boards)} aria-label="Next scheduled departures">
+        <div class="board-head"><strong><a data-board-name href={`/${boards[0].key}`}>{boards[0].city}</a></strong><span class="board-clock" data-clock></span></div>
+        <ol><li class="empty">Loading the next departures…</li></ol>
+        <p class="board-foot" data-board-foot>Scheduled departures, from the published timetable.</p>
+      </div>
+      <div class="cities" role="group" aria-label="Show departures in another city">
+        {boards.map((b, i) => <button type="button" class="city" data-city={b.key} aria-pressed={i === 0 ? 'true' : 'false'}>{b.city}</button>)}
+      </div>
     </div>
   </section>
 
@@ -81,54 +82,62 @@ const faq = [
     <ul class="list"></ul>
   </section>
 
-  <section class="reveal">
-    <h2>Find your town</h2>
-    <div class="towns">
-      {tiles.map((t) => (
-        <a class="tile" href={`/bc/${t.slug}`}>
-          <span class="stripes" aria-hidden="true">{t.colors.map((c) => <i style={`background:${c}`} />)}</span>
-          <strong>{t.name}</strong>
-          <span>{t.routes} routes · {t.area}</span>
+  <section class="reveal" id="countries">
+    <h2>Pick your country</h2>
+    <div class="countries">
+      {tiles.map((c) => (
+        <a class="country" href={`/${c.cc}`}>
+          <span class="cc" aria-hidden="true">{c.cc.toUpperCase()}</span>
+          <strong>{c.name}</strong>
+          <span>{`${c.systems} system${c.systems === 1 ? '' : 's'} · ${nf(c.routes)} routes`}</span>
+          <small>{c.top.join(', ')}</small>
         </a>
       ))}
     </div>
-    <div class="regions">
-      {REGIONS.map((reg) => (
-        <div>
-          <h3>{reg.name}</h3>
-          <ul>{SYSTEM_INDEX.filter((s) => s.region === reg.slug).sort((a, b) => b.routes - a.routes).map((s) => <li><a href={`/bc/${s.slug}`}>{s.name}<small>{s.routes}</small></a></li>)}</ul>
-        </div>
+  </section>
+
+  <section class="reveal">
+    <h2>The biggest networks</h2>
+    <div class="towns">
+      {big.map((t) => (
+        <a class="tile" href={`/${t.key}`}>
+          <span class="stripes" aria-hidden="true">{t.colors.map((col) => <i style={`background:${col}`} />)}</span>
+          <strong>{t.name}</strong>
+          <span>{`${t.routes} ${t.mode === 'transit' ? '' : `${t.mode} `}routes · ${t.country}`}</span>
+        </a>
       ))}
     </div>
   </section>
 
   <Ad />
 
-  <section class="feature reveal">
-    <div>
-      <h2>The whole day, on one screen</h2>
-      <p>Every departure for every route, laid out like the printed timetable at the stop, but readable on a phone. The bus you can still catch is highlighted.</p>
-      <a class="btn btn-quiet" href="/bc/kelowna/route-8">See Kelowna Route 8 <Icon name="arrow-right" /></a>
-    </div>
-    <div class="preview" aria-label="Excerpt from the Kelowna Route 8 timetable">
-      <p class="small muted" style="margin:0 0 .6rem;display:flex;gap:.5rem;align-items:center"><RouteBadge route={r8} /> {plain(r8.name)}, {r8.days[0].label}</p>
-      <div class="tt-wrap" style="margin:0;max-height:none">
-        <table class="tt">
-          <thead><tr>{previewCols.map((c) => <th scope="col">{place(c.name)}</th>)}</tr></thead>
-          <tbody>{previewRows.map((row) => <tr>{row.map((m) => m == null ? <td class="no">·</td> : <td class={clock(m).pm ? 'pm' : undefined}>{clock(m).text}</td>)}</tr>)}</tbody>
-        </table>
+  {r8 && (
+    <section class="feature reveal">
+      <div>
+        <h2>The whole day, on one screen</h2>
+        <p>Every departure for every route, laid out like the printed timetable at the stop, but readable on a phone. The departure you can still catch is highlighted.</p>
+        <a class="btn btn-quiet" href="/ca/kelowna/route-8">See Kelowna Route 8 <Icon name="arrow-right" /></a>
       </div>
-    </div>
-  </section>
+      <div class="preview" aria-label="Excerpt from the Kelowna Route 8 timetable">
+        <p class="small muted" style="margin:0 0 .6rem;display:flex;gap:.5rem;align-items:center"><RouteBadge route={r8} /> {plain(r8.name)}, {r8.days[0].label}</p>
+        <div class="tt-wrap" style="margin:0;max-height:none">
+          <table class="tt">
+            <thead><tr>{previewCols.map((c) => <th scope="col">{place(c.name)}</th>)}</tr></thead>
+            <tbody>{previewRows.map((row) => <tr>{row.map((m) => m == null ? <td class="no">·</td> : <td class={clock(m).pm ? 'pm' : undefined}>{clock(m).text}</td>)}</tr>)}</tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  )}
 
   {holiday && (
     <section class="feature flip reveal">
       <div>
         <h2>It knows tomorrow is a holiday</h2>
-        <p>Stat holidays and one-off days are read from the schedule itself, so each route says what it really runs that day instead of a generic warning.</p>
+        <p>Public holidays and one-off days are read from each country’s calendar and the timetable itself, so every route says what it really runs that day instead of a generic warning.</p>
       </div>
       <div class="preview">
-        <div class="notice" style="margin:0"><Icon name="calendar-check" /><p><b>{holiday.holiday}, {shortDate(holiday.date)}:</b> Kelowna Route {holidayRoute.short} runs the {runsLabel} timetable.</p></div>
+        <div class="notice" style="margin:0"><Icon name="calendar-check" /><p><b>{holiday.holiday}, {shortDate(holiday.date)}:</b> {holidaySys.name} Route {holidayRoute.short} runs the {runsLabel} timetable.</p></div>
       </div>
     </section>
   )}

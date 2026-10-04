@@ -1,16 +1,34 @@
 ---
 import Base from '../layouts/Base.astro';
+import { SYSTEM_INDEX, countries, META } from '../lib/data.js';
+import { plain } from '../lib/format.js';
+
+const all = countries();
+const routes = SYSTEM_INDEX.reduce((a, s) => a + s.routes, 0);
+// Every publisher and licence, once each: the credits the licences ask for.
+const sources = [...new Map(SYSTEM_INDEX.map((s) => META[s.key]?.attribution).filter(Boolean).map((a) => [`${a.text}|${a.license}`, a])).values()]
+  .sort((a, b) => a.text.localeCompare(b.text));
+const byCountry = all.map((c) => ({ ...c, sources: [...new Map(c.systems.map((s) => META[s.key]?.attribution).filter(Boolean).map((a) => [`${a.text}|${a.license}`, a])).values()] }));
 ---
-<Base title="About Stopwatch: Who Makes It and Where the Times Come From" description="Stopwatch is an independent site that turns BC Transit open data into readable bus timetables. Who builds it, where the times come from and how often they update." path="about" pageType="AboutPage">
+<Base title="About Stopwatch: Who Makes It and Where the Times Come From" description={`Stopwatch is an independent site that turns open transit data into readable timetables for ${SYSTEM_INDEX.length} systems in ${all.length} countries. Who builds it, the data sources and licences.`} path="about" pageType="AboutPage">
 <main class="wrap" style="max-width:760px">
   <h1>About Stopwatch</h1>
-  <p class="lede">Stopwatch is an independent website that turns official transit schedule data into timetables that are quick to read on a phone: the whole day for a route on one screen, with the next bus first.</p>
+  <p class="lede">Stopwatch is an independent website that turns official transit timetable data into pages that are quick to read on a phone: the whole day for a route on one screen, with the next departure first. It covers {routes.toLocaleString('en')} routes from {SYSTEM_INDEX.length} transit systems in {all.map((c) => c.name).join(', ')}.</p>
   <h2>Why it exists</h2>
-  <p>Bus schedules usually live in PDFs that are hard to read on a phone, or behind apps that want an install before they show more than the next trip. Stopwatch shows every departure on an ordinary web page that loads fast on a weak signal and keeps working offline once you have opened it.</p>
+  <p>Timetables usually live in PDFs that are hard to read on a phone, or behind apps that want an install before they show more than the next trip. Stopwatch shows every departure on an ordinary web page that loads fast on a weak signal and keeps working offline once you have opened it.</p>
   <h2>Where the times come from</h2>
-  <p>Every timetable is generated from the operator’s own published schedule data (GTFS). For British Columbia that is BC Transit’s open data, used under <a href="https://www.bctransit.com/open-data/terms-of-use" rel="nofollow">BC Transit’s open data terms</a>. Nothing is typed in by hand. The data is refreshed every week and each page says when.</p>
+  <p>Every timetable is generated from the operator’s or transport authority’s own published schedule data (GTFS). Nothing is typed in by hand. The data is refreshed every week and each page says when. Stopwatch only publishes data whose licence allows it, and each timetable page names its source and licence. Changes made to the data: times are reformatted into timetables, departure lists and maps; nothing is added.</p>
+  {byCountry.map((c) => (
+    <>
+      <h3>{c.name}</h3>
+      <ul>
+        {c.sources.map((a) => <li><a href={a.url} rel="nofollow">{plain(a.text)}</a>{a.license && <>, under {/licen[cs]e|terms/i.test(a.license) ? 'the ' : ''}<a href={a.licenseUrl} rel="nofollow license">{plain(a.license)}</a></>}</li>)}
+      </ul>
+    </>
+  ))}
+  {sources.some((a) => /Open Government Licence v3/.test(a.license || '')) && <p class="small muted">Contains public sector information licensed under the Open Government Licence v3.0.</p>}
   <h2>What it is not</h2>
-  <p>Stopwatch is independent. It is not run by, affiliated with or endorsed by BC Transit or any local government. It shows scheduled times, not live bus positions. For fares, detours, cancellations and service alerts, use the operator’s own website or app.</p>
+  <p>Stopwatch is independent. It is not run by, affiliated with or endorsed by any transit operator, transport authority or government. It shows scheduled times, not live vehicle positions. For fares, disruptions, cancellations and service alerts, use the operator’s own website or app.</p>
   <h2>Who makes it</h2>
   <p>Stopwatch is built by <a href="https://shivrajsinh.in" rel="me">Shivrajsinh Zala</a>, a web developer who builds transit and timetable tools. Found a mistake? Get in touch through that site.</p>
 </main>

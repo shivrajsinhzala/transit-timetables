@@ -30,8 +30,11 @@ function ink(hex) {
   return 1.05 / (L + 0.05) >= (L + 0.05) / 0.0535 ? '#ffffff' : '#0b0c0d';
 }
 
-const fmt = (m) => { m = ((m % 1440) + 1440) % 1440; const h = Math.floor(m / 60); return `${h % 12 || 12}:${String(m % 60).padStart(2, '0')}`; };
-const ampm = (m) => (((m % 1440) + 1440) % 1440 >= 720 ? 'pm' : 'am');
+/** 24-hour clocks in the UK and Ireland (the page says so with data-h24), 12-hour elsewhere. */
+const H24 = document.documentElement.hasAttribute('data-h24');
+const fmt = (m, h24 = H24) => { m = ((m % 1440) + 1440) % 1440; const h = Math.floor(m / 60); const mm = String(m % 60).padStart(2, '0'); return h24 ? `${String(h).padStart(2, '0')}:${mm}` : `${h % 12 || 12}:${mm}`; };
+const ampm = (m, h24 = H24) => (h24 ? '' : ((m % 1440) + 1440) % 1440 >= 720 ? 'pm' : 'am');
+const tm = (m, h24 = H24) => `${fmt(m, h24)} ${ampm(m, h24)}`.trim();
 const waitText = (w) => (w <= 0 ? 'now' : w < 60 ? `in ${w} min` : `in ${Math.floor(w / 60)} h ${w % 60 ? `${w % 60} min` : ''}`.trim());
 
 /** Which of a route's day types runs on a date: an exception first, else the weekday's. */
@@ -62,19 +65,19 @@ function setupSections() {
     const panel = key && sec.querySelector(`.panel[data-day="${key}"]`);
     if (!panel) {
       const ex = (route.exceptions || []).find((e) => e.date === t.iso);
-      if (line) line.textContent = ex && ex.runs === 'special' ? 'Today runs a special timetable. Check the operator before you travel.' : 'No buses here today.';
+      if (line) line.textContent = ex && ex.runs === 'special' ? 'Today runs a special timetable. Check the operator before you travel.' : 'No service here today.';
       return;
     }
     show(key);
     const marks = [...panel.querySelectorAll('[data-m]')].filter((el) => el.dataset.m !== '');
     const next = marks.find((el) => Number(el.dataset.m) >= t.min);
     if (!line) return;
-    if (!next) { line.textContent = 'No more buses today.'; return; }
+    if (!next) { line.textContent = 'No more departures today.'; return; }
     next.classList.add('next');
     const b = document.createElement('b');
     const m = Number(next.dataset.m);
-    b.textContent = `${fmt(m)} ${ampm(m)}`;
-    line.replaceChildren(`Next scheduled bus${sec.dataset.from ? ` from ${sec.dataset.from}` : ''}: `, b, ` (${waitText(m - t.min)})`);
+    b.textContent = tm(m, CFG.h24 ?? H24);
+    line.replaceChildren(`Next scheduled departure${sec.dataset.from ? ` from ${sec.dataset.from}` : ''}: `, b, ` (${waitText(m - t.min)})`);
   });
 }
 
@@ -84,11 +87,13 @@ function setupSections() {
  * (stop and hub pages), so a board never shows anything the timetable below it does not.
  */
 function boardRows(board) {
+  if (board._data) return board._data;
   const src = board.querySelector('script[type="application/json"]');
   if (src) return JSON.parse(src.textContent);
   if (!CFG) return null;
   return {
     tz: CFG.tz,
+    h24: CFG.h24,
     rows: [...document.querySelectorAll('[data-section]')].map((sec) => {
       const route = CFG.routes[sec.dataset.route];
       const times = {};
@@ -115,13 +120,14 @@ function renderBoard(board) {
   upcoming.sort((a, b) => a.w - b.w);
   const list = board.querySelector('ol');
   const clock = board.querySelector('[data-clock]');
-  if (clock) clock.textContent = `${fmt(t.min)} ${ampm(t.min)}`;
+  const h24 = data.h24 ?? H24;
+  if (clock) clock.textContent = tm(t.min, h24);
   const max = Number(board.dataset.rows || 5);
   if (!upcoming.length) {
     list.innerHTML = '';
     const li = document.createElement('li');
     li.className = 'empty';
-    li.textContent = 'No scheduled buses in the next three hours.';
+    li.textContent = 'No scheduled departures in the next three hours.';
     list.append(li);
     return;
   }
@@ -138,7 +144,7 @@ function renderBoard(board) {
     to.textContent = `To ${r.to}`;
     if (r.at) { const s = document.createElement('small'); s.textContent = r.at; to.append(s); }
     const time = document.createElement('time');
-    time.textContent = fmt(m);
+    time.textContent = fmt(m, h24);
     const s = document.createElement('small');
     s.textContent = waitText(w);
     time.append(s);
@@ -147,10 +153,37 @@ function renderBoard(board) {
   }));
 }
 
+/**
+ * The homepage board shows the featured city nearest the visitor (by timezone) and can switch
+ * between cities. Each city's data is a small JSON file fetched on demand.
+ */
+function setupCityBoard(board) {
+  const options = JSON.parse(board.dataset.boards);
+  let zone = '';
+  try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { /* old browser */ }
+  const match = (o) => o.tz.some((z) => (z.endsWith('/') ? zone.startsWith(z) : zone === z));
+  const chips = [...document.querySelectorAll('[data-city]')];
+  const show = async (o) => {
+    chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.city === o.key)));
+    try {
+      const data = await fetch(o.src).then((r) => r.json());
+      board._data = data;
+      const name = board.querySelector('[data-board-name]');
+      if (name) { name.textContent = `${o.city}: ${data.name}`; name.href = data.url; }
+      const foot = board.querySelector('[data-board-foot]');
+      if (foot) foot.textContent = `Scheduled departures from ${data.system}, from the published timetable. Times are local to ${o.city}.`;
+      renderBoard(board);
+    } catch { /* offline: keep what is shown */ }
+  };
+  chips.forEach((c) => c.addEventListener('click', () => show(options.find((o) => o.key === c.dataset.city))));
+  show(options.find(match) || options[0]);
+}
+
 function setupBoards() {
   const boards = document.querySelectorAll('[data-board]');
   if (!boards.length) return;
-  const tick = () => boards.forEach(renderBoard);
+  boards.forEach((b) => { if (b.dataset.boards) setupCityBoard(b); });
+  const tick = () => boards.forEach((b) => { if (!b.dataset.boards || b._data) renderBoard(b); });
   tick();
   setInterval(tick, 30_000);
 }
@@ -203,10 +236,38 @@ function setupFavs() {
 }
 
 /* ---------- search + near me ---------- */
+/*
+ * Search is split so no one downloads 100,000 stops: one index of every system, route and hub,
+ * plus the stops of the system the rider is looking at. "Near me" reads small map tiles.
+ */
 let INDEX = null;
+let GLOBAL = null;
+const here = /^\/([a-z]{2})\/([a-z0-9-]+)/.exec(location.pathname);
+function loadGlobal() {
+  if (!GLOBAL) GLOBAL = fetch('/search/index.json').then((r) => r.json());
+  return GLOBAL;
+}
 async function loadIndex() {
-  if (!INDEX) INDEX = fetch('/search.json').then((r) => r.json()).then((d) => d.items);
+  if (!INDEX) {
+    INDEX = loadGlobal().then(async (g) => {
+      const items = g.items;
+      if (here && g.systems.includes(`${here[1]}/${here[2]}`)) {
+        try { items.push(...(await fetch(`/search/${here[1]}/${here[2]}.json`).then((r) => r.json()))); } catch { /* offline */ }
+      }
+      return items;
+    });
+  }
   return INDEX;
+}
+const TILE = 4; // tiles are a quarter of a degree
+async function loadNear(la, lo) {
+  const g = await loadGlobal();
+  const have = new Set(g.tiles);
+  const y = Math.floor(la * TILE), x = Math.floor(lo * TILE);
+  const keys = [];
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) if (have.has(`${y + i}_${x + j}`)) keys.push(`${y + i}_${x + j}`);
+  const parts = await Promise.all(keys.map((k) => fetch(`/near/${k}.json`).then((r) => r.json()).catch(() => [])));
+  return parts.flat();
 }
 const norm = (s) => String(s).toLowerCase().normalize('NFKD').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
 const KIND = ['Town', 'Route', 'Hub', 'Stop'];
@@ -218,7 +279,7 @@ function score(item, q, tokens) {
   let s = [40, 30, 25, 10][type];
   if (type === 1 && short && tokens.includes(norm(short))) s += 50;
   if (norm(name).startsWith(q)) s += 15;
-  if (type === 3 && /^\d{5,}$/.test(q) && hay.includes(` ${q} `)) s += 100;
+  if (type === 3 && /^[a-z0-9]{3,}$/.test(q) && /\d/.test(q) && hay.includes(` ${q} `)) s += 100;
   return s;
 }
 
@@ -258,6 +319,7 @@ function renderResults(items, empty) {
   }));
 }
 
+const HINT = here ? 'Type a route number, a stop name or a stop number, or a town anywhere.' : 'Type a town, an operator or a route number. Open a town to search its stops.';
 function setupSearch() {
   const dialog = document.getElementById('search');
   const input = document.getElementById('search-input');
@@ -273,14 +335,14 @@ function setupSearch() {
   input.addEventListener('input', async () => {
     const q = norm(input.value);
     const mine = ++seq;
-    if (!q) { renderResults([], 'Type a town, a route number, a stop name or a 6-digit stop number.'); return; }
+    if (!q) { renderResults([], HINT); return; }
     const items = await loadIndex();
     if (mine !== seq) return;
     const tokens = q.split(' ');
     const hits = [];
     for (const it of items) { const s = score(it, q, tokens); if (s >= 0) hits.push([s, it]); }
     hits.sort((a, b) => b[0] - a[0]);
-    renderResults(hits.slice(0, 30).map((h) => h[1]), 'Nothing matches. Try the town name, or fewer words.');
+    renderResults(hits.slice(0, 30).map((h) => h[1]), here ? 'Nothing matches. Try fewer words, or the town name.' : 'Nothing matches. Try the town or operator name, or open a town to search its stops.');
   });
   input.addEventListener('keydown', (e) => {
     const links = [...document.querySelectorAll('#search-results a')];
@@ -296,7 +358,7 @@ function setupSearch() {
       location.href = links[i].href;
     }
   });
-  renderResults([], 'Type a town, a route number, a stop name or a 6-digit stop number.');
+  renderResults([], HINT);
 
   document.querySelectorAll('[data-near-me]').forEach((btn) => btn.addEventListener('click', () => {
     open();
@@ -304,15 +366,15 @@ function setupSearch() {
     renderResults([], 'Finding stops near you…');
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const { latitude: la, longitude: lo } = pos.coords;
-      const items = await loadIndex();
+      const items = await loadNear(la, lo);
       const rad = Math.PI / 180;
-      const near = items.filter((it) => it[0] === 3 && it[4]).map((it) => {
+      const near = items.filter((it) => it[4]).map((it) => {
         const dLat = (it[4] - la) * rad, dLon = (it[5] - lo) * rad;
         const x = Math.sin(dLat / 2) ** 2 + Math.cos(la * rad) * Math.cos(it[4] * rad) * Math.sin(dLon / 2) ** 2;
         const d = 2 * 6371000 * Math.asin(Math.sqrt(x));
         return [...it.slice(0, 8), d];
       }).sort((a, b) => a[8] - b[8]).slice(0, 12);
-      renderResults(near[0] && near[0][8] < 50_000 ? near : [], 'No covered stops within 50 km. Stopwatch covers British Columbia towns served by BC Transit.');
+      renderResults(near[0] && near[0][8] < 50_000 ? near : [], 'No covered stops near you yet. Stopwatch covers towns in Canada, the UK, Ireland, Australia, New Zealand and the US: pick a country from the home page.');
     }, () => renderResults([], 'Location is off. Search by stop name or number instead.'), { enableHighAccuracy: false, timeout: 10_000, maximumAge: 120_000 });
   }));
 }

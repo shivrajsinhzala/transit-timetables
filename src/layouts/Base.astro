@@ -5,7 +5,9 @@ import fontUrl from '@fontsource-variable/overpass/files/overpass-latin-wght-nor
 import '../styles/global.css';
 import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
-import { SYSTEM_INDEX } from '../lib/data.js';
+import { SYSTEM_INDEX, COUNTRIES, countries, systemsIn } from '../lib/data.js';
+import { plain } from '../lib/format.js';
+import { LANG } from '../lib/page.js';
 
 interface Props {
   title: string;
@@ -23,9 +25,20 @@ interface Props {
   modified?: string;
   /** CSS selectors of the parts a voice assistant should read out. */
   speakable?: string[];
+  /** The transit system a page belongs to: sets the language, the clock and the footer credit. */
+  system?: any;
+  /** Country code for pages that belong to a country but not a system. */
+  cc?: string;
+  lang?: string;
 }
 
-const { title, description, path, jsonLd = [], noindex = false, og = 'default', pageType = 'WebPage', modified, speakable } = Astro.props;
+const { title, description, path, jsonLd = [], noindex = false, og = 'default', pageType = 'WebPage', modified, speakable, system } = Astro.props;
+const cc = system?.cc || Astro.props.cc || null;
+const lang = Astro.props.lang || (cc ? LANG[cc] : 'en');
+const h24 = cc ? COUNTRIES[cc].h24 : false;
+const allCountries = countries();
+const footSystems = cc ? [...systemsIn(cc)].sort((a, b) => b.routes - a.routes).slice(0, 36) : [];
+const credit = system?.attribution;
 const SITE = 'https://transit.shivrajsinh.in';
 // The homepage is canonical with its trailing slash: that is the URL in the sitemap, and the
 // one Search Console and the crawl audit compare against.
@@ -46,27 +59,26 @@ const pageLd = {
   url: canonical,
   name: title,
   description,
-  inLanguage: 'en-CA',
+  inLanguage: lang,
   isPartOf: { '@id': SITE_ID },
   publisher: { '@id': ORG_ID },
   ...(updated ? { dateModified: updated } : {}),
   ...(speakable?.length ? { speakable: { '@type': 'SpeakableSpecification', cssSelector: speakable } } : {}),
 };
 const entityLd = [
-  { '@context': 'https://schema.org', '@type': 'WebSite', '@id': SITE_ID, name: 'Stopwatch', alternateName: 'Stopwatch BC bus times', url: `${SITE}/`, inLanguage: 'en-CA', publisher: { '@id': ORG_ID } },
+  { '@context': 'https://schema.org', '@type': 'WebSite', '@id': SITE_ID, name: 'Stopwatch', alternateName: 'Stopwatch transit timetables', url: `${SITE}/`, inLanguage: 'en', publisher: { '@id': ORG_ID } },
   {
     '@context': 'https://schema.org', '@type': 'Organization', '@id': ORG_ID, name: 'Stopwatch', url: `${SITE}/`,
     logo: { '@type': 'ImageObject', url: `${SITE}/icon-512.png`, width: 512, height: 512 },
-    description: 'Independent website publishing bus timetables for British Columbia transit systems from BC Transit open data.',
+    description: `Independent website publishing bus, tram, train and ferry timetables for ${SYSTEM_INDEX.length} transit systems in ${allCountries.map((c) => c.name).join(', ')}, built from the operators' open data.`,
     founder: { '@type': 'Person', '@id': PERSON_ID, name: 'Shivrajsinh Zala', jobTitle: 'Web developer', url: 'https://shivrajsinh.in', sameAs: ['https://shivrajsinh.in', 'https://github.com/shivrajsinhzala'] },
-    areaServed: { '@type': 'AdministrativeArea', name: 'British Columbia, Canada' },
+    areaServed: allCountries.map((c) => ({ '@type': 'Country', name: c.name })),
   },
 ];
 const AD_CLIENT = 'ca-pub-7164999486301748';
-const towns = [...SYSTEM_INDEX].sort((a, b) => a.name.localeCompare(b.name));
 ---
 <!doctype html>
-<html lang="en-CA">
+<html lang={lang} data-h24={h24 ? '' : undefined}>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -102,7 +114,7 @@ const towns = [...SYSTEM_INDEX].sort((a, b) => a.name.localeCompare(b.name));
     <div class="wrap">
       <a class="brand" href="/" aria-label="Stopwatch home"><Logo /> Stopwatch</a>
       <nav class="head-nav" aria-label="Site">
-        <a href="/bc" class="hide-sm">Towns</a>
+        <a href={cc ? `/${cc}` : '/#countries'} class="hide-sm">{cc ? COUNTRIES[cc].name : 'Countries'}</a>
         <a href="/about" class="hide-sm">About</a>
         <button class="search-trigger" type="button" data-search-open aria-label="Search routes and stops">
           <Icon name="magnifying-glass" /><span class="label">Route, stop or town</span><kbd>/</kbd>
@@ -118,19 +130,26 @@ const towns = [...SYSTEM_INDEX].sort((a, b) => a.name.localeCompare(b.name));
       <div>
         <a class="brand" href="/"><Logo size={26} /> Stopwatch</a>
         <p style="margin-top:1rem">
-          Every BC bus timetable on one screen, with the next bus first. Built from BC Transit’s open
-          schedule data, used under BC Transit’s <a href="https://www.bctransit.com/open-data/terms-of-use" rel="nofollow">open data terms</a>.
+          {SYSTEM_INDEX.length} transit systems in {allCountries.length} countries, every timetable on one screen with the next departure first.
+          {credit
+            ? <> {system.name} times come from <a href={credit.url} rel="nofollow">{plain(credit.text)}</a> open data{credit.license && <>, used under {/licen[cs]e|terms/i.test(credit.license) ? 'the ' : ''}<a href={credit.licenseUrl} rel="nofollow license">{plain(credit.license)}</a></>}.</>
+            : <> Built from the open schedule data that operators and transport authorities publish; every timetable page names its source and licence.</>}
         </p>
         <p>
-          Stopwatch is independent. It is not run by, affiliated with or endorsed by BC Transit or any
-          local government. Times are scheduled, not live; detours and alerts are on the operator’s own channels.
+          Stopwatch is independent. It is not run by, affiliated with or endorsed by {credit ? plain(credit.text) : 'any transit operator'} or any
+          government. Times are scheduled, not live; disruptions and alerts are on the operator’s own channels.
         </p>
         <p><a href="/about">About</a> · <a href="/privacy">Privacy</a></p>
       </div>
-      <nav aria-label="All towns">
-        <ul class="foot-towns">
-          {towns.map((t) => <li><a href={`/bc/${t.slug}`}>{t.name}</a></li>)}
+      <nav aria-label="Countries and systems">
+        <ul class="foot-countries">
+          {allCountries.map((c) => <li><a href={`/${c.cc}`} aria-current={c.cc === cc ? 'true' : undefined}>{c.name} <small>{c.systems.length}</small></a></li>)}
         </ul>
+        {footSystems.length > 0 && (
+          <ul class="foot-towns">
+            {footSystems.map((t) => <li><a href={`/${t.key}`}>{t.name}</a></li>)}
+          </ul>
+        )}
       </nav>
     </div>
   </footer>
@@ -138,7 +157,7 @@ const towns = [...SYSTEM_INDEX].sort((a, b) => a.name.localeCompare(b.name));
   <dialog class="search" id="search" aria-label="Search">
     <div class="search-box">
       <label for="search-input"><Icon name="magnifying-glass" /><span class="sr">Search</span></label>
-      <input id="search-input" type="search" autocomplete="off" spellcheck="false" placeholder="Route 8, Orchard Park, stop 103075, Kelowna…" />
+      <input id="search-input" type="search" autocomplete="off" spellcheck="false" placeholder="Route 96, Kelowna, Abingdon Street…" />
       <button class="btn btn-sm btn-quiet" type="button" data-search-close aria-label="Close search"><Icon name="x" /></button>
     </div>
     <ul class="search-results" id="search-results" role="listbox" aria-label="Results"></ul>

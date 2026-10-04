@@ -66,25 +66,36 @@ function card({ title, sub, rows }) {
     <text x="72" y="560" font-size="26" fill="#8b9198">transit.shivrajsinh.in</text>`);
 }
 
-const index = JSON.parse(fs.readFileSync('src/data/index.json', 'utf8'));
+const { SYSTEM_INDEX: index, countries, getSystem, forget } = await import('../src/lib/data.js');
+const { routeLabel, sharedMode, plural, cap, plain } = await import('../src/lib/format.js');
+const { COUNTRIES } = await import('../data/systems.mjs');
 const routes = index.reduce((a, s) => a + s.routes, 0);
+fs.rmSync('public/og', { recursive: true, force: true });
+fs.mkdirSync('public/og', { recursive: true });
 fs.writeFileSync('public/og/default.png', png(card({
-  title: 'Every BC bus timetable.',
-  sub: `${routes} routes in ${index.length} towns. No app, no PDF.`,
-  rows: [{ route: '4', to: 'UVic Exchange', time: '7:54' }, { route: '8', to: 'UBCO Exchange', time: '8:11' }, { route: '97', to: 'Westbank Exchange', time: '8:15' }],
+  title: 'Every bus, tram and train.',
+  sub: `${routes.toLocaleString('en')} routes, ${index.length} systems, ${countries().length} countries. No app.`,
+  rows: [{ route: '39A', to: 'UCD', time: '07:54', color: '#ffd200', text: '#0b0c0d' }, { route: '96', to: 'St Kilda Beach', time: '8:11', color: '#d6006f' }, { route: '504', to: 'Dundas West Stn', time: '8:15', color: '#da251d' }],
 }), 1200));
 
+const clockFor = (m, h24) => { const h = Math.floor((m % 1440) / 60); const mm = String(m % 60).padStart(2, '0'); return h24 ? `${String(h).padStart(2, '0')}:${mm}` : `${h % 12 || 12}:${mm}`; };
 for (const t of index) {
-  const sys = JSON.parse(fs.readFileSync(`src/data/systems/${t.slug}.json`, 'utf8'));
+  const sys = getSystem(t.key);
+  const h24 = COUNTRIES[t.cc].h24;
   const rows = sys.routes.slice(0, 3).map((r) => ({
-    route: r.short || '•', color: r.color, text: r.textColor,
-    to: (r.directions[0]?.stops.at(-1)?.name || r.name).replace(/\s+Bay\s+\w+$/i, '').slice(0, 26),
-    time: (() => { const m = r.summary[r.days[0]?.key]?.first ?? 0; const h = Math.floor((m % 1440) / 60); return `${h % 12 || 12}:${String(m % 60).padStart(2, '0')}`; })(),
+    route: (r.short || routeLabel(r)).slice(0, 5), color: r.color, text: r.textColor,
+    to: plain(r.directions[0]?.stops.at(-1)?.name || r.name).replace(/\s+Bay\s+\w+$/i, '').slice(0, 26),
+    time: clockFor(r.summary[r.days[0]?.key]?.first ?? 0, h24),
   }));
-  fs.writeFileSync(path.join('public/og', `${t.slug}.png`), png(card({
-    title: `${t.name} bus schedules`,
-    sub: `All ${t.routes} route${t.routes === 1 ? '' : 's'}, every stop, next bus first.`,
+  const mode = sharedMode(sys.routes, sys);
+  const said = /(bus|buses)\b|\b(trams|trains|rail|luas|ferry|ferries|coaches)\b/i.test(t.name);
+  const word = COUNTRIES[t.cc].word;
+  fs.mkdirSync(path.join('public/og', t.cc), { recursive: true });
+  fs.writeFileSync(path.join('public/og', t.cc, `${t.slug}.png`), png(card({
+    title: `${t.name.length > 22 ? t.name : `${t.name}${said || mode === 'transit' ? '' : ` ${mode}`}`} ${word}s`.slice(0, 34),
+    sub: `All ${t.routes} route${t.routes === 1 ? '' : 's'}, every stop, next ${mode === 'transit' ? 'departure' : mode === 'subway' ? 'train' : mode} first.`,
     rows,
   }), 1200));
+  forget(t.key);
 }
 console.log(`icons + ${index.length + 1} share images written`);

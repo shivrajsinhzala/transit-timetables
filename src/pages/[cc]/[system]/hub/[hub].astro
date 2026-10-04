@@ -1,0 +1,118 @@
+---
+import Base from '../../../../layouts/Base.astro';
+import Icon from '../../../../components/Icon.astro';
+import Ad from '../../../../components/Ad.astro';
+import RouteBadge from '../../../../components/RouteBadge.astro';
+import Faq from '../../../../components/Faq.astro';
+import Source from '../../../../components/Source.astro';
+import { shardSystems, hubs, routeBadges, busiestDay } from '../../../../lib/data.js';
+import { inkFor, place, plain, possessive, routeLabel, sharedVehicle, plural, stopWord, toward } from '../../../../lib/format.js';
+import { ctxFor, dateFor } from '../../../../lib/page.js';
+
+export function getStaticPaths() {
+  return shardSystems().flatMap((system) => hubs(system.key).map((hub) => ({ params: { cc: system.cc, system: system.slug, hub: hub.slug }, props: { system, hub } })));
+}
+
+const { system, hub } = Astro.props;
+const x = ctxFor(system);
+const { t, base, h24, word } = x;
+const name = plain(hub.name);
+const bay = (s) => plain(s.name).slice(name.length).trim() || plain(s.name);
+const allRoutes = [...new Map(hub.stops.flatMap((s) => routeBadges(system, s)).map((r) => [r.slug, r])).values()]
+  .sort((a, b) => (Number.parseFloat(a.short) || 1e9) - (Number.parseFloat(b.short) || 1e9));
+const total = hub.stops.reduce((a, s) => a + busiestDay(s), 0);
+const v = sharedVehicle(allRoutes, system);
+const vs = v === 'departure' ? 'departures' : plural(v);
+const stopW = stopWord(allRoutes.map((r) => r.type), system);
+const bays = stopW === 'station' ? 'platforms' : 'stops';
+const stopHref = (code) => `${base}/stop/${encodeURIComponent(code)}`;
+
+// One board for the whole interchange: every stop's departures, labelled with the bay.
+const board = {
+  tz: system.timezone,
+  h24,
+  rows: hub.stops.flatMap((s) => s.routes.map((r) => {
+    const route = system.routes.find((y) => y.slug === r.route);
+    return {
+      short: r.short, color: r.color, text: inkFor(r.color), to: toward(r.headsign), at: bay(s), url: stopHref(s.code),
+      days: route?.days.map(({ key, days }) => ({ key, days })) || [], exceptions: route?.exceptions.map(({ date, runs }) => ({ date, runs })) || [], times: r.times,
+    };
+  })),
+};
+
+// Which stop each route leaves from, and the day's first and last departure, for the answers below.
+const bayFor = allRoutes.map((r) => {
+  const at = hub.stops.filter((s) => s.routes.some((y) => y.route === r.slug)).map(bay);
+  return `${routeLabel(r)}: ${at.join(', ')}`;
+});
+const mondayTimes = hub.stops.flatMap((s) => s.routes.flatMap((r) => {
+  const d = system.routes.find((y) => y.slug === r.route)?.days.find((y) => y.days.includes(0));
+  return (d && r.times[d.key]) || [];
+})).sort((a, b) => a - b);
+const faq = [
+  [`Which stop do I need at ${name}?`, `${bayFor.slice(0, 20).join('. ')}${bayFor.length > 20 ? `, and ${bayFor.length - 20} more routes below` : ''}. Each stop's page has its full ${word}.`],
+  [`What routes leave from ${name}?`, `${allRoutes.length} route${allRoutes.length === 1 ? '' : 's'}: ${allRoutes.slice(0, 30).map((r) => (r.short ? `${r.short} ${plain(r.name)}` : plain(r.name))).join(', ')}${allRoutes.length > 30 ? ' and more' : ''}.`],
+  ...(mondayTimes.length ? [[`When is the first and last ${v} from ${name}?`, `On a Monday the first ${v} leaves at ${t(mondayTimes[0])} and the last at ${t(mondayTimes.at(-1))}, with ${mondayTimes.length} departures from all ${bays}.`]] : []),
+  ['Are these live departures?', `No. They are the scheduled times from ${possessive(system.name)} published ${word}, refreshed ${dateFor(system.builtOn, system.cc)}.`],
+];
+
+const fit = (max, ...c) => c.find((s) => s.length <= max) ?? c.at(-1);
+const title = fit(60, `${name}: Departures from All ${hub.stops.length} ${bays === 'platforms' ? 'Platforms' : 'Stops'} (${system.name})`, `${name}: Departures and ${bays === 'platforms' ? 'Platforms' : 'Stops'}`, `${name} Departures`);
+const description = fit(160, `Next ${vs} from every ${bays.slice(0, -1)} at ${name}, ${system.name}: ${allRoutes.length} routes, which ${bays.slice(0, -1)} each one leaves from, and the full ${word} for each.`, `Next ${vs} from every ${bays.slice(0, -1)} at ${name}, ${system.name}.`);
+const SITE = 'https://transit.shivrajsinh.in';
+const path = `${base.slice(1)}/hub/${hub.slug}`;
+const jsonLd = [
+  { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+    { '@type': 'ListItem', position: 1, name: x.c.name, item: `${SITE}/${system.cc}` },
+    { '@type': 'ListItem', position: 2, name: system.name, item: `${SITE}${base}` },
+    { '@type': 'ListItem', position: 3, name, item: `${SITE}/${path}` },
+  ] },
+  { '@context': 'https://schema.org', '@type': stopW === 'station' ? 'TrainStation' : 'BusStation', name, ...(hub.stops[0].lat ? { geo: { '@type': 'GeoCoordinates', latitude: hub.stops[0].lat, longitude: hub.stops[0].lon } } : {}), containedInPlace: { '@type': 'Place', name: system.area } },
+];
+---
+<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system}>
+<main class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a> › {name}</nav>
+  <div class="page-head">
+    <Icon name="bus" class="lg" />
+    <div>
+      <h1>{name}</h1>
+      <p class="sub">{system.name} · {hub.stops.length} {bays} · {allRoutes.length} routes</p>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-quiet btn-sm" type="button" data-fav={`hub:${system.key}/${hub.slug}`} data-name={name} data-sub={system.name}><Icon name="star" /><span data-fav-label>Save</span></button>
+    <button class="btn btn-quiet btn-sm" type="button" data-share><Icon name="share-network" /><span data-share-label>Share</span></button>
+    {hub.stops[0].lat && <a class="btn btn-quiet btn-sm" href={`https://www.google.com/maps/search/?api=1&query=${hub.stops[0].lat},${hub.stops[0].lon}`} rel="nofollow"><Icon name="map-trifold" /> Directions</a>}
+  </div>
+
+  <p class="lede" style="margin-top:1.2rem">{name} is a {system.name} interchange with {hub.stops.length} {bays} served by {allRoutes.length} route{allRoutes.length === 1 ? '' : 's'}. The board shows the next scheduled departures from all of them, and the list below says which {bays.slice(0, -1)} each route uses.</p>
+
+  <div class="board" data-board data-rows="8" style="margin-top:1.4rem" aria-label={`Next scheduled ${vs} at ${name}`}>
+    <div class="board-head"><strong>Departures, all {bays}</strong><span class="board-clock" data-clock></span></div>
+    <ol><li class="empty">Loading the next {vs}…</li></ol>
+    <p class="board-foot">Scheduled times, with the {bays.slice(0, -1)} each one leaves from. Up to {total} departures on a busy day.</p>
+    <script type="application/json" set:html={JSON.stringify(board)} />
+  </div>
+
+  <h2>Which {bays.slice(0, -1)} for which route</h2>
+  <ul class="list">
+    {hub.stops.map((s) => (
+      <li><a href={stopHref(s.code)}>
+        <span class="badge" style="background:var(--surface-2);color:var(--ink)">{bay(s).replace(/^(Bay|Stand|Stop|Platform)\s+/i, '').slice(0, 4)}</span>
+        <span>{bay(s)} <span class="meta">{s.code} · {[...new Map(s.routes.map((r) => [r.route + r.headsign, r])).values()].slice(0, 12).map((r) => `${r.short || plain(r.name)} to ${toward(r.headsign)}`).join(', ')}</span></span>
+        <Icon name="arrow-right" class="go" />
+      </a></li>
+    ))}
+  </ul>
+
+  <Ad />
+
+  <h2>Routes at {name}</h2>
+  <ul class="list">
+    {allRoutes.map((r) => <li><a href={`${base}/${r.slug}`}><RouteBadge route={r} /><span>{plain(r.label || r.name || routeLabel(r))}<span class="meta">{r.days.map((d) => d.label).join(', ')}</span></span><Icon name="arrow-right" class="go" /></a></li>)}
+  </ul>
+  <Faq items={faq} title={`Questions about ${name}`} />
+  <Source system={system} extra="Scheduled times, not live arrivals." />
+</main>
+</Base>

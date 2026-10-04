@@ -24,7 +24,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parse } from 'csv-parse';
 import { parse as parseSync } from 'csv-parse/sync';
-import { SYSTEMS, HOLIDAYS } from '../data/systems.mjs';
+import Holidays from 'date-holidays';
+import { SYSTEMS } from '../data/systems.mjs';
 
 const RAW = 'data/raw';
 const OUT = 'src/data/systems';
@@ -152,8 +153,32 @@ function simplify(pts, tol) {
 
 const round5 = (n) => Math.round(n * 1e5) / 1e5;
 
-async function buildSystem(feedId, meta) {
-  const zip = path.join(RAW, `${feedId}.zip`);
+/** The zip to read: the feed itself, or one mode's zip extracted from inside it (Melbourne). */
+function zipFor(meta) {
+  const outer = path.join(RAW, `${meta.feed}.zip`);
+  if (!meta.inner) return outer;
+  const inner = path.join('data/tmp', `${meta.feed}-${meta.inner.replace(/[^a-z0-9]+/gi, '-')}`);
+  if (!fs.existsSync(inner) || fs.statSync(inner).mtimeMs < fs.statSync(outer).mtimeMs) {
+    fs.mkdirSync('data/tmp', { recursive: true });
+    const fd = fs.openSync(inner, 'w');
+    try { execFileSync('unzip', ['-p', outer, meta.inner], { stdio: ['ignore', fd, 'inherit'] }); } finally { fs.closeSync(fd); }
+  }
+  return inner;
+}
+
+async function buildSystem(meta) {
+  const feedId = meta.feed;
+  const zip = zipFor(meta);
+  const hd = new Holidays(...meta.hol);
+  const holidayCache = new Map();
+  /** Public holiday name on a date in this system's region, or null. */
+  const holiday = (d) => {
+    if (!holidayCache.has(d)) {
+      const h = (hd.isHoliday(new Date(`${d}T12:00:00Z`)) || []).find((x) => x.type === 'public');
+      holidayCache.set(d, h ? h.name : null);
+    }
+    return holidayCache.get(d);
+  };
   const agency = readCsv(zip, 'agency.txt')[0] || {};
   const tz = agency.agency_timezone || 'America/Vancouver';
   const feedInfo = readCsv(zip, 'feed_info.txt')[0] || {};
@@ -177,7 +202,25 @@ async function buildSystem(feedId, meta) {
   }
 
   // --- trips and stop times for every service that runs in the range -----------------------
-  const routes = readCsv(zip, 'routes.txt');
+  // One feed can hold several systems (Otago: Dunedin and Queenstown): `agency` picks one.
+  let routes = readCsv(zip, 'routes.txt').filter((r) => !meta.agency || r.agency_id === meta.agency);
+
+  // Some feeds give each direction its own route ("Shiel Hill to Opoho", "Opoho to Shiel Hill",
+  // both route 10). Riders know one route 10 with two directions, so mirror pairs are merged:
+  // the first is kept, and the other's trips become its extra directions.
+  const ends = (n) => String(n || '').toLowerCase().replace(/\s+via\s+.*$/, '').replace(/\b(express|loop|service|direct)\b/g, '').split(/\s+(?:to|-|–|—|>)\s+/i).map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const pairKey = (r) => { const e = ends(r.route_long_name); return [r.agency_id || '', r.route_short_name || '', r.route_type, e.length === 2 ? [...e].sort().join('~') : String(r.route_long_name || '').toLowerCase()].join('|'); };
+  const mirrors = new Map();
+  for (const r of routes) { const k = pairKey(r); if (!mirrors.has(k)) mirrors.set(k, []); mirrors.get(k).push(r); }
+  const mergedInto = new Map(); // route_id -> { leader, idx }
+  for (const list of mirrors.values()) {
+    if (list.length < 2 || !list[0].route_short_name) continue;
+    list.forEach((r, idx) => mergedInto.set(r.route_id, { leader: list[0].route_id, idx }));
+    const e = ends(list[0].route_long_name);
+    if (e.length === 2) list[0].route_long_name = String(list[0].route_long_name).replace(/\s+(?:to|>)\s+/i, ' - ');
+  }
+  routes = routes.filter((r) => !mergedInto.has(r.route_id) || mergedInto.get(r.route_id).leader === r.route_id);
+  const routeIds = new Set([...routes.map((r) => r.route_id), ...mergedInto.keys()]);
   const stops = new Map(readCsv(zip, 'stops.txt').map((s) => [s.stop_id, s]));
   const shapes = new Map();
   for (const p of readCsv(zip, 'shapes.txt')) {
@@ -189,7 +232,11 @@ async function buildSystem(feedId, meta) {
   const rangeServices = new Set([...servicesOn.values()].flatMap((set) => [...set]));
   const trips = new Map();
   for (const t of readCsv(zip, 'trips.txt')) {
-    if (rangeServices.has(t.service_id)) trips.set(t.trip_id, { ...t, stops: [] });
+    if (!rangeServices.has(t.service_id) || !routeIds.has(t.route_id)) continue;
+    const m = mergedInto.get(t.route_id);
+    // A merged route's directions are its source routes' directions, kept apart.
+    const trip = m ? { ...t, route_id: m.leader, direction_id: `${m.idx}${t.direction_id || '0'}` } : { ...t };
+    trips.set(t.trip_id, { ...trip, stops: [] });
   }
   await streamCsv(zip, 'stop_times.txt', (r) => {
     const trip = trips.get(r.trip_id);
@@ -223,7 +270,7 @@ async function buildSystem(feedId, meta) {
   };
 
   // --- the usual timetable for each weekday, and the day types they form -------------------
-  const window = Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(start, i)).filter((d) => !HOLIDAYS[d]);
+  const window = Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(start, i)).filter((d) => !holiday(d));
   const usual = WEEKDAYS.map((_, w) => mode(window.filter((d) => weekday(d) === w).map(sigOf)) ?? '');
   // The services of one real date that ran the usual timetable — what the tables are built from.
   const sample = usual.map((sig, w) => window.find((d) => weekday(d) === w && sigOf(d) === sig));
@@ -247,7 +294,7 @@ async function buildSystem(feedId, meta) {
   for (let d = start; d <= (changesOn ? addDays(changesOn, -1) : end); d = addDays(d, 1)) {
     if (!differs(d)) continue;
     const same = dayTypes.find((t) => t.sig === sigOf(d));
-    exceptions.push({ date: d, holiday: HOLIDAYS[d] || null, runs: sigOf(d) === '' ? 'none' : same ? same.key : 'special' });
+    exceptions.push({ date: d, holiday: holiday(d), runs: sigOf(d) === '' ? 'none' : same ? same.key : 'special' });
   }
 
   const stopName = (id) => stops.get(id)?.stop_name || id;
@@ -255,11 +302,13 @@ async function buildSystem(feedId, meta) {
   const usedSlugs = new Set();
   const stopDepartures = new Map(); // stop_id -> Map(routeSlug|dir -> {…, times: {dayKey: []}})
 
+  const tripsByRoute = new Map();
+  for (const t of trips.values()) { if (!tripsByRoute.has(t.route_id)) tripsByRoute.set(t.route_id, []); tripsByRoute.get(t.route_id).push(t); }
   const outRoutes = [];
   for (const r of routes) {
     // Day types per route, not per system: Victoria as a whole differs on Wednesdays because a
     // handful of its 69 routes do, and that must not split route 4's Monday-to-Friday table.
-    const own = [...trips.values()].filter((t) => t.route_id === r.route_id && t.stops.length > 1);
+    const own = (tripsByRoute.get(r.route_id) || []).filter((t) => t.stops.length > 1);
     const perDay = WEEKDAYS.map((_, w) => {
       const svc = sample[w] ? servicesOn.get(sample[w]) : null;
       const ts = svc ? own.filter((t) => svc.has(t.service_id)) : [];
@@ -273,8 +322,11 @@ async function buildSystem(feedId, meta) {
     const routeTrips = [...new Set(types.flatMap((t) => t.trips))];
     if (!routeTrips.length) continue;
 
+    // Two different routes with one number (Irish Rail's "Commuter", V/Line's "Ballarat") get
+    // their long name in the slug; a counter only if that clashes too.
     let slug = r.route_short_name ? `route-${slugify(r.route_short_name)}` : slugify(r.route_long_name);
-    while (usedSlugs.has(slug)) slug += '-2';
+    if (usedSlugs.has(slug) && r.route_long_name) slug = `${slug}-${slugify(r.route_long_name).slice(0, 48).replace(/-$/, '')}`;
+    for (let n = 2; usedSlugs.has(slug); n++) slug = `${slug.replace(/-\d+$/, '')}-${n}`;
     usedSlugs.add(slug);
 
     const directions = [];
@@ -289,7 +341,9 @@ async function buildSystem(feedId, meta) {
       }
       const base = [...patterns.values()].sort((x, y) => y.length - x.length || y[0].stops.length - x[0].stops.length)[0][0];
       let cols = base.stops.map((x, i) => (x.tp ? i : -1)).filter((i) => i >= 0);
-      if (cols.length < 2) cols = [0, base.stops.length - 1];
+      // Many feeds (most UK ones) mark every stop as a timepoint or none at all; either way the
+      // flags say nothing, so spread the columns evenly along the route instead.
+      if (cols.length < 3 || cols.length === base.stops.length) cols = base.stops.map((_, i) => i);
       if (cols[0] !== 0) cols.unshift(0);
       if (cols.at(-1) !== base.stops.length - 1) cols.push(base.stops.length - 1);
       cols = thin(cols, MAX_COLUMNS);
@@ -377,6 +431,7 @@ async function buildSystem(feedId, meta) {
       slug,
       short: r.route_short_name || '',
       name: r.route_long_name || '',
+      type: r.route_type === undefined || r.route_type === "" ? 3 : Number(r.route_type),
       color: r.route_color ? `#${r.route_color}` : null,
       textColor: r.route_text_color ? `#${r.route_text_color}` : null,
       days: types.map(({ key, label, days }) => ({ key, label, days })),
@@ -392,6 +447,7 @@ async function buildSystem(feedId, meta) {
   const system = {
     feedId,
     ...meta,
+    key: `${meta.cc}/${meta.slug}`,
     timezone: tz,
     builtOn: start,
     feed: { version: feedInfo.feed_version || '', from: feedInfo.feed_start_date ? gtfsDate(feedInfo.feed_start_date) : null, to: feedInfo.feed_end_date ? gtfsDate(feedInfo.feed_end_date) : null },
@@ -416,25 +472,32 @@ async function buildSystem(feedId, meta) {
   return { system, stops: stopsOut, geo };
 }
 
-fs.mkdirSync(OUT, { recursive: true });
-fs.mkdirSync(STOPS_OUT, { recursive: true });
-const index = [];
-for (const [feedId, meta] of Object.entries(SYSTEMS)) {
-  if (!fs.existsSync(path.join(RAW, `${feedId}.zip`))) { console.warn(`skip ${feedId}: not downloaded`); continue; }
+const only = process.argv[2] ? new Set(process.argv[2].split(',')) : null;
+const index = fs.existsSync('src/data/index.json') && only ? JSON.parse(fs.readFileSync('src/data/index.json', 'utf8')) : [];
+for (const meta of SYSTEMS) {
+  const key = `${meta.cc}/${meta.slug}`;
+  if (only && !only.has(key) && !only.has(meta.cc)) continue;
+  if (!fs.existsSync(path.join(RAW, `${meta.feed}.zip`))) { console.warn(`skip ${key}: not downloaded`); continue; }
   const t0 = Date.now();
-  const { system, stops, geo } = await buildSystem(feedId, meta);
-  fs.writeFileSync(path.join(OUT, `${meta.slug}.json`), JSON.stringify(system));
+  let built;
+  try { built = await buildSystem(meta); } catch (e) { console.warn(`! ${key}: ${e.message}`); continue; }
+  const { system, stops, geo } = built;
+  if (!system.routes.length) { console.warn(`skip ${key}: no routes running in the next four weeks`); continue; }
+  for (const dir of [OUT, STOPS_OUT]) fs.mkdirSync(path.join(dir, meta.cc), { recursive: true });
+  fs.writeFileSync(path.join(OUT, meta.cc, `${meta.slug}.json`), JSON.stringify(system));
+  fs.writeFileSync(path.join(STOPS_OUT, meta.cc, `${meta.slug}.json`), JSON.stringify(stops));
   // Map data is fetched by the browser only when a rider opens a map, so it lives in public/,
   // outside the pages: one file per route, plus a lighter overview of the whole system.
-  const geoDir = path.join('public/geo', meta.slug);
+  const geoDir = path.join('public/geo', meta.cc, meta.slug);
   fs.rmSync(geoDir, { recursive: true, force: true });
   fs.mkdirSync(geoDir, { recursive: true });
   for (const r of geo.routes) fs.writeFileSync(path.join(geoDir, `${r.slug}.json`), JSON.stringify(r));
-  fs.writeFileSync(path.join('public/geo', `${meta.slug}.json`), JSON.stringify({
+  fs.writeFileSync(path.join('public/geo', meta.cc, `${meta.slug}.json`), JSON.stringify({
     routes: geo.routes.map((r) => ({ slug: r.slug, short: r.short, name: r.name, color: r.color, line: simplify(r.dirs[0]?.line || [], 0.0004) })),
   }));
-  fs.writeFileSync(path.join(STOPS_OUT, `${meta.slug}.json`), JSON.stringify(stops));
-  index.push({ slug: meta.slug, name: meta.name, area: meta.area, region: meta.region, routes: system.routes.length, stops: stops.length, builtOn: system.builtOn });
-  console.log(`${meta.slug.padEnd(20)} ${String(system.routes.length).padStart(3)} routes ${String(stops.length).padStart(5)} stops  day types: ${system.dayTypes.map((d) => d.key).join(', ') || '-'}  exceptions: ${system.exceptions.length}  (${Date.now() - t0} ms)`);
+  const entry = { key, cc: meta.cc, slug: meta.slug, name: meta.name, area: meta.area, region: meta.region, group: meta.group || null, routes: system.routes.length, stops: stops.length, modes: [...new Set(system.routes.map((r) => r.type))], builtOn: system.builtOn };
+  const i = index.findIndex((x) => x.key === key);
+  if (i >= 0) index[i] = entry; else index.push(entry);
+  console.log(`${key.padEnd(30)} ${String(system.routes.length).padStart(4)} routes ${String(stops.length).padStart(6)} stops  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 }
 fs.writeFileSync('src/data/index.json', JSON.stringify(index.sort((a, b) => b.routes - a.routes), null, 1));

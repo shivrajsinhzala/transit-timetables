@@ -1,0 +1,79 @@
+---
+import Base from '../../layouts/Base.astro';
+import Icon from '../../components/Icon.astro';
+import Ad from '../../components/Ad.astro';
+import Faq from '../../components/Faq.astro';
+import { isMain, countries, GROUPS, getSystem } from '../../lib/data.js';
+import { sharedMode, modeName, cap } from '../../lib/format.js';
+import { dateFor, LANG } from '../../lib/page.js';
+
+export function getStaticPaths() {
+  return isMain ? countries().map((c) => ({ params: { cc: c.cc }, props: { c } })) : [];
+}
+
+const { c } = Astro.props;
+const systems = [...c.systems].sort((a, b) => b.routes - a.routes);
+const routes = systems.reduce((a, s) => a + s.routes, 0);
+const stops = systems.reduce((a, s) => a + s.stops, 0);
+const builtOn = systems.map((s) => s.builtOn).sort().at(-1);
+// Colour stripes and the mode for each tile, read from the built systems (one file each).
+const modeCount = new Map();
+const info = Object.fromEntries(systems.map((s) => {
+  const sys = getSystem(s.key);
+  for (const r of sys.routes) { const m = modeName(r.type, sys); modeCount.set(m, (modeCount.get(m) || 0) + 1); }
+  return [s.key, { colors: sys.routes.map((r) => r.color).filter(Boolean).slice(0, 8), mode: sharedMode(sys.routes, sys) }];
+}));
+// "bus, streetcar and subway": the modes in this country, commonest first.
+const modeList = (() => { const m = [...modeCount.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k); return m.length > 1 ? `${m.slice(0, -1).join(', ')} and ${m.at(-1)}` : m[0]; })();
+const regions = Object.entries(c.regions).map(([slug, name]) => ({ slug, name, systems: systems.filter((s) => s.region === slug) })).filter((r) => r.systems.length);
+// British Columbia is big enough to group by part of the province.
+const sections = regions.flatMap((r) => {
+  const groups = [...new Set(r.systems.map((s) => s.group).filter(Boolean))];
+  if (!groups.length) return [{ id: r.slug, name: r.name, systems: r.systems }];
+  return groups.map((g) => ({ id: `${r.slug}-${g}`, name: `${GROUPS[g]}`, region: r.name, systems: r.systems.filter((s) => s.group === g) }));
+});
+const top = systems.slice(0, 4).map((s) => s.name);
+const W = cap(c.word);
+const title = `${c.name} ${W}s: ${systems.length} Transit Systems | Stopwatch`;
+const description = `Full ${c.word}s for ${routes.toLocaleString('en')} ${modeList} routes from ${systems.length} ${c.name} transit systems, including ${top.slice(0, 3).join(', ')}. Next departure first.`;
+const faq = [
+  [`Which ${c.name} transit systems does Stopwatch cover?`, `${systems.length} systems with ${routes.toLocaleString('en')} routes and ${stops.toLocaleString('en')} stops, from ${top.join(', ')} to ${systems.at(-1).name}. Each one has its own page with every route, a map and the busiest stops.`],
+  [`Where do the ${c.name} ${c.word}s come from?`, `From open ${c.word} data (GTFS) that the operators and transport authorities publish under open licences. Every page names its source and licence, and the data was last refreshed on ${dateFor(builtOn, c.cc)}.`],
+  [`Are these live times?`, `No. Stopwatch shows the published ${c.word} and works out the next departure from it and your phone's clock. For disruptions, check the operator.`],
+  [`Is my area missing?`, `Stopwatch only publishes ${c.word}s whose data licence allows it. More systems are added as their data is checked.`],
+];
+---
+<Base title={title} description={description} path={c.cc} pageType="CollectionPage" lang={LANG[c.cc]} cc={c.cc} speakable={['.lede', '.faq .answer']}>
+<main class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Stopwatch</a> › {c.name}</nav>
+  <h1>{c.name} {c.word}s</h1>
+  <p class="lede">Stopwatch has full {c.word}s for {systems.length} transit systems in {c.name}: {routes.toLocaleString('en')} {modeList} routes and {stops.toLocaleString('en')} stops, built from the operators' open data and refreshed every week (last on {dateFor(builtOn, c.cc)}). Every route shows the whole day and highlights the next departure.</p>
+  <div class="actions">
+    <button class="btn btn-primary" type="button" data-search-open><Icon name="magnifying-glass" /> Find a route or town</button>
+    <button class="btn btn-quiet" type="button" data-near-me><Icon name="navigation-arrow" /> Stops near me</button>
+  </div>
+  {sections.length > 1 && (
+    <nav class="jump" aria-label="Regions">
+      {sections.map((s) => <a href={`#${s.id}`}>{s.name}<small>{s.systems.length}</small></a>)}
+    </nav>
+  )}
+  {sections.map((sec, i) => (
+    <>
+      <section id={sec.id}>
+        <h2>{sec.name}{sec.region && sec.region !== c.name && <span class="muted" style="font-weight:500"> · {sec.region}</span>}</h2>
+        <div class="towns" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">
+          {sec.systems.map((s) => (
+            <a class="tile" href={`/${s.key}`} style="min-height:120px">
+              <span class="stripes" aria-hidden="true">{info[s.key].colors.map((col) => <i style={`background:${col}`} />)}</span>
+              <strong>{s.name}</strong>
+              <span>{`${s.routes} route${s.routes === 1 ? '' : 's'} · ${s.area}`}</span>
+            </a>
+          ))}
+        </div>
+      </section>
+      {i === 0 && sections.length > 2 && <Ad />}
+    </>
+  ))}
+  <Faq items={faq} title={`${c.name} ${c.word} questions`} />
+</main>
+</Base>

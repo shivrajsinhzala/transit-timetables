@@ -384,3 +384,29 @@ details.stops-detail { margin: .4rem 0 1rem; }
 details.stops-detail > summary { list-style: none; display: inline-flex; }
 details.stops-detail > summary::-webkit-details-marker { display: none; }
 @media (max-width: 720px) { .search-foot span { display: none; } }
+
+/* Countries in the footer, and the region jump list on country pages */
+.foot-countries { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 1.2rem; padding: 0; list-style: none; }
+.foot-countries a { display: inline-flex; gap: .4rem; align-items: baseline; padding: .35rem .7rem; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-2); text-decoration: none; font-weight: 600; font-size: .92rem; }
+.foot-countries a:hover, .foot-countries a[aria-current] { color: var(--ink); border-color: var(--ink-3); }
+.foot-countries small, .jump small { color: var(--ink-3); font-weight: 500; font-variant-numeric: tabular-nums; }
+.jump { display: flex; flex-wrap: wrap; gap: .45rem; margin: 1.4rem 0 .4rem; }
+.jump a { display: inline-flex; gap: .45rem; align-items: baseline; padding: .45rem .8rem; border-radius: 999px; background: var(--surface-2); color: var(--ink); text-decoration: none; font-weight: 600; font-size: .95rem; }
+.jump a:hover { background: var(--line); }
+
+/* Homepage: city switcher under the live board */
+.cities { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .8rem; }
+.city { font: inherit; font-size: .9rem; font-weight: 600; padding: .4rem .8rem; border-radius: var(--pill); border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; transition: border-color .2s var(--ease), color .2s var(--ease), transform .2s var(--ease); }
+.city:hover { color: var(--ink); border-color: var(--ink-3); }
+.city:active { transform: scale(.97); }
+.city[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+/* Homepage: country tiles, each led by a big country code in the board's digit style */
+.countries { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); margin: 1.2rem 0; }
+.country { position: relative; display: grid; gap: .25rem; padding: 1.1rem 1.2rem 1.2rem; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); color: var(--ink); text-decoration: none; transition: transform .35s var(--ease), box-shadow .35s var(--ease), border-color .35s var(--ease); }
+.country:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--ink-3); }
+.country .cc { font-family: var(--mono); font-weight: 700; font-size: 1.05rem; letter-spacing: .08em; color: var(--digit); background: var(--board); justify-self: start; padding: .2rem .5rem; border-radius: 6px; margin-bottom: .5rem; }
+.country strong { font-size: 1.35rem; letter-spacing: -.02em; }
+.country span { color: var(--ink-2); font-size: .95rem; font-variant-numeric: tabular-nums; }
+.country small { color: var(--ink-3); font-size: .85rem; }
+@media (prefers-reduced-motion: reduce) { .country, .city { transition: none; } }

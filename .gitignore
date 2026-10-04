@@ -12,3 +12,11 @@ public/geo/
 public/og/
 public/vendor/
 src/data/vendor.json
+reports/
+data/tmp/
+public/search/
+public/near/
+wrangler/
+data/*.log
+data/sitemaps/
+data/shards.prev.json

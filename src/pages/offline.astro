@@ -16,7 +16,7 @@ import Icon from '../components/Icon.astro';
       const li = document.createElement('li');
       const a = document.createElement('a');
       a.href = p;
-      a.textContent = p.replace(/^\/bc\//, '').replace(/\//g, ' › ').replace(/-/g, ' ');
+      a.textContent = p.replace(/^\/[a-z]{2}\//, '').replace(/\//g, ' › ').replace(/-/g, ' ');
       li.append(a);
       ul.append(li);
     }

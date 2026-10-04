@@ -1,0 +1,157 @@
+---
+import Base from '../../../../layouts/Base.astro';
+import Icon from '../../../../components/Icon.astro';
+import Ad from '../../../../components/Ad.astro';
+import RouteBadge from '../../../../components/RouteBadge.astro';
+import Faq from '../../../../components/Faq.astro';
+import Source from '../../../../components/Source.astro';
+import { stopSystems, pageStops, stopInShard, hubOf, nearby } from '../../../../lib/data.js';
+import { byHour, place, plain, inkFor, possessive, routeLabel, modeName, vehicle, plural, cap, stopWord, sharedVehicle, toward } from '../../../../lib/format.js';
+import { ctxFor, dateFor } from '../../../../lib/page.js';
+
+export function getStaticPaths() {
+  return stopSystems().flatMap((system) => pageStops(system.key).filter((stop) => stopInShard(system.key, stop.code)).map((stop) => ({
+    params: { cc: system.cc, system: system.slug, code: stop.code },
+    props: { system, stop },
+  })));
+}
+
+const { system, stop } = Astro.props;
+const x = ctxFor(system);
+const { t, base, h24, word, Word } = x;
+const name = plain(stop.name);
+const routeOf = (slug) => system.routes.find((r) => r.slug === slug);
+const served = stop.routes.map((r) => routeOf(r.route)).filter(Boolean);
+const types = served.map((r) => r.type);
+const stopW = stopWord(types, system);
+const v = sharedVehicle(served, system);
+const vs = v === 'departure' ? 'departures' : plural(v);
+const labelOf = (r) => { const route = routeOf(r.route); return route ? routeLabel(route) : (r.short ? `Route ${r.short}` : plain(r.name)); };
+const routeNums = [...new Set(stop.routes.map((r) => r.short || plain(r.name)))];
+const routeList = routeNums.length > 1 ? `${routeNums.slice(0, -1).join(', ')} and ${routeNums.at(-1)}` : routeNums[0];
+const firstAll = Math.min(...stop.routes.flatMap((r) => Object.values(r.times).flat()));
+const hub = hubOf(system.key, stop);
+const near = nearby(system.key, stop);
+const stopHref = (code) => `${base}/stop/${encodeURIComponent(code)}`;
+
+// Departures by weekday (0 = Monday), across every route that calls here.
+const timesOn = (wd) => stop.routes.flatMap((r) => {
+  const d = routeOf(r.route)?.days.find((dd) => dd.days.includes(wd));
+  return (d && r.times[d.key]) || [];
+}).sort((a, b) => a - b);
+const span = (wd) => { const tt = timesOn(wd); return tt.length ? { first: tt[0], last: tt.at(-1), n: tt.length, day: tt.filter((mm) => mm >= 420 && mm < 1140).length } : null; };
+const mon = span(0), sat = span(5), sun = span(6);
+const lines = [...new Map(stop.routes.map((r) => [`${r.short || r.name}>${toward(r.headsign)}`, `${labelOf(r)} to ${toward(r.headsign)}`])).values()];
+const linesText = lines.length > 8 ? `${lines.slice(0, 8).join(', ')} and ${lines.length - 8} more` : lines.join(', ');
+const spanText = (label, s) => (s ? `${label}: first ${v} ${t(s.first)}, last ${t(s.last)} (${s.n} ${vs})` : `${label}: no ${vs}`);
+const perHour = mon?.day ? mon.day / 12 : 0;
+const modeWord = (() => { const set = new Set(served.map((r) => modeName(r.type, system))); return set.size === 1 ? [...set][0] : 'transit'; })();
+const timesWord = modeWord === 'transit' ? 'Departures' : `${cap(modeWord.split(' ')[0] === 'light' ? 'train' : v)} Times`;
+
+// "orchard park exchange bay f" is a real autocomplete query: the stop's own name leads, and
+// the stop number is always kept so stops sharing a name (two sides of one road) never share a title.
+const fit = (max, ...c) => c.find((s) => s.length <= max) ?? c.at(-1);
+const title = fit(60, `${name} ${timesWord} (Stop ${stop.code})`, `${name} (Stop ${stop.code})`, `${name.slice(0, 40).trim()}… (Stop ${stop.code})`);
+const description = fit(160,
+  `${cap(v === 'departure' ? 'departure' : v)} times at ${name}, ${system.name} (stop ${stop.code}): ${routeNums.length > 1 ? 'routes' : 'route'} ${routeList}.${mon ? ` Weekdays ${t(mon.first)} to ${t(mon.last)}.` : ''} Next ${v} and full ${word}.`,
+  `${cap(v === 'departure' ? 'departure' : v)} times at ${name}, ${system.name} (stop ${stop.code}): ${routeNums.slice(0, 6).join(', ')}${routeNums.length > 6 ? ' and more' : ''}. Next ${v} and full ${word}.`,
+  `${cap(v === 'departure' ? 'departure' : v)} times at ${name}, ${system.name} (stop ${stop.code}). Next ${v} and full ${word}.`);
+
+const faq = [
+  [`Which ${v === 'departure' ? 'services' : vs} stop at ${name}?`, `${linesText} ${lines.length === 1 ? 'stops' : 'stop'} at ${name} (stop ${stop.code}) in ${system.name}.`],
+  [`When is the first and last ${v} at ${name}?`, `${[spanText('Monday', mon), spanText('Saturday', sat), spanText('Sunday', sun)].join('. ')}. Public holiday ${word}s can differ; each route page lists them.`],
+  ...(mon && mon.day ? [[`How often do ${vs} come to ${name}?`, perHour >= 1 ? `On a Monday about ${Math.round(perHour)} ${Math.round(perHour) === 1 ? v : vs} an hour stop here between ${t(420)} and ${t(1140)} (${mon.day} in those twelve hours, all routes together).` : `On a Monday ${mon.day} ${mon.day === 1 ? v : vs} stop here between ${t(420)} and ${t(1140)}, roughly one every ${Math.round(720 / mon.day)} minutes.`]] : []),
+  ...(hub ? [[`Is ${name} part of ${plain(hub.name)}?`, `Yes. It is one of ${hub.stops.length} stops at ${plain(hub.name)}. The ${plain(hub.name)} page lists the next departures from all of them and which routes use each one.`]] : []),
+  ...(near.length ? [[`What other stops are near ${name}?`, `The closest are ${near.slice(0, 3).map(({ stop: s, m }) => `${plain(s.name)} (${s.code}, about ${Math.max(1, Math.round(m / 80))} min walk)`).join(', ')}.`]] : []),
+  ['Are these live arrival times?', `No. They are the scheduled times from ${possessive(system.name)} published ${word}, refreshed ${dateFor(system.builtOn, system.cc)}. A ${v === 'departure' ? 'service' : v} can run early or late, and disruptions are not shown.`],
+];
+
+const SITE = 'https://transit.shivrajsinh.in';
+const path = `${base.slice(1)}/stop/${encodeURIComponent(stop.code)}`;
+const isRail = stopW === 'station';
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: x.c.name, item: `${SITE}/${system.cc}` },
+      { '@type': 'ListItem', position: 2, name: system.name, item: `${SITE}${base}` },
+      { '@type': 'ListItem', position: 3, name, item: `${SITE}/${path}` },
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': isRail ? 'TrainStation' : modeWord === 'ferry' ? 'BoatTerminal' : 'BusStop',
+    name,
+    identifier: stop.code,
+    ...(stop.lat ? { geo: { '@type': 'GeoCoordinates', latitude: stop.lat, longitude: stop.lon } } : {}),
+    containedInPlace: { '@type': 'Place', name: system.area },
+  },
+];
+const cfg = { tz: system.timezone, h24, routes: Object.fromEntries(stop.routes.map((r) => { const route = routeOf(r.route); return [`${r.route}|${r.headsign}`, { days: route?.days.map(({ key, days }) => ({ key, days })) || [], exceptions: route?.exceptions.map(({ date, runs }) => ({ date, runs })) || [] }]; })) };
+---
+<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system}>
+<main class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a>{hub && <> › <a href={`${base}/hub/${hub.slug}`}>{plain(hub.name)}</a></>} › Stop {stop.code}</nav>
+  <div class="page-head">
+    <Icon name="map-pin" class="lg" />
+    <div>
+      <h1>{name}</h1>
+      <p class="sub">Stop {stop.code} · {system.name} · {routeNums.length > 1 ? 'Routes' : 'Route'} {routeNums.length > 12 ? `${routeNums.slice(0, 12).join(', ')} and ${routeNums.length - 12} more` : routeList}</p>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-quiet btn-sm" type="button" data-fav={`stop:${system.key}/${stop.code}`} data-name={name} data-sub={`${system.name} · ${stop.code}`}><Icon name="star" /><span data-fav-label>Save</span></button>
+    <button class="btn btn-quiet btn-sm" type="button" data-share><Icon name="share-network" /><span data-share-label>Share</span></button>
+    {stop.lat && <a class="btn btn-quiet btn-sm" href={`https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lon}`} rel="nofollow"><Icon name="map-trifold" /> Directions</a>}
+    {hub && <a class="btn btn-quiet btn-sm" href={`${base}/hub/${hub.slug}`}><Icon name="bus" /> All of {plain(hub.name)}</a>}
+  </div>
+
+  <p class="lede" style="margin-top:1.2rem">{name} is a {modeWord === 'transit' ? 'transit' : modeWord} {stopW} on the {system.name} network (stop {stop.code}), served by {linesText}.{mon ? ` On weekdays ${vs} run from ${t(mon.first)} to ${t(mon.last)}.` : ''}{hub ? ` It is one of ${hub.stops.length} stops at ${plain(hub.name)}.` : ''}</p>
+
+  <div class="board" data-board data-rows="6" style="margin-top:1.4rem" aria-label={`Next scheduled ${vs} at ${name}`}>
+    <div class="board-head"><strong>Next {vs} here</strong><span class="board-clock" data-clock></span></div>
+    <ol><li class="empty">Loading the next {vs}…</li></ol>
+    <p class="board-foot">Scheduled times. The first {v} of the day leaves at {t(firstAll)}.</p>
+  </div>
+
+  <Ad />
+
+  {stop.routes.map((r) => { const key = `${r.route}|${r.headsign}`; const route = routeOf(r.route); return (
+    <section class="direction stop-route" data-section data-route={key} data-short={r.short || ''} data-color={r.color || ''} data-text={inkFor(r.color)} data-to={toward(r.headsign)} data-url={`${base}/${r.route}`}>
+      <h2><a href={`${base}/${r.route}`} style="text-decoration:none" aria-label={`${labelOf(r)} ${word}`}><RouteBadge route={{ short: r.short, color: r.color, textColor: route?.textColor, type: route?.type }} /></a> {labelOf(r)} <span class="muted">to {toward(r.headsign)}</span></h2>
+      <div class="tabs" role="tablist" aria-label="Day of the week">
+        {r.days.filter((d) => r.times[d.key]).map((d, i) => <button type="button" role="tab" data-day={d.key} aria-selected={i === 0 ? 'true' : 'false'}>{d.label}</button>)}
+      </div>
+      <p class="next-line" aria-live="polite"></p>
+      {r.days.filter((d) => r.times[d.key]).map((d, i) => (
+        <div class={`panel${i === 0 ? ' on' : ''}`} data-day={d.key} role="tabpanel">
+          <h3>{d.label}, {r.times[d.key].length} {r.times[d.key].length === 1 ? (route ? vehicle(route.type, system) : 'departure') : (route ? plural(vehicle(route.type, system)) : 'departures')}</h3>
+          <table class="hours">
+            <tbody>
+              {byHour(r.times[d.key], h24).map((h) => (
+                <tr><th class={h.pm ? 'pm' : undefined}>{h.label}{!h24 && <span class="sr">{h.pm ? ' pm' : ' am'}</span>}</th><td>{h.mins.map((mm) => <span data-m={mm.m}>{mm.text}</span>)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </section>
+  ); })}
+
+  <p class="small muted" style="margin-top:1.5rem">Read each row as the hour, then the minutes past it: {h24 ? '07 then 05 35 means 07:05 and 07:35.' : <>7 then 05 35 means 7:05 and 7:35. <b>Bold hours are pm.</b></>} Scheduled times from {possessive(system.name)} official {word} data, refreshed {dateFor(system.builtOn, system.cc)}. Not live arrivals.</p>
+
+  <Faq items={faq} title={`Questions about ${name}`} />
+  <Source system={system} />
+
+  {near.length > 0 && (
+    <section>
+      <h2>Stops nearby</h2>
+      <ul class="list">
+        {near.map(({ stop: s, m }) => <li><a href={stopHref(s.code)}><Icon name="map-pin" /><span>{plain(s.name)}<span class="meta">{s.code} · about {Math.max(1, Math.round(m / 80))} min walk ({Math.round(m / 10) * 10} m)</span></span><Icon name="arrow-right" class="go" /></a></li>)}
+      </ul>
+    </section>
+  )}
+</main>
+<script type="application/json" id="cfg" set:html={JSON.stringify(cfg)} />
+</Base>

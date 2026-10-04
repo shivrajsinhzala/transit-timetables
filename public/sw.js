@@ -2,10 +2,11 @@
  * Stopwatch offline support. Timetables are static, so a page a rider has opened once keeps
  * working with no signal (a ferry, a mountain road, a basement exchange):
  * - pages: network first, falling back to the last copy, then to /offline;
- * - fingerprinted assets (/_astro/*), icons and map data: cache first;
+ * - fingerprinted assets (/_a/<shard>/*, /vendor/*) and icons: cache first;
+ * - map, search and board data: the cached copy at once, refreshed in the background;
  * - everything else (ads, map tiles): left to the browser, never cached here.
  */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const PAGES = `pages-${VERSION}`;
 const ASSETS = `assets-${VERSION}`;
 const MAX_PAGES = 80;
@@ -43,18 +44,29 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  if (/^\/(_astro|geo|og)\/|\.(png|svg|woff2|webmanifest)$/.test(url.pathname) || url.pathname === '/search.json') {
+  if (/^\/(_a|_astro|vendor|og)\/|\.(png|svg|woff2|webmanifest)$/.test(url.pathname)) {
     e.respondWith((async () => {
       const cache = await caches.open(ASSETS);
       const hit = await cache.match(req);
-      if (hit && url.pathname !== '/search.json') return hit;
+      if (hit) return hit;
       try {
         const res = await fetch(req);
         if (res.ok) cache.put(req, res.clone());
         return res;
       } catch {
-        return hit || Response.error();
+        return Response.error();
       }
+    })());
+    return;
+  }
+
+  if (/^\/(geo|search|near|boards)\//.test(url.pathname)) {
+    e.respondWith((async () => {
+      const cache = await caches.open(ASSETS);
+      const hit = await cache.match(req);
+      const fresh = fetch(req).then((res) => { if (res.ok) cache.put(req, res.clone()); return res; });
+      if (hit) { e.waitUntil(fresh.catch(() => {})); return hit; }
+      try { return await fresh; } catch { return Response.error(); }
     })());
   }
 });

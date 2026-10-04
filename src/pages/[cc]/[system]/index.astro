@@ -1,0 +1,152 @@
+---
+import Base from '../../../layouts/Base.astro';
+import Icon from '../../../components/Icon.astro';
+import Ad from '../../../components/Ad.astro';
+import RouteBadge from '../../../components/RouteBadge.astro';
+import Faq from '../../../components/Faq.astro';
+import Source from '../../../components/Source.astro';
+import { shardSystems, pageStops, busiestDay, hubs, regionOf } from '../../../lib/data.js';
+import { every, shortDate, routeLabel, plain, possessive, modeName, vehicle, plural, cap, stopWord } from '../../../lib/format.js';
+import { ctxFor, dateFor } from '../../../lib/page.js';
+
+export function getStaticPaths() {
+  return shardSystems().map((system) => ({ params: { cc: system.cc, system: system.slug }, props: { system } }));
+}
+
+const { system } = Astro.props;
+const x = ctxFor(system);
+const { t, base, mode, veh, vehs, Word, word } = x;
+const n = system.routes.length;
+const reg = regionOf(system);
+const fit = (max, ...c) => c.find((s) => s.length <= max) ?? c.at(-1);
+// "Kelowna bus routes", "Melbourne Trams routes" reads badly: when the name says the mode, it is not repeated.
+const said = new RegExp(`\\b${mode === 'transit' ? 'transit' : mode}`, 'i').test(system.name) || /(bus|buses)\b|\b(trams|trains|rail|luas|ferry)\b/i.test(system.name);
+const what = said || mode === 'transit' ? system.name : `${system.name} ${mode}`;
+const What = said || mode === 'transit' ? system.name : `${system.name} ${mode.split(' ').map(cap).join(' ')}`;
+const routeWord = /train|subway/.test(mode) ? 'line' : 'route';
+const title = fit(60,
+  `${What} Routes, ${Word}s and Map (${n} ${cap(routeWord)}${n === 1 ? '' : 's'})`,
+  `${What} Routes and ${Word}s (${n} ${cap(routeWord)}s)`,
+  `${What} ${Word}s and Routes`,
+  `${What} ${Word}s`);
+
+const mainOf = (r) => r.summary[r.days[0]?.key];
+const frequent = system.routes.filter((r) => { const s = mainOf(r); return s?.gap && s.gap <= 15 && r.days[0].days.length >= 5; });
+const others = system.routes.filter((r) => !frequent.includes(r));
+// Night buses would make the day read "04:10 to 04:10": the day starts at 4 am at the
+// earliest and ends by 2:30 am, and anything outside that is left to the route pages.
+const firstsAll = system.routes.map((r) => mainOf(r)?.first).filter((m) => m != null);
+const lastsAll = system.routes.map((r) => mainOf(r)?.last).filter((m) => m != null);
+const firsts = firstsAll.filter((m) => m >= 240).length ? firstsAll.filter((m) => m >= 240) : firstsAll;
+const lasts = lastsAll.filter((m) => m <= 1590).length ? lastsAll.filter((m) => m <= 1590) : lastsAll;
+const sundayRoutes = system.routes.filter((r) => r.days.some((d) => d.days.includes(6))).length;
+const holidays = [...new Map(system.routes.flatMap((r) => r.exceptions).filter((e) => e.holiday).map((e) => [e.date, e])).values()].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4);
+const busiest = [...pageStops(system.key)].sort((a, b) => busiestDay(b) - busiestDay(a)).slice(0, 10);
+const hubList = hubs(system.key).slice(0, 12);
+const modes = [...new Set(system.routes.map((r) => modeName(r.type, system)))];
+const byMode = modes.length > 1 ? modes.map((m) => ({ m, n: system.routes.filter((r) => modeName(r.type, system) === m).length })) : null;
+const modeText = byMode ? byMode.map((b) => `${b.n} ${b.m} ${b.n === 1 ? routeWord : `${routeWord}s`}`).join(', ') : `${n} ${mode === 'transit' ? '' : `${mode} `}${routeWord}${n === 1 ? '' : 's'}`;
+const description = fit(160,
+  `All ${n} ${what} ${routeWord}s with full ${word}s, a map and the next ${veh}. First ${veh} ${t(Math.min(...firsts))}, last ${t(Math.max(...lasts))} on weekdays.`,
+  `All ${n} ${what} ${routeWord}s with full ${word}s, a map and the next ${veh}.`);
+const stopW = stopWord(system.routes.map((r) => r.type), system);
+
+const faq = [
+  [`How many ${routeWord}s does ${system.name} have?`, `${system.name} has ${modeText} in the current ${word}, serving ${system.area}.${frequent.length ? ` ${frequent.length} of them run every 15 minutes or better on weekday daytimes${frequent.length <= 12 ? `: ${frequent.map((r) => routeLabel(r)).join(', ')}` : ''}.` : ''}`],
+  [`What time do ${system.name} ${vehs} start and stop?`, `On a weekday the earliest ${routeWord} starts at ${t(Math.min(...firsts))} and the last ${veh} leaves at ${t(Math.max(...lasts))}. Each ${routeWord} page lists its own first and last ${veh} for every day.`],
+  [`Does ${system.name} run on Sundays?`, sundayRoutes ? `${sundayRoutes} of the ${n} ${routeWord}s run on Sundays.${sundayRoutes < n ? ' The others do not; their pages say which days they run.' : ''}` : `No. None of the ${n} ${routeWord}s run on Sundays in the current ${word}.`],
+  ...(holidays.length ? [[`Does ${system.name} run on public holidays?`, `${holidays.map((h) => `${h.holiday} (${shortDate(h.date)})`).join(' and ')} run a different ${word} on most ${routeWord}s. Each ${routeWord} page says which one.`]] : []),
+  [`Is there a ${system.name} ${routeWord} map?`, `Yes. Open the map on this page to see every ${routeWord}, and open a ${routeWord} to see its ${stopW}s on the map.`],
+  [`Where do the ${system.name} times come from?`, `From the open ${word} data published by ${plain(system.attribution?.text)}, refreshed ${dateFor(system.builtOn, system.cc)}. These are scheduled times, not live arrivals.`],
+];
+
+const SITE = 'https://transit.shivrajsinh.in';
+const jsonLd = [{
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: x.c.name, item: `${SITE}/${system.cc}` },
+    { '@type': 'ListItem', position: 2, name: system.name, item: `${SITE}${base}` },
+  ],
+}];
+const lede = `${system.name} is ${byMode ? 'a transit network' : `a ${mode === 'transit' ? 'transit' : mode} network`} serving ${system.area}${reg.name !== x.c.name ? `, ${reg.name}` : ''}, with ${modeText} in the current ${word}. On weekdays the first ${veh} leaves at ${t(Math.min(...firsts))} and the last at ${t(Math.max(...lasts))}${frequent.length ? `, and ${frequent.length} ${routeWord}${frequent.length === 1 ? ' runs' : 's run'} every 15 minutes or better` : ''}. Open a ${routeWord} for the whole day in both directions, with the next ${veh} highlighted.`;
+const heading = `${what} ${routeWord}s and ${word}s`;
+---
+<Base title={title} description={description} path={base.slice(1)} jsonLd={jsonLd} og={system.key} pageType="CollectionPage" modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system}>
+<main class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › {system.name}</nav>
+  <h1>{heading.charAt(0).toUpperCase() + heading.slice(1)}</h1>
+  <p class="lede">{lede}</p>
+  <div class="actions">
+    <button class="btn btn-primary" type="button" data-search-open><Icon name="magnifying-glass" /> Find a {routeWord} or {stopW}</button>
+    <button class="btn btn-quiet" type="button" data-near-me><Icon name="navigation-arrow" /> {cap(stopW)}s near me</button>
+  </div>
+
+  <section data-saved={`${base}/`} hidden>
+    <h2>Your saved {system.name} {stopW}s</h2>
+    <ul class="list"></ul>
+  </section>
+
+  {(holidays.length > 0 || system.changesOn) && (
+    <div class="notice"><Icon name="calendar-check" /><div>
+      {holidays.length > 0 && <p><b>Coming up:</b> {holidays.map((e) => `${e.holiday}, ${shortDate(e.date)}`).join(' and ')}. Each {routeWord} page says which {word} it runs that day.</p>}
+      {system.changesOn && <p><b>{Word} change on {dateFor(system.changesOn, system.cc)}.</b> These pages show the current {word}.</p>}
+    </div></div>
+  )}
+
+  {frequent.length > 0 && (
+    <section>
+      <h2>Frequent {routeWord}s</h2>
+      <p class="muted">A {veh === 'departure' ? 'service' : veh} every 15 minutes or better on weekday daytimes.</p>
+      <ul class="list">
+        {frequent.map((r) => { const s = mainOf(r); return (
+          <li><a href={`${base}/${r.slug}`}><RouteBadge route={r} /><span>{plain(r.label || r.name || routeLabel(r))}<span class="meta">{byMode ? `${cap(modeName(r.type, system))} · ` : ''}{every(s.gap)} · {t(s.first)} to {t(s.last)}</span></span><Icon name="arrow-right" class="go" /></a></li>
+        ); })}
+      </ul>
+    </section>
+  )}
+
+  <section>
+    <h2>{frequent.length ? `All other ${routeWord}s` : `All ${routeWord}s`}</h2>
+    <div class="list-cols">
+      {[others.slice(0, Math.ceil(others.length / 2)), others.slice(Math.ceil(others.length / 2))].map((col) => col.length > 0 && (
+        <ul class="list">
+          {col.map((r) => { const d = r.days[0]; const s = r.summary[d.key]; return (
+            <li><a href={`${base}/${r.slug}`}><RouteBadge route={r} /><span>{plain(r.label || r.name || routeLabel(r))}<span class="meta">{byMode ? `${cap(modeName(r.type, system))} · ` : ''}{r.days.map((dd) => dd.label).join(', ')}{s && `. From ${t(s.first)}`}</span></span><Icon name="arrow-right" class="go" /></a></li>
+          ); })}
+        </ul>
+      ))}
+    </div>
+  </section>
+
+  <section>
+    <h2>{system.name} {routeWord} map</h2>
+    <div class="map" data-map={`/geo/${system.key}.json`}>
+      <button class="map-open" type="button"><Icon name="map-trifold" />Show all {n} {routeWord}s on a map</button>
+    </div>
+  </section>
+
+  <Ad />
+
+  {hubList.length > 0 && (
+    <section>
+      <h2>Stations, interchanges and hubs</h2>
+      <ul class="list">
+        {hubList.map((h) => <li><a href={`${base}/hub/${h.slug}`}><Icon name="bus" /><span>{plain(h.name)}<span class="meta">{h.stops.length} {stopW === 'station' ? 'platforms' : 'bays and stops'} · all departures in one place</span></span><Icon name="arrow-right" class="go" /></a></li>)}
+      </ul>
+    </section>
+  )}
+
+  {busiest.length > 0 && (
+    <section>
+      <h2>Busiest {stopW}s</h2>
+      <ul class="list">
+        {busiest.map((st) => <li><a href={`${base}/stop/${encodeURIComponent(st.code)}`}><Icon name="map-pin" /><span>{plain(st.name)}<span class="meta">{cap(stopW)} {st.code} · {busiestDay(st)} {vehs} on its busiest day</span></span><Icon name="arrow-right" class="go" /></a></li>)}
+      </ul>
+    </section>
+  )}
+
+  <Faq items={faq} title={`${system.name} questions`} />
+  <Source system={system} extra="Disruptions and service alerts are published by the operator." />
+</main>
+</Base>

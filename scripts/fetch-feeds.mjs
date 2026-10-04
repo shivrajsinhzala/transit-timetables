@@ -13,7 +13,8 @@ import { SYSTEMS } from '../data/systems.mjs';
 const RAW = 'data/raw';
 fs.mkdirSync(RAW, { recursive: true });
 let failed = 0;
-await Promise.all(Object.keys(SYSTEMS).map(async (id) => {
+const FEEDS = [...new Set(SYSTEMS.map((s) => s.feed))];
+await Promise.all(FEEDS.map(async (id) => {
   const url = `https://files.mobilitydatabase.org/${id}/latest.zip`;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
@@ -23,7 +24,7 @@ await Promise.all(Object.keys(SYSTEMS).map(async (id) => {
     fs.writeFileSync(path.join(RAW, `${id}.zip`), buf);
   } catch (e) {
     failed++;
-    console.warn(`! ${id} (${SYSTEMS[id].slug}): ${e.message} — keeping the previous file`);
+    console.warn(`! ${id}: ${e.message}, keeping the previous file`);
   }
 }));
-console.log(`${Object.keys(SYSTEMS).length - failed}/${Object.keys(SYSTEMS).length} feeds downloaded`);
+console.log(`${FEEDS.length - failed}/${FEEDS.length} feeds downloaded`);
