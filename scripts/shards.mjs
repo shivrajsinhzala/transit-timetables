@@ -29,17 +29,31 @@ for (const meta of SYSTEM_INDEX) {
   forget(meta.key);
 }
 
-// First fit, biggest first. Ties broken by key so the same data always gives the same plan.
+// Sticky: a system stays in the shard it was in last week while it still fits there. Shards
+// are deployed one after another and the router last, so a system that moves is briefly
+// unreachable; keeping moves rare keeps the weekly refresh invisible. The rest go first fit,
+// biggest first, ties broken by key so the same data always gives the same plan.
 items.sort((a, b) => b.size - a.size || a.key.localeCompare(b.key) || (a.bucket ?? -1) - (b.bucket ?? -1));
-const shards = [];
+const prev = fs.existsSync('src/data/shards.json') ? JSON.parse(fs.readFileSync('src/data/shards.json', 'utf8')) : null;
+const shards = (prev?.shards || []).map((id) => ({ id, size: 0, items: [] }));
+const fits = (sh, it) => sh.size + it.size <= CAPACITY && !(it.bucket != null && sh.items.some((y) => y.key === it.key && y.bucket != null));
+const put = (sh, it) => { sh.size += it.size; sh.items.push(it); };
+const rest = [];
 for (const it of items) {
-  let sh = shards.find((x) => x.size + it.size <= CAPACITY && !(it.bucket != null && x.items.some((y) => y.key === it.key && y.bucket != null)));
-  if (!sh) shards.push(sh = { id: `s${shards.length + 1}`, size: 0, items: [] });
-  sh.size += it.size;
-  sh.items.push(it);
+  const was = it.bucket == null ? prev?.systems?.[it.key] : prev?.split?.[it.key]?.length === it.of ? prev.split[it.key][it.bucket] : null;
+  const sh = was && shards.find((x) => x.id === was);
+  if (sh && fits(sh, it)) put(sh, it); else rest.push(it);
 }
+let next = shards.length;
+for (const it of rest) {
+  let sh = shards.find((x) => fits(x, it));
+  if (!sh) shards.push(sh = { id: `s${++next}`, size: 0, items: [] });
+  put(sh, it);
+}
+const moved = rest.filter((it) => prev && (it.bucket == null ? prev.systems?.[it.key] : prev.split?.[it.key])).map((it) => it.key);
+if (moved.length) console.log(`moved between shards: ${[...new Set(moved)].join(', ')}`);
 
-const plan = { generated: new Date().toISOString(), shards: shards.map((s) => s.id), systems: {}, split: {}, sizes: {} };
+const plan = { generated: new Date().toISOString(), shards: shards.filter((s) => s.items.length).map((s) => s.id), systems: {}, split: {}, sizes: {} };
 for (const sh of shards) {
   plan.sizes[sh.id] = sh.size;
   for (const it of sh.items) {

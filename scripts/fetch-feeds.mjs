@@ -1,30 +1,52 @@
 #!/usr/bin/env node
 /**
- * Downloads the latest GTFS for every system in data/systems.mjs into data/raw/.
+ * Downloads the latest GTFS for every feed in data/systems.mjs into data/raw/.
  *
- * From the Mobility Database's mirror (files.mobilitydatabase.org), not BC Transit's own export
- * server: the mirror holds the same file, and a weekly refresh of 33 feeds should not be load on
- * the operator. A failed download keeps the previous file, so one bad night cannot empty a town.
+ * From the Mobility Database's mirror (files.mobilitydatabase.org), not the operators' own
+ * servers: the mirror holds the same files, and a weekly refresh should not be load on them.
+ * - Six downloads at a time, each written to a temporary file and renamed only when complete,
+ *   so a failed or cut-off download keeps the previous file: one bad night cannot empty a town.
+ * - An unchanged feed is not downloaded again (If-None-Match with the last ETag).
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { SYSTEMS } from '../data/systems.mjs';
 
 const RAW = 'data/raw';
 fs.mkdirSync(RAW, { recursive: true });
-let failed = 0;
 const FEEDS = [...new Set(SYSTEMS.map((s) => s.feed))];
-await Promise.all(FEEDS.map(async (id) => {
-  const url = `https://files.mobilitydatabase.org/${id}/latest.zip`;
+const stats = { new: 0, same: 0, failed: 0 };
+
+async function fetchFeed(id) {
+  const file = path.join(RAW, `${id}.zip`);
+  const etagFile = path.join(RAW, `${id}.etag`);
+  const tmp = `${file}.part`;
+  const headers = fs.existsSync(file) && fs.existsSync(etagFile) ? { 'If-None-Match': fs.readFileSync(etagFile, 'utf8').trim() } : {};
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+    const res = await fetch(`https://files.mobilitydatabase.org/${id}/latest.zip`, { headers, signal: AbortSignal.timeout(15 * 60_000) });
+    if (res.status === 304) { stats.same++; return; }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length < 1000 || buf.subarray(0, 2).toString() !== 'PK') throw new Error('not a zip');
-    fs.writeFileSync(path.join(RAW, `${id}.zip`), buf);
+    await pipeline(Readable.fromWeb(res.body), fs.createWriteStream(tmp));
+    const fd = fs.openSync(tmp, 'r');
+    const head = Buffer.alloc(2);
+    fs.readSync(fd, head, 0, 2, 0);
+    fs.closeSync(fd);
+    if (fs.statSync(tmp).size < 1000 || head.toString() !== 'PK') throw new Error('not a zip');
+    fs.renameSync(tmp, file);
+    const etag = res.headers.get('etag');
+    if (etag) fs.writeFileSync(etagFile, etag); else fs.rmSync(etagFile, { force: true });
+    stats.new++;
   } catch (e) {
-    failed++;
+    fs.rmSync(tmp, { force: true });
+    stats.failed++;
     console.warn(`! ${id}: ${e.message}, keeping the previous file`);
   }
-}));
-console.log(`${FEEDS.length - failed}/${FEEDS.length} feeds downloaded`);
+}
+
+const queue = [...FEEDS];
+await Promise.all(Array.from({ length: 6 }, async () => { while (queue.length) await fetchFeed(queue.shift()); }));
+console.log(`${FEEDS.length} feeds: ${stats.new} downloaded, ${stats.same} unchanged, ${stats.failed} failed`);
+// Every feed failing means the network or the mirror is down: stop rather than rebuild stale data.
+if (stats.failed === FEEDS.length) process.exit(1);
