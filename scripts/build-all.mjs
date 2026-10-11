@@ -14,7 +14,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-const SITE = 'https://transit.shivrajsinh.in';
 const args = process.argv.slice(2);
 const DEPLOY = args.includes('--deploy');
 const only = args.find((a) => !a.startsWith('--'));
@@ -99,12 +98,11 @@ for (const shard of SHARDS) {
   const dir = `dist/${shard}`;
   if (shard === 'main') {
     prune(dir, (rel) => !rel.startsWith('geo/'));
-    // One sitemap index: main's own sitemap and every shard's.
+    // One sitemap index over main's sitemap and every shard's, regrouped by page type
+    // (scripts/sitemaps.mjs): core pages first, stop pages after.
     fs.mkdirSync(`${dir}/sitemaps`, { recursive: true });
     for (const f of fs.readdirSync(STAGE)) fs.copyFileSync(path.join(STAGE, f), `${dir}/sitemaps/${f}`);
-    const maps = [...fs.readdirSync(dir).filter((f) => /^sitemap-\d+\.xml$/.test(f)), ...fs.readdirSync(`${dir}/sitemaps`).sort().map((f) => `sitemaps/${f}`)];
-    const today = new Date().toISOString().slice(0, 10);
-    fs.writeFileSync(`${dir}/sitemap-index.xml`, `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${maps.map((m) => `<sitemap><loc>${SITE}/${m}</loc><lastmod>${today}</lastmod></sitemap>`).join('')}</sitemapindex>\n`);
+    run('node', ['scripts/sitemaps.mjs', dir]);
   } else {
     for (const f of fs.readdirSync(dir)) {
       const m = /^sitemap-(\d+)\.xml$/.exec(f);

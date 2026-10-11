@@ -31,18 +31,29 @@ if [ "${1:-}" = "--check" ]; then
   exit 0
 fi
 
-start=$(date +%s)
-echo "=== $(date) refresh started" >> "$LOG"
-# caffeinate: an idle Mac must not fall asleep halfway through a deploy.
-if caffeinate -i npm run refresh >> "$LOG" 2>&1; then
-  mins=$(( ($(date +%s) - start) / 60 ))
-  echo "=== $(date) done in ${mins} min" >> "$LOG"
-  notify "Done" "Every timetable rebuilt and deployed in ${mins} min."
-else
-  echo "=== $(date) FAILED" >> "$LOG"
-  notify "Failed" "The site still serves last week's timetables. Log: data/logs/$(basename "$LOG")"
-  exit 1
-fi
+# launchd runs a missed job the moment the Mac wakes, often before Wi-Fi is back: on 5 Oct 2026
+# all 84 feeds failed within two seconds that way. Wait up to 30 minutes for the feed host.
+online() { curl -sfI --max-time 15 https://files.mobilitydatabase.org/mdb-2571/latest.zip >/dev/null; }
+for _ in {1..30}; do online && break; sleep 60; done
+
+# Three attempts, 30 minutes apart, before giving up until next week.
+for attempt in 1 2 3; do
+  start=$(date +%s)
+  echo "=== $(date) refresh started (attempt ${attempt})" >> "$LOG"
+  # caffeinate: an idle Mac must not fall asleep halfway through a deploy.
+  if caffeinate -i npm run refresh >> "$LOG" 2>&1; then
+    mins=$(( ($(date +%s) - start) / 60 ))
+    echo "=== $(date) done in ${mins} min" >> "$LOG"
+    notify "Done" "Every timetable rebuilt and deployed in ${mins} min."
+    break
+  fi
+  echo "=== $(date) FAILED (attempt ${attempt})" >> "$LOG"
+  if [ "$attempt" = 3 ]; then
+    notify "Failed" "The site still serves last week's timetables. Log: data/logs/$(basename "$LOG")"
+    exit 1
+  fi
+  caffeinate -i sleep 1800
+done
 
 # Keep the last eight weeks of logs.
 /bin/ls -1t data/logs/refresh-*.log 2>/dev/null | tail -n +9 | xargs rm -f
