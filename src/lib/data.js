@@ -81,6 +81,17 @@ export function getSystem(key) {
   });
 }
 
+/**
+ * A system's busiest routes, by trips on their busiest day type: what the homepage and country
+ * pages link to directly, so search engines reach the route pages riders look for in one hop.
+ */
+export function busiestRoutes(key, n = 6) {
+  const sys = getSystem(key);
+  if (!sys) return [];
+  const trips = (r) => Math.max(0, ...Object.values(r.summary || {}).map((s) => s.trips || 0));
+  return [...sys.routes].sort((a, b) => trips(b) - trips(a)).slice(0, n).map((route) => ({ route, url: `/${key}/${route.slug}` }));
+}
+
 export function getStops(key) {
   return memo(`stops:${key}`, () => {
     const [cc, slug] = key.split('/');
