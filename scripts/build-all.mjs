@@ -9,6 +9,8 @@
  *   5. check every page (scripts/verify-build.mjs) and write the Workers configs.
  * `--deploy` deploys each shard as soon as it is built and checked, then deletes it: the whole
  * site is ~6.5 GB of HTML, more than the disk may have free. Main goes last.
+ * `--server` deploys to our own server over SSH instead (scripts/deploy-server.mjs): each shard
+ * goes into one new release there as it is built, and the release goes live after main.
  * `node scripts/build-all.mjs s3` rebuilds one shard (after a full build), then main, which
  * must carry that shard's new scripts.
  *
@@ -20,9 +22,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { startRelease, syncShard, finishRelease } from './deploy-server.mjs';
 
 const args = process.argv.slice(2);
 const DEPLOY = args.includes('--deploy');
+const SERVER = args.includes('--server');
 const only = args.find((a) => !a.startsWith('--'));
 const run = (cmd, args2, env = {}) => execFileSync(cmd, args2, { stdio: 'inherit', env: { ...process.env, ...env } });
 
@@ -104,6 +108,8 @@ function writeRouterConfig(geoInMain) {
   }, null, 2)}\n`);
 }
 
+// Opened before the first build, so a wrong server setting fails in seconds, not after an hour.
+const release = SERVER ? startRelease({ partial: Boolean(only) }) : null;
 let total = 0;
 for (const shard of SHARDS) {
   if (freeGB() < 2) throw new Error(`only ${freeGB().toFixed(1)} GB free: a shard needs about 1.5 GB while it is built`);
@@ -147,11 +153,15 @@ for (const shard of SHARDS) {
   if (n > 19_500) throw new Error(`${shard} has ${n} files, over the Workers limit`);
   console.log(`${shard}: ${n} files`);
   run('node', ['scripts/verify-build.mjs', dir]);
-  if (DEPLOY) {
+  if (SERVER) {
+    syncShard(release, dir);
+    if (shard === 'main') finishRelease(release);
+    else fs.rmSync(dir, { recursive: true, force: true });
+  } else if (DEPLOY) {
     if (shard === 'main') run('npx', ['wrangler', 'deploy']);
     else run('npx', ['wrangler', 'deploy', '-c', `wrangler/${shard}.jsonc`]);
     // Deployed: the disk is needed for the next shard.
     if (shard !== 'main') fs.rmSync(dir, { recursive: true, force: true });
   }
 }
-console.log(`${total} files in ${SHARDS.length} deployment${SHARDS.length === 1 ? '' : 's'}${DEPLOY ? ', all deployed' : ''}`);
+console.log(`${total} files in ${SHARDS.length} deployment${SHARDS.length === 1 ? '' : 's'}${DEPLOY || SERVER ? ', all deployed' : ''}`);
