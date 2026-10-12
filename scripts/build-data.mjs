@@ -202,8 +202,10 @@ async function buildSystem(meta) {
   }
 
   // --- trips and stop times for every service that runs in the range -----------------------
-  // One feed can hold several systems (Otago: Dunedin and Queenstown): `agency` picks one.
-  let routes = readCsv(zip, 'routes.txt').filter((r) => !meta.agency || r.agency_id === meta.agency);
+  // One feed can hold several systems (Otago: Dunedin and Queenstown): `agency` picks one, or a
+  // list (Adelaide Metro is four contractors and the Rail Commissioner, in a feed with country coaches).
+  const agencies = meta.agency && [].concat(meta.agency);
+  let routes = readCsv(zip, 'routes.txt').filter((r) => !agencies || agencies.includes(r.agency_id));
 
   // Some feeds give each direction its own route ("Shiel Hill to Opoho", "Opoho to Shiel Hill",
   // both route 10). Riders know one route 10 with two directions, so mirror pairs are merged:
@@ -222,12 +224,6 @@ async function buildSystem(meta) {
   routes = routes.filter((r) => !mergedInto.has(r.route_id) || mergedInto.get(r.route_id).leader === r.route_id);
   const routeIds = new Set([...routes.map((r) => r.route_id), ...mergedInto.keys()]);
   const stops = new Map(readCsv(zip, 'stops.txt').map((s) => [s.stop_id, s]));
-  const shapes = new Map();
-  for (const p of readCsv(zip, 'shapes.txt')) {
-    if (!shapes.has(p.shape_id)) shapes.set(p.shape_id, []);
-    shapes.get(p.shape_id).push([Number(p.shape_pt_sequence), Number(p.shape_pt_lon), Number(p.shape_pt_lat)]);
-  }
-  for (const [id, pts] of shapes) shapes.set(id, pts.sort((a, b) => a[0] - b[0]).map(([, lon, lat]) => [lon, lat]));
   const geo = { routes: [] };
   const rangeServices = new Set([...servicesOn.values()].flatMap((set) => [...set]));
   const trips = new Map();
@@ -238,6 +234,18 @@ async function buildSystem(meta) {
     const trip = m ? { ...t, route_id: m.leader, direction_id: `${m.idx}${t.direction_id || '0'}` } : { ...t };
     trips.set(t.trip_id, { ...trip, stops: [] });
   }
+  // Streamed, keeping only this system's shapes: a UK regional feed's shapes.txt is ~1 GB and
+  // holds every operator in the region.
+  const shapeIds = new Set([...trips.values()].map((t) => t.shape_id).filter(Boolean));
+  const shapes = new Map();
+  if (shapeIds.size && listing(zip).includes('shapes.txt')) {
+    await streamCsv(zip, 'shapes.txt', (p) => {
+      if (!shapeIds.has(p.shape_id)) return;
+      if (!shapes.has(p.shape_id)) shapes.set(p.shape_id, []);
+      shapes.get(p.shape_id).push([Number(p.shape_pt_sequence), Number(p.shape_pt_lon), Number(p.shape_pt_lat)]);
+    });
+  }
+  for (const [id, pts] of shapes) shapes.set(id, pts.sort((a, b) => a[0] - b[0]).map(([, lon, lat]) => [lon, lat]));
   await streamCsv(zip, 'stop_times.txt', (r) => {
     const trip = trips.get(r.trip_id);
     if (!trip) return;
