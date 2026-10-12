@@ -9,6 +9,14 @@ The build doesn't change: it still builds shard by shard, which keeps memory and
 `--server` copies each shard into one new release on the server over SSH, and the release goes
 live, all at once, after the last one (`scripts/deploy-server.mjs`).
 
+## Quick way: one command
+
+```bash
+deploy/setup-server.sh user@host     # steps 1–3 below: server setup, server.env, build, upload, checks
+```
+
+Then do step 4 (Cloudflare) by hand.
+
 ## 1. Prepare the server (once)
 
 Any Linux server with SSH. About 15 GB free disk: one release is ~6.5 GB, and the older
@@ -57,7 +65,7 @@ Each refresh after that sends only the files that changed.
    `/etc/nginx/sites-available/stopwatch`:
    ```nginx
    listen 443 ssl http2;        # nginx 1.25+ may warn this form is deprecated; it still works
-   listen [::]:443 ssl http2;
+   # listen [::]:443 ssl http2;   # only if the server has IPv6
    ssl_certificate     /etc/ssl/stopwatch.pem;
    ssl_certificate_key /etc/ssl/stopwatch.key;
    ```
