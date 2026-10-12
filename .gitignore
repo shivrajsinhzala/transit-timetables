@@ -21,3 +21,5 @@ data/*.log
 data/sitemaps/
 data/shards.prev.json
 data/logs/
+data/indexnow-sent.txt
+data/shard-assets/

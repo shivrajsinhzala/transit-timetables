@@ -38,6 +38,16 @@ Or step by step: `npm run fetch` (GTFS into `data/raw/`, from the Mobility Datab
 `npm run indexnow` (tells Bing and other IndexNow engines about every URL). Feeds change every few months and each build only looks
 four weeks ahead, so refresh at least weekly.
 
+## Worker request limit
+
+Only page loads run the router Worker (`worker/router.js`); scripts (`/_a/`) and map data
+(`/geo/`) are copied into the main deployment and served as static assets, which are free and
+uncounted. On Workers Free the router gets 100,000 runs a day; past that the site shows
+Cloudflare error 1027 until midnight UTC. With ~98,000 pages and search crawlers, that is close:
+Workers Paid ($5 a month, 10 million requests) removes the ceiling. IndexNow sends the core
+pages every week but only new stop pages (`scripts/indexnow.mjs`), so engines don't re-crawl the
+whole site at once.
+
 ## How a timetable is decided
 
 All in `scripts/build-data.mjs`, documented at the top of that file:
