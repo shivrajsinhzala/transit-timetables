@@ -4,6 +4,7 @@ import Icon from '../components/Icon.astro';
 import Ad from '../components/Ad.astro';
 import Faq from '../components/Faq.astro';
 import RouteBadge from '../components/RouteBadge.astro';
+import PopularRoutes from '../components/PopularRoutes.astro';
 import { SYSTEM_INDEX, countries, getSystem } from '../lib/data.js';
 import { clock, shortDate, place, plain, sharedMode, plural } from '../lib/format.js';
 import { FEATURED } from '../lib/featured.js';
@@ -108,6 +109,8 @@ const faq = [
       ))}
     </div>
   </section>
+
+  <PopularRoutes title="Popular routes" keys={FEATURED.map((f) => f.key)} />
 
   <Ad />
 

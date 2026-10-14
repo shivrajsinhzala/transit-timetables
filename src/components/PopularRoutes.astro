@@ -1,0 +1,38 @@
+---
+import Icon from './Icon.astro';
+import RouteBadge from './RouteBadge.astro';
+import { getSystem, busiestRoutes } from '../lib/data.js';
+import { routeLabel, plain, every, cap, modeName } from '../lib/format.js';
+
+/**
+ * The busiest routes of a few systems, linked straight from a page search engines already know
+ * (home, country), so route pages are one hop away instead of two. Busiest = most trips a day.
+ */
+interface Props { title: string; keys: string[]; per?: number }
+const { title, keys, per = 4 } = Astro.props;
+const items = keys.flatMap((key) => {
+  const sys = getSystem(key);
+  if (!sys) return [];
+  return busiestRoutes(key, per).map(({ route, url }) => {
+    const label = routeLabel(route);
+    const name = plain(route.name);
+    const s = route.summary[route.days[0].key];
+    return { route, url, text: `${sys.name} ${label}`, sub: [name && name !== label ? name : '', cap(modeName(route.type, sys)), s?.gap ? every(s.gap) : ''].filter(Boolean).join(' · ') };
+  });
+});
+const half = Math.ceil(items.length / 2);
+---
+{items.length > 0 && (
+  <section class="reveal">
+    <h2>{title}</h2>
+    <div class="list-cols">
+      {[items.slice(0, half), items.slice(half)].map((col) => col.length > 0 && (
+        <ul class="list">
+          {col.map((it) => (
+            <li><a href={it.url}><RouteBadge route={it.route} /><span>{it.text}<span class="meta">{it.sub}</span></span><Icon name="arrow-right" class="go" /></a></li>
+          ))}
+        </ul>
+      ))}
+    </div>
+  </section>
+)}

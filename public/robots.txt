@@ -1,6 +1,13 @@
 User-agent: *
 Allow: /
 
+# Scrapers that send no visitors and crawl the whole site every day
+User-agent: ShapBot
+Disallow: /
+
+User-agent: AionBot
+Disallow: /
+
 # AI assistants and answer engines are welcome; a site map for them is at /llms.txt
 
 Sitemap: https://transit.shivrajsinh.in/sitemap-index.xml

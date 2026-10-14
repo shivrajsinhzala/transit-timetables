@@ -3,6 +3,7 @@ import Base from '../../layouts/Base.astro';
 import Icon from '../../components/Icon.astro';
 import Ad from '../../components/Ad.astro';
 import Faq from '../../components/Faq.astro';
+import PopularRoutes from '../../components/PopularRoutes.astro';
 import { isMain, countries, GROUPS, getSystem } from '../../lib/data.js';
 import { sharedMode, modeName, cap } from '../../lib/format.js';
 import { dateFor, LANG } from '../../lib/page.js';
@@ -74,6 +75,7 @@ const faq = [
       {i === 0 && sections.length > 2 && <Ad />}
     </>
   ))}
+  <PopularRoutes title={`Popular routes in ${c.name}`} keys={systems.slice(0, 4).map((s) => s.key)} per={5} />
   <Faq items={faq} title={`${c.name} ${c.word} questions`} />
 </main>
 </Base>
