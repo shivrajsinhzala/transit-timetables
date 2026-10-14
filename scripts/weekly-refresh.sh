@@ -24,10 +24,20 @@ if [ "$free_gb" -lt 3 ]; then
   exit 1
 fi
 
+# With deploy/server.env the site goes to our own server over SSH (deploy/README.md), else to
+# Cloudflare Workers.
+if [ -f deploy/server.env ]; then REFRESH=refresh:server; else REFRESH=refresh; fi
+
 if [ "${1:-}" = "--check" ]; then
   echo "node $(node -v), npm $(npm -v), disk ${free_gb} GB free"
-  if npx --no-install wrangler whoami 2>&1 | grep -qi "not authenticated"; then echo "wrangler: NOT signed in"; exit 1; fi
-  echo "wrangler: signed in"
+  if [ "$REFRESH" = refresh:server ]; then
+    host=$(sed -n 's/^DEPLOY_SSH=//p' deploy/server.env)
+    if ! ssh -o BatchMode=yes -o ConnectTimeout=15 "$host" true; then echo "server: cannot ssh to ${host}"; exit 1; fi
+    echo "server: ssh to ${host} works"
+  else
+    if npx --no-install wrangler whoami 2>&1 | grep -qi "not authenticated"; then echo "wrangler: NOT signed in"; exit 1; fi
+    echo "wrangler: signed in"
+  fi
   exit 0
 fi
 
@@ -41,7 +51,7 @@ for attempt in 1 2 3; do
   start=$(date +%s)
   echo "=== $(date) refresh started (attempt ${attempt})" >> "$LOG"
   # caffeinate: an idle Mac must not fall asleep halfway through a deploy.
-  if caffeinate -i npm run refresh >> "$LOG" 2>&1; then
+  if caffeinate -i npm run "$REFRESH" >> "$LOG" 2>&1; then
     mins=$(( ($(date +%s) - start) / 60 ))
     echo "=== $(date) done in ${mins} min" >> "$LOG"
     notify "Done" "Every timetable rebuilt and deployed in ${mins} min."

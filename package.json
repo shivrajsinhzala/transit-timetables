@@ -15,7 +15,9 @@
     "indexnow": "node scripts/indexnow.mjs",
     "build:one": "node scripts/vendor.mjs && astro build && node scripts/verify-build.mjs",
     "search": "node scripts/search-index.mjs",
-    "release": "node scripts/build-all.mjs --deploy"
+    "release": "node scripts/build-all.mjs --deploy",
+    "refresh:server": "npm run fetch && npm run data && node scripts/make-images.mjs && node scripts/build-all.mjs --server && npm run indexnow",
+    "release:server": "node scripts/build-all.mjs --server"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",

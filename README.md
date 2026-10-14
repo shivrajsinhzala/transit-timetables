@@ -38,6 +38,12 @@ Or step by step: `npm run fetch` (GTFS into `data/raw/`, from the Mobility Datab
 `npm run indexnow` (tells Bing and other IndexNow engines about every URL). Feeds change every few months and each build only looks
 four weeks ahead, so refresh at least weekly.
 
+## Own server instead of Cloudflare Workers
+
+With `deploy/server.env` set up, `npm run refresh:server` (and the weekly refresh) deploys to
+our own server over SSH and nginx serves it, with no request limit. Setup, DNS switch and
+rollback are in [`deploy/README.md`](deploy/README.md).
+
 ## Worker request limit
 
 Only page loads run the router Worker (`worker/router.js`); scripts (`/_a/`) and map data
