@@ -18,7 +18,8 @@ import { SYSTEMS, FEED_URLS } from '../data/systems.mjs';
 
 const RAW = 'data/raw';
 fs.mkdirSync(RAW, { recursive: true });
-const FEEDS = [...new Set(SYSTEMS.map((s) => s.feed))];
+// A merged system (`merge`) is built from its source feeds by scripts/merge-feeds.mjs, not downloaded.
+const FEEDS = [...new Set(SYSTEMS.flatMap((s) => s.merge ?? [s.feed]))];
 const stats = { new: 0, same: 0, failed: 0 };
 
 async function fetchFeed(id) {

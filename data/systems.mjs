@@ -134,6 +134,15 @@ export const SYSTEMS = [
   { feed: 'bods-wales', agency: 'OP6', cc: 'uk', region: 'wls', slug: 'arriva-wales', name: "Arriva Wales", area: "North and Mid Wales", hol: ["GB", "WLS"], attribution: { text: "Arriva Wales, via the Bus Open Data Service", url: 'https://data.bus-data.dft.gov.uk/', license: 'Open Government Licence v3.0', licenseUrl: 'https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/' } },
   { feed: 'translink-seq', cc: 'au', region: 'qld', slug: 'brisbane', name: "Brisbane Translink", tram: 'light rail', area: "Brisbane, the Gold Coast, the Sunshine Coast, Ipswich and Logan", hol: ["AU", "QLD"], attribution: { text: 'Translink, Department of Transport and Main Roads (Queensland)', url: 'https://www.data.qld.gov.au/dataset/general-transit-feed-specification-gtfs-translink', license: 'CC BY 4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/' } },
   { feed: 'mdb-660', agency: ['2', '3', '4', '5', '8'], cc: 'au', region: 'sa', slug: 'adelaide', name: "Adelaide Metro", area: "Adelaide and its suburbs", hol: ["AU", "SA"], attribution: { text: 'Adelaide Metro – Department for Infrastructure and Transport, South Australia', url: 'https://www.adelaidemetro.com.au/developer-info', license: 'Creative Commons Attribution (Australia)', licenseUrl: 'https://www.adelaidemetro.com.au/developer-info' } },
+  // Operators whose routes are split across several regional files: scripts/merge-feeds.mjs
+  // builds one feed each from `merge`, so `feed` here is the merged file, not a download.
+  ...[
+    ['stagecoach-midlands', 'Stagecoach Midlands', 'OP49', 'Coventry, Warwickshire and Northamptonshire', ['bods-south_east', 'bods-south_west', 'bods-west_midlands', 'bods-east_anglia']],
+    ['stagecoach-east-midlands', 'Stagecoach East Midlands', 'OP12112', 'Hull, the East Riding and the Humber', ['bods-east_anglia', 'bods-yorkshire']],
+    ['stagecoach-yorkshire', 'Stagecoach Yorkshire', 'OP152', 'Sheffield, Rotherham, Barnsley and Doncaster', ['bods-yorkshire']],
+    ['stagecoach-south', 'Stagecoach South', 'OP12475', 'Hampshire, West Sussex and Surrey', ['bods-south_east', 'bods-south_west']],
+    ['stagecoach-east', 'Stagecoach East', 'OP118', 'Cambridgeshire and Bedfordshire', ['bods-east_anglia', 'bods-south_east']],
+  ].map(([slug, name, agency, area, merge]) => ({ feed: `merged-${slug}`, merge, agency, cc: 'uk', region: 'eng', slug, name, area, hol: ['GB', 'ENG'], attribution: { text: `${name}, via the Bus Open Data Service`, url: 'https://data.bus-data.dft.gov.uk/', license: 'Open Government Licence v3.0', licenseUrl: 'https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/' } })),
 ];
 
 /** Feeds fetched from the publisher instead of the Mobility Database mirror (scripts/fetch-feeds.mjs). */
