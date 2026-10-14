@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Stopwatch: readable bus, tram, train and ferry timetables for 90+ transit systems in six countries, built from open GTFS data.",
   "scripts": {
-    "fetch": "node scripts/fetch-feeds.mjs",
+    "fetch": "node scripts/fetch-feeds.mjs && node scripts/merge-feeds.mjs",
     "data": "node --max-old-space-size=12288 scripts/build-data.mjs",
     "dev": "astro dev",
     "build": "node scripts/build-all.mjs",
