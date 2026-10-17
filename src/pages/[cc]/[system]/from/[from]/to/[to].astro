@@ -1,0 +1,214 @@
+---
+/**
+ * One town to another on one network: every direct departure, how long it takes, where to catch
+ * it, and the next one. Built from scripts/journeys.mjs; answers "cork to macroom bus",
+ * "stawell to horsham", "bus from bovingdon to hemel hempstead".
+ */
+import Base from '../../../../../../layouts/Base.astro';
+import Icon from '../../../../../../components/Icon.astro';
+import Ad from '../../../../../../components/Ad.astro';
+import RouteBadge from '../../../../../../components/RouteBadge.astro';
+import Faq from '../../../../../../components/Faq.astro';
+import Source from '../../../../../../components/Source.astro';
+import { shardSystems, getJourneys, journeyUrl, fromUrl, pairDaily, stopPageCodes } from '../../../../../../lib/data.js';
+import { clock, plain, routeLabel, vehicle, plural, cap, shortDate, runsText, possessive } from '../../../../../../lib/format.js';
+import { ctxFor, dateFor } from '../../../../../../lib/page.js';
+import { duration, daysOnly, listText, routeList, pairExceptions, perWeekday } from '../../../../../../lib/journey.js';
+
+export function getStaticPaths() {
+  return shardSystems().flatMap((system) => {
+    const j = getJourneys(system.key);
+    if (!j) return [];
+    return j.pairs.map((pair) => ({ params: { cc: system.cc, system: system.slug, from: j.places[pair.a].slug, to: j.places[pair.b].slug }, props: { system, pair } }));
+  });
+}
+
+const { system, pair } = Astro.props;
+const j = getJourneys(system.key);
+const x = ctxFor(system);
+const { t, base, h24, word, Word } = x;
+const A = j.places[pair.a].name;
+const B = j.places[pair.b].name;
+const routes = pair.routes.map((slug) => system.routes.find((r) => r.slug === slug));
+const modes = [...new Set(routes.map((r) => vehicle(r.type, system)))];
+const v = modes.length === 1 ? modes[0] : 'departure';
+const vs = v === 'departure' ? 'departures' : plural(v);
+const Mode = modes.map(cap).join(' and ');
+const stopPages = stopPageCodes(system.key);
+const stopHref = (code) => `${base}/stop/${encodeURIComponent(code)}`;
+const stopName = (code) => plain(j.stops[code] || code);
+
+const tabs = pair.days.map((d) => {
+  const rows = pair.trips[d.key];
+  const durs = rows.map((r) => r[1] - r[0]).sort((a, b) => a - b);
+  const counts = d.days.map((w) => rows.filter((r) => !r[5] || r[5].includes(w)).length);
+  return { ...d, rows, first: rows[0][0], last: rows.at(-1)[0], fewest: Math.min(...counts), most: Math.max(...counts), med: durs[Math.floor(durs.length / 2)], min: durs[0], max: durs.at(-1) };
+});
+const main = tabs[0];
+const daily = (tab) => (tab.fewest === tab.most ? `${tab.most}` : `${tab.fewest} to ${tab.most}`);
+const allRows = tabs.flatMap((tab) => tab.rows);
+const fromCodes = [...new Set(allRows.map((r) => r[3]))];
+const toCodes = [...new Set(allRows.map((r) => r[4]))];
+const durs = allRows.map((r) => r[1] - r[0]).sort((a, b) => a - b);
+const typical = durs[Math.floor(durs.length / 2)];
+const lateNight = allRows.some((r) => r[0] >= 1440);
+const week = perWeekday(pair);
+const sunday = week[6], saturday = week[5];
+const routesText = routeList(routes);
+const exceptions = pairExceptions(pair, routes);
+const holidays = exceptions.filter((e) => e.holiday);
+const reverse = j.pairs.find((p) => p.a === pair.b && p.b === pair.a);
+const moreFrom = j.from[pair.a].filter((p) => p !== pair).sort((a, b) => pairDaily(b) - pairDaily(a)).slice(0, 10);
+const moreTo = j.to[pair.b].filter((p) => p !== pair && p !== reverse).sort((a, b) => pairDaily(b) - pairDaily(a)).slice(0, 6);
+
+const fit = (max, ...c) => c.find((s) => s.length <= max) ?? c.at(-1);
+const title = fit(60, `${A} to ${B} ${Mode} Times and Timetable`, `${A} to ${B} ${Mode} Times`, `${A} to ${B} ${Mode}`, `${A} to ${B}`);
+const weekendText = [saturday ? `Saturday ${saturday}` : 'no Saturday service', sunday ? `Sunday ${sunday}` : 'no Sunday service'].join(', ');
+// The operator is named unless it is one of the two towns (BC Transit's systems are named after theirs).
+const operator = [A, B].includes(system.name) ? '' : `, ${system.name}`;
+const description = fit(160,
+  `${cap(daily(main))} ${vs} a day from ${A} to ${B} (${main.label}), first ${t(main.first)}, last ${t(main.last)}, about ${duration(typical)}. ${cap(weekendText)}. ${cap(routesText)}${operator}.`,
+  `${cap(daily(main))} ${vs} a day from ${A} to ${B} (${main.label}), first ${t(main.first)}, last ${t(main.last)}, about ${duration(typical)}. ${cap(weekendText)}.`,
+  `${cap(daily(main))} ${vs} a day from ${A} to ${B} (${main.label}), first ${t(main.first)}, last ${t(main.last)}, about ${duration(typical)}.`,
+  `Every ${v === 'departure' ? 'service' : v} from ${A} to ${B} with ${system.name}: times, journey length, where to catch it and the next one.`);
+
+const SITE = 'https://transit.shivrajsinh.in';
+const path = journeyUrl(system.key, j, pair).slice(1);
+const jsonLd = [{
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: x.c.name, item: `${SITE}/${system.cc}` },
+    { '@type': 'ListItem', position: 2, name: system.name, item: `${SITE}${base}` },
+    { '@type': 'ListItem', position: 3, name: `${cap(vs)} from ${A}`, item: `${SITE}${fromUrl(system.key, j, pair.a)}` },
+    { '@type': 'ListItem', position: 4, name: `${A} to ${B}`, item: `${SITE}/${path}` },
+  ],
+}];
+const cfg = { tz: system.timezone, h24, routes: { journey: { days: pair.days.map(({ key, days }) => ({ key, days })), exceptions: exceptions.map(({ date, runs }) => ({ date, runs })) } } };
+
+const faq = [
+  [`How long does the ${v} from ${A} to ${B} take?`, `About ${duration(typical)}. The quickest ${v === 'departure' ? 'one' : v} takes ${duration(durs[0])} and the slowest ${duration(durs.at(-1))}. ${A} and ${B} are about ${Math.round(pair.km)} km apart in a straight line.`],
+  [`What time is the first ${v} from ${A} to ${B}?`, `${tabs.map((tab) => `${tab.label}: ${t(tab.first)}`).join('. ')}.`],
+  [`What time is the last ${v} from ${A} to ${B}?`, `${tabs.map((tab) => `${tab.label}: ${t(tab.last)}`).join('. ')}.${lateNight ? ' A time after midnight belongs to the evening before.' : ''}`],
+  [`Which ${v === 'departure' ? 'service' : v} goes from ${A} to ${B}?`, `${routes.map((r) => `${routeLabel(r)}${plain(r.name) && plain(r.name) !== routeLabel(r) ? ` (${plain(r.name)})` : ''}`).join(', ')}. ${routes.length > 1 ? 'All of them go' : 'It goes'} direct, with no change.`],
+  [`Is there a ${v} from ${A} to ${B} on Sundays?`, sunday ? `Yes, ${sunday} on a Sunday, the first at ${t(tabs.find((tab) => tab.days.includes(6)).first)}.` : `No. There is no direct ${v} from ${A} to ${B} on Sundays in the current ${word}.`],
+  [`Where do I catch the ${v} in ${A}?`, `${fromCodes.length === 1 ? `At ${stopName(fromCodes[0])}` : `At ${listText(fromCodes.slice(0, 5).map(stopName))}, depending on the ${v === 'departure' ? 'service' : v}`}. It arrives in ${B} at ${listText(toCodes.slice(0, 5).map(stopName))}.`],
+  ['Are these live times?', `No. They are the scheduled times from ${possessive(plain(system.attribution?.text || system.name))} published ${word}, refreshed ${dateFor(system.builtOn, system.cc)}. A ${v === 'departure' ? 'service' : v} can run early or late, and disruptions are not shown.`],
+];
+---
+<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system}>
+<main class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a> › <a href={fromUrl(system.key, j, pair.a)}>{cap(vs)} from {A}</a> › {B}</nav>
+
+  <div class="page-head">
+    <Icon name="path" class="lg" />
+    <div>
+      <h1>{A} to {B} {Mode.toLowerCase()}</h1>
+      <p class="sub">{system.name} · {cap(routesText)} · {daily(main)} a day ({main.label})</p>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-quiet btn-sm" type="button" data-fav={`journey:${system.key}/${j.places[pair.a].slug}/${j.places[pair.b].slug}`} data-name={`${A} to ${B}`} data-sub={system.name}><Icon name="star" /><span data-fav-label>Save</span></button>
+    <button class="btn btn-quiet btn-sm" type="button" data-print><Icon name="printer" /> Print or PDF</button>
+    <button class="btn btn-quiet btn-sm" type="button" data-share><Icon name="share-network" /><span data-share-label>Share</span></button>
+    {reverse && <a class="btn btn-quiet btn-sm" href={journeyUrl(system.key, j, reverse)}><Icon name="arrows-left-right" /> {B} to {A}</a>}
+  </div>
+
+  <p class="lede" style="margin-top:1.2rem">
+    {system.name} runs {daily(main)} direct {vs} a day from {A} to {B} ({main.label}){tabs.length > 1 ? `, ${weekendText}` : ''}, on {routesText}. The journey takes about {duration(typical)}{fromCodes.length === 1 ? `, from ${stopName(fromCodes[0])}` : ''}. The first {v === 'departure' ? 'one' : v} leaves at {t(main.first)} and the last at {t(main.last)}. Updated {dateFor(system.builtOn, system.cc)}.
+  </p>
+
+  <h2 class="sr">{Word} summary</h2>
+  <div class="days">
+    {tabs.map((tab) => (
+      <div class="day"><h3>{tab.label}</h3><dl><dt>First</dt><dd>{t(tab.first)}</dd><dt>Last</dt><dd>{t(tab.last)}</dd><dt>{cap(vs)}</dt><dd>{daily(tab)}</dd><dt>Takes</dt><dd>{duration(tab.med)}</dd></dl></div>
+    ))}
+    {week.some((n) => !n) && <div class="day"><h3>{['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].filter((_, w) => !week[w]).join(', ')}</h3><p class="muted" style="margin:0">No direct {vs}</p></div>}
+  </div>
+
+  {(holidays.length > 0 || system.changesOn) && (
+    <div class="notice"><Icon name="calendar-check" /><div>
+      {holidays.length > 0 && <p><b>Public holidays</b></p>}
+      {holidays.length > 0 && <ul>{holidays.map((e) => <li>{shortDate(e.date)} ({e.holiday}): {runsText(e, pair.days)}</li>)}</ul>}
+      {system.changesOn && <p><b>{Word} change:</b> {possessive(system.name)} {word} changes on {dateFor(system.changesOn, system.cc)}. The times below are for the current {word}.</p>}
+    </div></div>
+  )}
+
+  <section class="direction" data-section data-route="journey" data-from={A}>
+    <h2>{cap(vs)} from {A} to {B}</h2>
+    <p class="muted small" style="margin:0">{fromCodes.length === 1 ? <>From {stopPages.has(fromCodes[0]) ? <a href={stopHref(fromCodes[0])}>{stopName(fromCodes[0])}</a> : stopName(fromCodes[0])}</> : <>From {fromCodes.length} stops in {A}</>} · {toCodes.length === 1 ? <>to {stopPages.has(toCodes[0]) ? <a href={stopHref(toCodes[0])}>{stopName(toCodes[0])}</a> : stopName(toCodes[0])}</> : <>to {toCodes.length} stops in {B}</>} · direct, no change</p>
+    <div class="tabs" role="tablist" aria-label="Day of the week">
+      {tabs.map((tab, i) => <button type="button" role="tab" data-day={tab.key} aria-selected={i === 0 ? 'true' : 'false'}>{tab.label}</button>)}
+    </div>
+    <p class="next-line" aria-live="polite"></p>
+    {tabs.map((tab, i) => (
+      <div class={`panel${i === 0 ? ' on' : ''}`} data-day={tab.key} role="tabpanel">
+        <h3>{tab.label}</h3>
+        <p class="legend">{h24 ? '24-hour clock.' : <><b>Bold is pm.</b></>} Scheduled times at the stops shown.</p>
+        <div class="tt-wrap">
+          <table class="tt jt">
+            <thead><tr><th scope="col">{routes.length > 1 ? 'Route' : routeLabel(routes[0])}</th><th scope="col">Leaves {A}</th><th scope="col">Arrives {B}</th><th scope="col">Takes</th></tr></thead>
+            <tbody>
+              {tab.rows.map((r) => { const dep = clock(r[0], h24), arr = clock(r[1], h24); const route = routes[r[2]]; return (
+                <tr data-m={r[0]} data-w={r[5] ? r[5].join(',') : undefined}>
+                  <td><a href={`${base}/${route.slug}`} aria-label={routeLabel(route)} style="text-decoration:none"><RouteBadge route={route} /></a>{r[5] && <span class="only">{daysOnly(r[5])}</span>}</td>
+                  <td class={dep.pm ? 'pm' : undefined}>{dep.text}{fromCodes.length > 1 && <small>{stopName(r[3])}</small>}</td>
+                  <td class={arr.pm ? 'pm' : undefined}>{arr.text}{toCodes.length > 1 && <small>{stopName(r[4])}</small>}</td>
+                  <td>{duration(r[1] - r[0])}</td>
+                </tr>
+              ); })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ))}
+  </section>
+
+  <Ad />
+
+  {(fromCodes.length > 1 || toCodes.length > 1) && (
+    <section>
+      <h2>Where to catch it</h2>
+      <div class="list-cols">
+        <ul class="list">
+          {fromCodes.map((c) => <li>{stopPages.has(c) ? <a href={stopHref(c)}><Icon name="map-pin" /><span>{stopName(c)}<span class="meta">In {A} · stop {c}</span></span><Icon name="arrow-right" class="go" /></a> : <span style="display:flex;gap:.9rem;padding:.8rem 1rem"><Icon name="map-pin" /><span>{stopName(c)}<span class="meta">In {A} · stop {c}</span></span></span>}</li>)}
+        </ul>
+        <ul class="list">
+          {toCodes.map((c) => <li>{stopPages.has(c) ? <a href={stopHref(c)}><Icon name="map-pin" /><span>{stopName(c)}<span class="meta">In {B} · stop {c}</span></span><Icon name="arrow-right" class="go" /></a> : <span style="display:flex;gap:.9rem;padding:.8rem 1rem"><Icon name="map-pin" /><span>{stopName(c)}<span class="meta">In {B} · stop {c}</span></span></span>}</li>)}
+        </ul>
+      </div>
+    </section>
+  )}
+
+  <section>
+    <h2>{routes.length > 1 ? `The ${routes.length} ${v === 'train' ? 'lines' : 'routes'}` : `The ${v === 'train' ? 'line' : 'route'}`}</h2>
+    <ul class="list">
+      {routes.map((r) => <li><a href={`${base}/${r.slug}`}><RouteBadge route={r} /><span>{plain(r.label || r.name || routeLabel(r))}<span class="meta">Full {word}, every stop and map · {r.days.map((d) => d.label).join(', ')}</span></span><Icon name="arrow-right" class="go" /></a></li>)}
+    </ul>
+  </section>
+
+  <Faq items={faq} title={`${A} to ${B}: questions`} />
+  <Source system={system} extra="Journey times are the scheduled times at the stops shown." />
+  <p class="small muted">Town and place names: <a href="https://www.geonames.org/" rel="nofollow">GeoNames</a>, used under <a href="https://creativecommons.org/licenses/by/4.0/" rel="nofollow license">CC BY 4.0</a>.</p>
+
+  {(moreFrom.length > 0 || moreTo.length > 0) && (
+    <section>
+      <h2>More journeys</h2>
+      <div class="list-cols">
+        {moreFrom.length > 0 && (
+          <ul class="list">
+            {moreFrom.map((p) => <li><a href={journeyUrl(system.key, j, p)}><Icon name="path" /><span>{A} to {j.places[p.b].name}<span class="meta">{pairDaily(p)} a day · about {duration(p.trips[p.days[0].key].map((r) => r[1] - r[0]).sort((a, b) => a - b)[Math.floor(p.trips[p.days[0].key].length / 2)])}</span></span><Icon name="arrow-right" class="go" /></a></li>)}
+          </ul>
+        )}
+        {moreTo.length > 0 && (
+          <ul class="list">
+            {moreTo.map((p) => <li><a href={journeyUrl(system.key, j, p)}><Icon name="path" /><span>{j.places[p.a].name} to {B}<span class="meta">{pairDaily(p)} a day</span></span><Icon name="arrow-right" class="go" /></a></li>)}
+          </ul>
+        )}
+      </div>
+      <p><a class="btn btn-quiet btn-sm" href={fromUrl(system.key, j, pair.a)}>Every direct {v === 'departure' ? 'service' : v} from {A} <Icon name="arrow-right" /></a></p>
+    </section>
+  )}
+</main>
+<script type="application/json" id="cfg" set:html={JSON.stringify(cfg)} />
+</Base>

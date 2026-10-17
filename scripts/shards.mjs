@@ -7,7 +7,7 @@
  * Writes src/data/shards.json, read by src/lib/data.js at build time and by the router.
  */
 import fs from 'node:fs';
-import { SYSTEM_INDEX, getSystem, pageStops, hubs, forget } from '../src/lib/data.js';
+import { SYSTEM_INDEX, getSystem, pageStops, hubs, forget, journeyPageCount } from '../src/lib/data.js';
 
 const CAPACITY = 17_500; // pages + map files per shard, leaving room for scripts, 404 and headers
 const SPLIT_OVER = 12_000; // a system bigger than this has its stop pages spread out
@@ -19,7 +19,7 @@ for (const meta of SYSTEM_INDEX) {
   const routes = s.routes.length;
   const stops = pageStops(meta.key).length;
   const hubCount = hubs(meta.key).length;
-  const core = 1 + routes + hubCount + (routes + 1); // index, routes, hubs, map files
+  const core = 1 + routes + hubCount + (routes + 1) + journeyPageCount(meta.key); // index, routes, hubs, map files, town-to-town pages
   if (core + stops <= SPLIT_OVER) items.push({ key: meta.key, size: core + stops });
   else {
     const n = Math.ceil(stops / BUCKET);

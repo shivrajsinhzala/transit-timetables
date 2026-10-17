@@ -1,0 +1,110 @@
+---
+/**
+ * Every place one town has a direct bus or train to on one network, busiest first, each linking
+ * to its journey page; and the places with a direct one back. Answers "buses from cork" and is
+ * how the journey pages are reached from the system page.
+ */
+import Base from '../../../../../layouts/Base.astro';
+import Icon from '../../../../../components/Icon.astro';
+import Ad from '../../../../../components/Ad.astro';
+import RouteBadge from '../../../../../components/RouteBadge.astro';
+import Faq from '../../../../../components/Faq.astro';
+import Source from '../../../../../components/Source.astro';
+import { shardSystems, getJourneys, journeyPlaces, journeyUrl, pairDaily } from '../../../../../lib/data.js';
+import { plain, vehicle, plural, cap } from '../../../../../lib/format.js';
+import { ctxFor, dateFor } from '../../../../../lib/page.js';
+import { duration, listText, perWeekday } from '../../../../../lib/journey.js';
+
+export function getStaticPaths() {
+  return shardSystems().flatMap((system) => journeyPlaces(system.key).map((place) => ({ params: { cc: system.cc, system: system.slug, from: place.slug }, props: { system, place } })));
+}
+
+const { system, place } = Astro.props;
+const j = getJourneys(system.key);
+const x = ctxFor(system);
+const { t, base, word } = x;
+const A = place.name;
+const routeOf = (slug) => system.routes.find((r) => r.slug === slug);
+const modes = [...new Set([...place.out, ...place.in].flatMap((p) => p.routes.map((s) => vehicle(routeOf(s).type, system))))];
+const v = modes.length === 1 ? modes[0] : 'departure';
+const vs = v === 'departure' ? 'departures' : plural(v);
+const Vs = modes.length === 1 ? cap(plural(modes[0])) : `${cap(plural(modes[0]))} and ${modes.slice(1).map(plural).join(' and ')}`;
+
+const describe = (p) => {
+  const main = p.trips[p.days[0].key];
+  const durs = main.map((r) => r[1] - r[0]).sort((a, b) => a - b);
+  const week = perWeekday(p);
+  const shorts = [...new Set(p.routes.map((s) => routeOf(s).short || plain(routeOf(s).name)))].slice(0, 4);
+  return { p, daily: pairDaily(p), dur: durs[Math.floor(durs.length / 2)], first: main[0][0], sunday: week[6], route: routeOf(p.routes[0]), shorts };
+};
+const out = place.out.map(describe).sort((a, b) => b.daily - a.daily || a.p.km - b.p.km);
+const inbound = place.in.map(describe).sort((a, b) => b.daily - a.daily || a.p.km - b.p.km);
+const names = (list) => list.map((d) => j.places[d.p.b].name);
+const top = names(out.slice(0, 3));
+const sundayCount = out.filter((d) => d.sunday).length;
+const farthest = [...out].sort((a, b) => b.p.km - a.p.km)[0];
+
+const fit = (max, ...c) => c.find((s) => s.length <= max) ?? c.at(-1);
+const title = fit(60, `${Vs} from ${A}: ${out.length} Direct Destinations and Times`, `${Vs} from ${A}: Destinations and Times`, `${Vs} from ${A}`);
+const description = fit(160,
+  `Every direct ${v === 'departure' ? 'service' : v} from ${A} with ${system.name}: ${out.length} ${out.length === 1 ? 'destination' : 'destinations'} including ${listText(top)}, with times, journey lengths and where to catch each one.`,
+  `Every direct ${v === 'departure' ? 'service' : v} from ${A} with ${system.name}: ${out.length} ${out.length === 1 ? 'destination' : 'destinations'}, with times and journey lengths.`);
+
+const SITE = 'https://transit.shivrajsinh.in';
+const path = `${base.slice(1)}/from/${place.slug}`;
+const jsonLd = [{
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: x.c.name, item: `${SITE}/${system.cc}` },
+    { '@type': 'ListItem', position: 2, name: system.name, item: `${SITE}${base}` },
+    { '@type': 'ListItem', position: 3, name: `${cap(vs)} from ${A}`, item: `${SITE}/${path}` },
+  ],
+}];
+const faq = [
+  [`Where can I go by ${v === 'departure' ? 'bus or train' : v} from ${A} without changing?`, `${listText(names(out).slice(0, 15))}${out.length > 15 ? `, and ${out.length - 15} more places listed above` : ''}.`],
+  [`Which places have the most ${vs} from ${A}?`, `${out.slice(0, 3).map((d) => `${j.places[d.p.b].name} (${d.daily} a day)`).join(', ')}.`],
+  ...(farthest ? [[`What is the longest direct ${v === 'departure' ? 'journey' : `${v} ride`} from ${A}?`, `${A} to ${j.places[farthest.p.b].name}, about ${Math.round(farthest.p.km)} km in a straight line, which takes about ${duration(farthest.dur)}.`]] : []),
+  [`Are there ${vs} from ${A} on Sundays?`, sundayCount ? `Yes, to ${sundayCount} of the ${out.length} places. Each journey page shows its Sunday times.` : `No direct ${vs} from ${A} run on Sundays in the current ${word}.`],
+];
+---
+<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system} pageType="CollectionPage">
+<main class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a> › {cap(vs)} from {A}</nav>
+  <div class="page-head">
+    <Icon name="map-pin" class="lg" />
+    <div>
+      <h1>{Vs} from {A}</h1>
+      <p class="sub">{system.name} · {out.length} direct {out.length === 1 ? 'destination' : 'destinations'}</p>
+    </div>
+  </div>
+
+  <p class="lede" style="margin-top:1.2rem">{system.name} {v === 'departure' ? 'services' : vs} go direct from {A} to {out.length} {out.length === 1 ? 'place' : 'places'}{top.length ? `, the busiest to ${listText(top)}` : ''}. Open one for every departure, how long it takes and where to catch it. Updated {dateFor(system.builtOn, system.cc)}.</p>
+
+  <section>
+    <h2>Direct from {A}</h2>
+    <ul class="list">
+      {out.map((d) => (
+        <li><a href={journeyUrl(system.key, j, d.p)}><RouteBadge route={d.route} /><span>{A} to {j.places[d.p.b].name}<span class="meta">{d.daily} a day · about {duration(d.dur)} · first {t(d.first)}{d.sunday ? '' : ' · no Sunday service'} · {d.shorts.join(', ')}</span></span><Icon name="arrow-right" class="go" /></a></li>
+      ))}
+    </ul>
+  </section>
+
+  <Ad />
+
+  {inbound.length > 0 && (
+    <section>
+      <h2>Direct to {A}</h2>
+      <ul class="list">
+        {inbound.map((d) => (
+          <li><a href={journeyUrl(system.key, j, d.p)}><RouteBadge route={d.route} /><span>{j.places[d.p.a].name} to {A}<span class="meta">{d.daily} a day · about {duration(d.dur)}</span></span><Icon name="arrow-right" class="go" /></a></li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  <Faq items={faq} title={`${cap(vs)} from ${A}: questions`} />
+  <Source system={system} extra="Only direct journeys are listed: a trip that needs a change is not." />
+  <p class="small muted">Town and place names: <a href="https://www.geonames.org/" rel="nofollow">GeoNames</a>, used under <a href="https://creativecommons.org/licenses/by/4.0/" rel="nofollow license">CC BY 4.0</a>.</p>
+</main>
+</Base>

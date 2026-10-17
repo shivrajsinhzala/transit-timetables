@@ -5,7 +5,8 @@
  * The key is a public verification token, not a secret: it is served at /<key>.txt.
  *
  * Sent each run: the core pages (home, country, system, route, hub; ~5,400), whose timetables
- * change with each refresh, and only the stop pages not sent before (data/indexnow-sent.txt).
+ * change with each refresh, and only the stop and journey (/from/) pages not sent before
+ * (data/indexnow-sent.txt).
  * Sending all ~93,000 stop pages every week asked every engine to re-crawl the whole site, and
  * each crawled page is a run of the router Worker: on 12 Oct 2026 that took the site over the
  * Workers plan's daily request limit (Cloudflare error 1027). Stop pages stay in the sitemap
@@ -23,7 +24,8 @@ for (const sm of [...index.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1])) {
   const xml = await (await fetch(sm)).text();
   urls.push(...[...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]));
 }
-const isStop = (u) => /\/stop\/[^/]+$/.test(u);
+// Stop and town-to-town pages are many and change little: each is sent once, when it is new.
+const isStop = (u) => /\/stop\/[^/]+$/.test(u) || /\/from\/[^/]+(\/to\/[^/]+)?$/.test(u);
 const stops = urls.filter(isStop);
 const seeded = fs.existsSync(SENT);
 const sent = new Set(seeded ? fs.readFileSync(SENT, 'utf8').split('\n').filter(Boolean) : stops);
@@ -42,7 +44,7 @@ for (let i = 0; i < list.length; i += 10000) {
   if (!res.ok) { ok = false; continue; }
   for (const u of batch) if (isStop(u)) sent.add(u);
 }
-// Only stop pages still in the sitemap: a removed stop that comes back is new again.
+// Only pages still in the sitemap: a removed stop or journey that comes back is new again.
 const live = new Set(stops);
 fs.writeFileSync(SENT, `${[...sent].filter((u) => live.has(u)).sort().join('\n')}\n`);
 // IndexNow answers 429 when it is sent too much: worth knowing, never worth failing the refresh.

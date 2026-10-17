@@ -293,6 +293,15 @@ main { padding: 1.4rem 0 1rem; }
 .stop-route h2 { display: flex; align-items: center; flex-wrap: wrap; gap: .55rem; }
 .stop-route h2 .muted { font-weight: 600; font-size: 1rem; }
 
+/* journey pages: one row per departure, with the stop under the time when a town has several */
+.jt td small { display: block; font-size: .76rem; font-weight: 400; color: var(--ink-3); white-space: normal; min-width: 7rem; }
+.jt td .only { display: block; margin-top: .2rem; font-size: .74rem; font-weight: 700; color: var(--warn-ink); }
+.jt td:first-child a { display: inline-block; }
+details.more-towns { margin: .2rem 0 1rem; }
+details.more-towns > summary { list-style: none; display: inline-flex; }
+details.more-towns > summary::-webkit-details-marker { display: none; }
+.town-index { line-height: 1.9; }
+
 /* ---------- route diagram ---------- */
 .diagram { list-style: none; margin: .8rem 0 1.2rem; padding: 0; columns: 2 280px; column-gap: 2rem; }
 .diagram li { position: relative; break-inside: avoid; padding: .28rem 0 .28rem 1.7rem; font-size: .95rem; color: var(--ink-2); }

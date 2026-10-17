@@ -212,6 +212,70 @@ export function routeBadges(system, stop) {
   return [...seen.values()].filter(Boolean);
 }
 
+/**
+ * Town-to-town journeys (scripts/journeys.mjs): { places, pairs, stops }, or null when the data
+ * was built without the place list. Each pair gets a page at /<cc>/<system>/from/<a>/to/<b>, and
+ * each place with journeys a page at /<cc>/<system>/from/<a> listing them.
+ */
+export function getJourneys(key) {
+  return memo(`jour:${key}`, () => {
+    const [cc, slug] = key.split('/');
+    const file = `src/data/journeys/${cc}/${slug}.json`;
+    if (!fs.existsSync(path.join(ROOT, file))) return null;
+    const j = read(file);
+    const sys = getSystem(key);
+    // A route that is no longer in the timetable takes its journeys with it.
+    const live = new Set(sys?.routes.map((r) => r.slug) || []);
+    j.pairs = j.pairs.filter((p) => p.routes.every((r) => live.has(r)));
+    // No page shows a long dash (scripts/verify-build.mjs): a place name with one reads with a hyphen.
+    for (const p of j.places) p.name = plain(p.name);
+    j.from = j.places.map(() => []);
+    j.to = j.places.map(() => []);
+    for (const p of j.pairs) { j.from[p.a].push(p); j.to[p.b].push(p); }
+    return j;
+  });
+}
+
+export const journeyUrl = (key, j, p) => `/${key}/from/${j.places[p.a].slug}/to/${j.places[p.b].slug}`;
+export const fromUrl = (key, j, i) => `/${key}/from/${j.places[i].slug}`;
+
+/** Departures on a pair's busiest weekday: how pairs and places are ranked on the pages. */
+export function pairDaily(p) {
+  let best = 0;
+  for (let w = 0; w < 7; w++) {
+    const d = p.days.find((x) => x.days.includes(w));
+    if (!d) continue;
+    const n = p.trips[d.key].filter((r) => !r[5] || r[5].includes(w)).length;
+    if (n > best) best = n;
+  }
+  return best;
+}
+
+/** Places with a "from" page: every place a journey leaves from, busiest first. */
+export function journeyPlaces(key) {
+  return memo(`jplaces:${key}`, () => {
+    const j = getJourneys(key);
+    if (!j) return [];
+    return j.places.map((p, i) => ({ ...p, i, out: j.from[i], in: j.to[i], daily: j.from[i].reduce((n, x) => n + pairDaily(x), 0) }))
+      .filter((p) => p.out.length)
+      .sort((a, b) => b.daily - a.daily || b.pop - a.pop);
+  });
+}
+
+/** Number of journey pages (pairs and places) a system builds: the shard planner counts them. */
+export function journeyPageCount(key) {
+  const j = getJourneys(key);
+  return j ? j.pairs.length + journeyPlaces(key).length : 0;
+}
+
+/** The journeys a route serves, most departures first: the route page links the top few. */
+export function routeJourneys(key, slug, n = 8) {
+  const j = getJourneys(key);
+  if (!j) return [];
+  return j.pairs.filter((p) => p.routes.includes(slug)).sort((a, b) => pairDaily(b) - pairDaily(a) || b.km - a.km).slice(0, n)
+    .map((p) => ({ p, url: journeyUrl(key, j, p), from: j.places[p.a], to: j.places[p.b] }));
+}
+
 /** URL helpers: every page lives under /<country>/<system>/. */
 export const sysUrl = (s) => `/${s.cc}/${s.slug}`;
 

@@ -5,9 +5,10 @@ import Ad from '../../../components/Ad.astro';
 import RouteBadge from '../../../components/RouteBadge.astro';
 import Faq from '../../../components/Faq.astro';
 import Source from '../../../components/Source.astro';
-import { shardSystems, stopPageCodes } from '../../../lib/data.js';
+import { shardSystems, stopPageCodes, routeJourneys, pairDaily } from '../../../lib/data.js';
 import { clock, every, shortDate, routeLabel, runsText, place, plain, slugify, possessive, modeName, vehicle, plural, brandFor, cap, stopWord } from '../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../lib/page.js';
+import { duration } from '../../../lib/journey.js';
 
 export function getStaticPaths() {
   return shardSystems().flatMap((system) => system.routes.map((route) => ({
@@ -76,6 +77,8 @@ const holidayList = route.exceptions.filter((e) => e.holiday);
 const otherExceptions = route.exceptions.filter((e) => !e.holiday);
 const routeColor = route.color || 'var(--ink)';
 const stopHref = (code) => `${base}/stop/${encodeURIComponent(code)}`;
+const journeys = routeJourneys(system.key, route.slug, 10);
+const medianTime = (p) => { const d = p.trips[p.days[0].key].map((r) => r[1] - r[0]).sort((a, b) => a - b); return d[Math.floor(d.length / 2)]; };
 
 const SITE = 'https://transit.shivrajsinh.in';
 const path = `${base.slice(1)}/${route.slug}`;
@@ -186,6 +189,19 @@ const faq = [
       <button class="map-open" type="button"><Icon name="map-trifold" />Show {label} on a map</button>
     </div>
   </section>
+
+  {journeys.length > 0 && (
+    <section>
+      <h2>Town to town on {label}</h2>
+      <div class="list-cols">
+        {[journeys.slice(0, Math.ceil(journeys.length / 2)), journeys.slice(Math.ceil(journeys.length / 2))].map((col) => col.length > 0 && (
+          <ul class="list">
+            {col.map((jy) => <li><a href={jy.url}><Icon name="path" /><span>{jy.from.name} to {jy.to.name}<span class="meta">{pairDaily(jy.p)} a day{jy.p.routes.length > 1 ? `, ${jy.p.routes.length} routes` : ''} · about {duration(medianTime(jy.p))}</span></span><Icon name="arrow-right" class="go" /></a></li>)}
+          </ul>
+        ))}
+      </div>
+    </section>
+  )}
 
   <Faq items={faq} title={`Questions about ${system.name} ${label}`} />
   <Source system={system} extra="These are scheduled times; disruptions and service alerts are published by the operator." />
