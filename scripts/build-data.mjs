@@ -278,7 +278,13 @@ async function buildSystem(meta) {
   };
 
   // --- the usual timetable for each weekday, and the day types they form -------------------
-  const window = Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(start, i)).filter((d) => !holiday(d));
+  // A feed whose publisher has not yet posted the next timetable has no trips at all after its
+  // last date (Morebus, October 2026: nothing after 1 November). Those days are unknown, not
+  // "no service": counted, two empty Mondays outvoted two real ones and every weekday timetable
+  // vanished. So days after the last date anything runs do not vote.
+  let lastRun = null;
+  for (let d = start; d <= end; d = addDays(d, 1)) if (sigOf(d)) lastRun = d;
+  const window = Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(start, i)).filter((d) => !holiday(d) && (!lastRun || d <= lastRun));
   const usual = WEEKDAYS.map((_, w) => mode(window.filter((d) => weekday(d) === w).map(sigOf)) ?? '');
   // The services of one real date that ran the usual timetable — what the tables are built from.
   const sample = usual.map((sig, w) => window.find((d) => weekday(d) === w && sigOf(d) === sig));
@@ -458,7 +464,8 @@ async function buildSystem(meta) {
     key: `${meta.cc}/${meta.slug}`,
     timezone: tz,
     builtOn: start,
-    feed: { version: feedInfo.feed_version || '', from: feedInfo.feed_start_date ? gtfsDate(feedInfo.feed_start_date) : null, to: feedInfo.feed_end_date ? gtfsDate(feedInfo.feed_end_date) : null },
+    // With no stated end date, the last day anything runs is the end, when it is within the range.
+    feed: { version: feedInfo.feed_version || '', from: feedInfo.feed_start_date ? gtfsDate(feedInfo.feed_start_date) : null, to: feedInfo.feed_end_date ? gtfsDate(feedInfo.feed_end_date) : lastRun && lastRun < end ? lastRun : null },
     dayTypes: dayTypes.map(({ key, label, days }) => ({ key, label, days })),
     noServiceDays: noServiceDays.map((d) => WEEKDAYS[d]),
     exceptions,
