@@ -276,6 +276,19 @@ export function routeJourneys(key, slug, n = 8) {
     .map((p) => ({ p, url: journeyUrl(key, j, p), from: j.places[p.a], to: j.places[p.b] }));
 }
 
+/**
+ * The two towns a route runs between, as riders name them ("Heckmondwike", "Leeds"): the ends of
+ * its longest town-to-town journey. Null without journey data. Titles and headings use it when the
+ * feed gives the route no name, because riders search "201 bus timetable leeds".
+ */
+export function routeEnds(key, slug) {
+  const j = getJourneys(key);
+  if (!j) return null;
+  let best = null;
+  for (const p of j.pairs) if (p.routes.includes(slug) && (!best || p.km > best.km || (p.km === best.km && pairDaily(p) > pairDaily(best)))) best = p;
+  return best ? { from: j.places[best.a].name, to: j.places[best.b].name } : null;
+}
+
 /** URL helpers: every page lives under /<country>/<system>/. */
 export const sysUrl = (s) => `/${s.cc}/${s.slug}`;
 
