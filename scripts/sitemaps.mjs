@@ -3,7 +3,7 @@
  * Regroups the built site's sitemaps by page type, in a built main shard (default dist/main):
  *   sitemaps/core.xml        home, country, system, route and hub pages (~5,400)
  *   sitemaps/journeys-N.xml  town-to-town and town pages (/from/), 40,000 per file
- *   sitemaps/stops-N.xml     stop pages, 40,000 per file (~93,000)
+ *   sitemaps/stops-N.xml     indexable stop pages (scripts/indexed-stops.mjs), 40,000 per file
  * and writes sitemap-index.xml with core first, then journeys, then stops.
  *
  * Why: a new subdomain that submits ~98,000 URLs at once gets most of them parked as
