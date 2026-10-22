@@ -68,6 +68,8 @@ const faq = [
 
 const SITE = 'https://transit.shivrajsinh.in';
 const path = `${base.slice(1)}/stop/${encodeURIComponent(stop.code)}`;
+// The embed code (src/pages/embed.astro): an iframe, plus a plain link under it so the stop's page is credited.
+const embedCode = `<iframe src="${SITE}/embed?s=${path}" title="Next ${vs} at ${name.replace(/"/g, '&quot;')}" width="100%" height="330" style="border:0;max-width:480px" loading="lazy"></iframe>\n<p style="font:13px sans-serif;margin:4px 0"><a href="${SITE}/${path}">${name.replace(/</g, '&lt;')} ${v} times</a> by Stopwatch</p>`;
 const isRail = stopW === 'station';
 const jsonLd = [
   {
@@ -140,6 +142,13 @@ const cfg = { tz: system.timezone, h24, routes: Object.fromEntries(stop.routes.m
   ); })}
 
   <p class="small muted" style="margin-top:1.5rem">Read each row as the hour, then the minutes past it: {h24 ? '07 then 05 35 means 07:05 and 07:35.' : <>7 then 05 35 means 7:05 and 7:35. <b>Bold hours are pm.</b></>} Scheduled times from {possessive(system.name)} official {word} data, refreshed {dateFor(system.builtOn, system.cc)}. Not live arrivals.</p>
+
+  <details class="embed-box">
+    <summary><h2>Put these times on your website</h2></summary>
+    <p class="muted small">For a school, club, shop or community site near this {stopW}: paste this code into your page and it shows the next {vs} here, worked out again every 30 seconds. Free, no sign-up.</p>
+    <textarea class="embed-code" readonly rows="4" aria-label="Embed code">{embedCode}</textarea>
+    <button class="btn btn-quiet btn-sm" type="button" data-copy><Icon name="share-network" /><span data-copy-label>Copy code</span></button>
+  </details>
 
   <Faq items={faq} title={`Questions about ${name}`} />
   <Source system={system} />
