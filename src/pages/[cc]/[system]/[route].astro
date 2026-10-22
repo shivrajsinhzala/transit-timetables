@@ -44,7 +44,12 @@ const num = /\d/.test(route.short || '') && label === `Route ${route.short}` ? `
 // "Dandenong - Brandon Park" reads as a search does: "Dandenong to Brandon Park". A feed with no
 // route name gets the towns at the ends of its longest journey instead.
 const ends = routeEnds(system.key, route.slug);
-const toName = (s) => (s.match(/ - /g) || []).length === 1 ? s.replace(' - ', ' to ') : s;
+// "Dublin - Airport - Drogheda" is "Dublin to Drogheda via Airport" (titles drop the "via" when short of room).
+const toName = (s) => {
+  const [, ends, via = ''] = /^(.*?)(\s+via\s.*)?$/i.exec(s);
+  const p = ends.split(' - ');
+  return p.length < 2 ? s : `${p[0]} to ${p.at(-1)}${p.length > 2 ? ` via ${p.slice(1, -1).join(', ')}` : via}`;
+};
 const where = name ? toName(name) : ends && ends.from !== ends.to ? `${ends.from} to ${ends.to}` : '';
 const shortWhere = where.replace(/\s*\([^)]*\)/g, '').replace(/\s+via\s.*$/i, '').trim();
 // Only an "A to B" leads the title: a corridor name stays as it was ("Phoenix Valley Metro Bus

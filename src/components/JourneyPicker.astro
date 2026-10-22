@@ -1,0 +1,25 @@
+---
+/**
+ * "From … To …" on one network, like a journey planner's front door: pick two towns and go
+ * straight to that journey page, or to every destination from the first town. Town names and
+ * direct links come from /<cc>/<system>/places.json once the rider starts typing (src/scripts/app.js).
+ */
+import Icon from './Icon.astro';
+
+interface Props { system: { cc: string; slug: string; name: string }; from?: string; to?: string; heading?: string }
+const { system, from = '', to = '', heading } = Astro.props;
+const key = `${system.cc}/${system.slug}`;
+const id = `jp-${system.slug}`;
+---
+<form class="picker" data-picker={key} action={`/${key}`} autocomplete="off">
+  {heading && <h2 class="picker-title">{heading}</h2>}
+  <div class="picker-fields">
+    <label class="picker-field"><span>From</span><input name="from" value={from} list={`${id}-from`} placeholder="Town" required /></label>
+    <button class="picker-swap" type="button" data-picker-swap aria-label="Swap from and to"><Icon name="arrows-left-right" /></button>
+    <label class="picker-field"><span>To</span><input name="to" value={to} list={`${id}-to`} placeholder="Anywhere" /></label>
+    <button class="btn btn-primary picker-go" type="submit"><Icon name="magnifying-glass" /> Find times</button>
+  </div>
+  <p class="picker-msg small" aria-live="polite"></p>
+  <datalist id={`${id}-from`}></datalist>
+  <datalist id={`${id}-to`}></datalist>
+</form>

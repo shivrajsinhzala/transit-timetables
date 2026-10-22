@@ -1,6 +1,7 @@
 ---
 import Base from '../../../layouts/Base.astro';
 import Icon from '../../../components/Icon.astro';
+import JourneyPicker from '../../../components/JourneyPicker.astro';
 import Ad from '../../../components/Ad.astro';
 import RouteBadge from '../../../components/RouteBadge.astro';
 import Faq from '../../../components/Faq.astro';
@@ -83,6 +84,7 @@ const heading = `${what} ${routeWord}s and ${word}s`;
     <button class="btn btn-primary" type="button" data-search-open><Icon name="magnifying-glass" /> Find a {routeWord} or {stopW}</button>
     <button class="btn btn-quiet" type="button" data-near-me><Icon name="navigation-arrow" /> {cap(stopW)}s near me</button>
   </div>
+  {towns.length > 0 && <JourneyPicker system={system} heading={`Town to town on ${system.name}`} />}
 
   <section data-saved={`${base}/`} hidden>
     <h2>Your saved {system.name} {stopW}s</h2>

@@ -6,6 +6,7 @@
  */
 import Base from '../../../../../layouts/Base.astro';
 import Icon from '../../../../../components/Icon.astro';
+import JourneyPicker from '../../../../../components/JourneyPicker.astro';
 import Ad from '../../../../../components/Ad.astro';
 import RouteBadge from '../../../../../components/RouteBadge.astro';
 import Faq from '../../../../../components/Faq.astro';
@@ -80,6 +81,8 @@ const faq = [
   </div>
 
   <p class="lede" style="margin-top:1.2rem">{system.name} {v === 'departure' ? 'services' : vs} go direct from {A} to {out.length} {out.length === 1 ? 'place' : 'places'}{top.length ? `, the busiest to ${listText(top)}` : ''}. Open one for every departure, how long it takes and where to catch it. Updated {dateFor(system.builtOn, system.cc)}.</p>
+
+  <JourneyPicker system={system} from={A} />
 
   <section>
     <h2>Direct from {A}</h2>
