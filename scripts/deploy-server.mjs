@@ -73,12 +73,21 @@ export function syncShard(release, localDir) {
   ], { stdio: 'inherit' });
 }
 
-/** Makes the release live (an atomic symlink swap), then deletes all but it and the one before. */
+/**
+ * Makes the release live (an atomic symlink swap), then deletes all but it and the one before.
+ * First it hardlinks in the live release's scripts and map library (_a/, vendor/) wherever the new
+ * release has no file of that name. Cloudflare keeps HTML for hours, and a page cached before the
+ * swap asks for the scripts it was built with: on 22 Oct 2026 those had gone with the old release,
+ * so cached pages ran no script at all (no next bus, maps, search, or ads) until their copies
+ * expired. The names are content hashes, so an old file never clashes with a new one, and each
+ * release carries every earlier one's (a few hundred KB each).
+ */
 export function finishRelease(release) {
   const { host, root, dir } = release;
   sh(host, [
     'set -e',
     `test -f ${dir}/index.html || { echo "release has no index.html, not switching"; exit 1; }`,
+    `for d in _a vendor; do if [ -d ${root}/current/$d ]; then rsync -a --ignore-existing --link-dest=${root}/current/$d/ ${root}/current/$d/ ${dir}/$d/; fi; done`,
     `ln -sfn ${dir} ${root}/current.new`,
     `mv -T ${root}/current.new ${root}/current`,
     `cd ${root}/releases && ls -1 | sort | head -n -2 | xargs -r rm -rf`,
