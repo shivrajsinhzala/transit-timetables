@@ -20,7 +20,8 @@ let journeyPages = 0;
 for (const f of files) {
   const html = fs.readFileSync(f, 'utf8');
   const rel = path.relative(DIST, f).replace(/\.html$/, '').replace(/(^|\/)index$/, '');
-  if (rel === '404' || rel === 'offline') continue;
+  // Not pages for search: the error and offline pages, and the iframe board for other sites.
+  if (rel === '404' || rel === 'offline' || rel === 'embed') continue;
   const title = /<title>([^<]*)<\/title>/.exec(html)?.[1];
   const canonical = /<link rel="canonical" href="([^"]+)"/.exec(html)?.[1];
   if (!title) problems.push(`${rel}: no <title>`);
