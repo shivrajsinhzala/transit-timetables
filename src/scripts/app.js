@@ -4,22 +4,7 @@
  * departure boards, search, near me, saved stops, maps and offline support on top.
  */
 
-const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const DEFAULT_TZ = 'America/Vancouver';
-
-/** The current date, weekday (0 = Monday) and minute of the day in a given timezone. */
-function now(tz = DEFAULT_TZ) {
-  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short',
-  }).formatToParts(new Date()).map((x) => [x.type, x.value]));
-  return { iso: `${p.year}-${p.month}-${p.day}`, wd: WD.indexOf(p.weekday), min: Number(p.hour) * 60 + Number(p.minute) };
-}
-
-function yesterday(iso) {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
+import { now, dayKey, clockText, waitText, upcoming as soon } from './clock.js';
 
 /** White or graphite text, whichever reads better on a route colour (mirrors inkFor in format.js). */
 function ink(hex) {
@@ -32,17 +17,9 @@ function ink(hex) {
 
 /** 24-hour clocks in the UK and Ireland (the page says so with data-h24), 12-hour elsewhere. */
 const H24 = document.documentElement.hasAttribute('data-h24');
-const fmt = (m, h24 = H24) => { m = ((m % 1440) + 1440) % 1440; const h = Math.floor(m / 60); const mm = String(m % 60).padStart(2, '0'); return h24 ? `${String(h).padStart(2, '0')}:${mm}` : `${h % 12 || 12}:${mm}`; };
+const fmt = (m, h24 = H24) => clockText(m, h24);
 const ampm = (m, h24 = H24) => (h24 ? '' : ((m % 1440) + 1440) % 1440 >= 720 ? 'pm' : 'am');
 const tm = (m, h24 = H24) => `${fmt(m, h24)} ${ampm(m, h24)}`.trim();
-const waitText = (w) => (w <= 0 ? 'now' : w < 60 ? `in ${w} min` : `in ${Math.floor(w / 60)} h ${w % 60 ? `${w % 60} min` : ''}`.trim());
-
-/** Which of a route's day types runs on a date: an exception first, else the weekday's. */
-function dayKey(route, iso, wd) {
-  const ex = (route.exceptions || []).find((e) => e.date === iso);
-  if (ex) return ['none', 'special'].includes(ex.runs) ? null : ex.runs;
-  return (route.days.find((d) => d.days.includes(wd)) || {}).key || null;
-}
 
 const cfgEl = document.getElementById('cfg');
 const CFG = cfgEl ? JSON.parse(cfgEl.textContent) : null;
@@ -108,18 +85,7 @@ function boardRows(board) {
 function renderBoard(board) {
   const data = boardRows(board);
   if (!data) return;
-  const t = now(data.tz);
-  const y = yesterday(t.iso);
-  const ywd = (t.wd + 6) % 7;
-  const upcoming = [];
-  for (const r of data.rows) {
-    const k = dayKey(r, t.iso, t.wd);
-    for (const m of (k && r.times[k]) || []) if (m >= t.min && m < t.min + 180) upcoming.push({ r, m, w: m - t.min });
-    // After midnight, last night's late buses (GTFS times past 24:00) are still to come.
-    const yk = dayKey(r, y, ywd);
-    for (const m of (yk && r.times[yk]) || []) if (m >= 1440 && m - 1440 >= t.min && m - 1440 < t.min + 180) upcoming.push({ r, m, w: m - 1440 - t.min });
-  }
-  upcoming.sort((a, b) => a.w - b.w);
+  const { t, list: upcoming } = soon(data.rows, data.tz);
   const list = board.querySelector('ol');
   const clock = board.querySelector('[data-clock]');
   const h24 = data.h24 ?? H24;
@@ -457,6 +423,13 @@ function setupMaps() {
 
 /* ---------- small things ---------- */
 function setupActions() {
+  // Stop pages' embed code: copy it, or select it where the clipboard is not allowed.
+  document.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
+    const box = b.parentElement.querySelector('textarea');
+    const label = b.querySelector('[data-copy-label]');
+    try { await navigator.clipboard.writeText(box.value); label.textContent = 'Copied'; } catch { box.focus(); box.select(); label.textContent = 'Press Ctrl+C to copy'; }
+    setTimeout(() => { label.textContent = 'Copy code'; }, 2500);
+  }));
   document.querySelectorAll('[data-print]').forEach((b) => b.addEventListener('click', () => window.print()));
   document.querySelectorAll('[data-share]').forEach((b) => b.addEventListener('click', async () => {
     const data = { title: document.title, url: location.href };

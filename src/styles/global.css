@@ -246,6 +246,15 @@ main { padding: 1.4rem 0 1rem; }
 .picker-go { min-height: 46px; }
 .picker-msg { margin: .6rem 0 0; color: var(--ink-2); }
 .picker-msg:empty { display: none; }
+
+/* Stop pages: the embed code for other websites (src/pages/embed.astro). */
+.embed-box { margin: 2rem 0 1rem; border: 1px solid var(--line); border-radius: var(--r); padding: .2rem 1rem 1rem; background: var(--surface); }
+.embed-box summary { cursor: pointer; list-style: none; }
+.embed-box summary::-webkit-details-marker { display: none; }
+.embed-box summary h2 { display: inline; font-size: 1.1rem; }
+.embed-box summary::after { content: " +"; color: var(--ink-3); font-weight: 700; }
+.embed-box[open] summary::after { content: " −"; }
+.embed-code { display: block; width: 100%; margin: .4rem 0 .7rem; padding: .6rem .7rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--ink); font: .8rem/1.4 var(--mono); resize: vertical; }
 @media (max-width: 720px) {
   .picker-fields { grid-template-columns: 1fr auto; }
   .picker-field:first-child { grid-column: 1; }
