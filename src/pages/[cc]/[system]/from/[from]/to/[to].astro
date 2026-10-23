@@ -6,6 +6,7 @@
  */
 import Base from '../../../../../../layouts/Base.astro';
 import Icon from '../../../../../../components/Icon.astro';
+import JourneyPicker from '../../../../../../components/JourneyPicker.astro';
 import Ad from '../../../../../../components/Ad.astro';
 import RouteBadge from '../../../../../../components/RouteBadge.astro';
 import Faq from '../../../../../../components/Faq.astro';
@@ -125,6 +126,8 @@ const faq = [
     ))}
     {week.some((n) => !n) && <div class="day"><h3>{['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].filter((_, w) => !week[w]).join(', ')}</h3><p class="muted" style="margin:0">No direct {vs}</p></div>}
   </div>
+
+  <JourneyPicker system={system} from={A} to={B} />
 
   {(holidays.length > 0 || system.changesOn) && (
     <div class="notice"><Icon name="calendar-check" /><div>

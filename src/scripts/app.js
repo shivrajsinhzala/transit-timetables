@@ -512,6 +512,50 @@ function setupAds() {
   slots.forEach((ins) => io.observe(ins));
 }
 
+/* ---------- from/to picker ---------- */
+/*
+ * Two towns on one network straight to their journey page. The town list (places.json) is fetched
+ * on first focus, so a rider who never touches the picker downloads nothing.
+ */
+function setupPickers() {
+  document.querySelectorAll('[data-picker]').forEach((form) => {
+    const key = form.dataset.picker;
+    const [fromIn, toIn] = form.querySelectorAll('input');
+    const [fromList, toList] = form.querySelectorAll('datalist');
+    const msg = form.querySelector('.picker-msg');
+    let data = null;
+    const load = () => (data ??= fetch(`/${key}/places.json`).then((r) => r.json()).catch(() => { data = null; return null; }));
+    const find = (d, v) => { const q = norm(v); return q ? d.p.findIndex((p) => norm(p[1]) === q) : -1; };
+    const fill = (list, idx, d) => { list.replaceChildren(...idx.map((i) => d.p[i][1]).sort((a, b) => a.localeCompare(b)).map((n) => Object.assign(document.createElement('option'), { value: n }))); };
+    const fillTo = async () => {
+      const d = await load(); if (!d) return;
+      const a = find(d, fromIn.value);
+      fill(toList, a >= 0 ? d.d[a] : [], d);
+    };
+    const prime = async () => {
+      const d = await load(); if (!d || fromList.children.length) return;
+      fill(fromList, d.p.map((_, i) => i).filter((i) => d.d[i].length), d);
+      fillTo();
+    };
+    fromIn.addEventListener('focus', prime);
+    toIn.addEventListener('focus', prime);
+    fromIn.addEventListener('change', () => { msg.textContent = ''; fillTo(); });
+    form.querySelector('[data-picker-swap]').addEventListener('click', () => { [fromIn.value, toIn.value] = [toIn.value, fromIn.value]; msg.textContent = ''; fillTo(); });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const d = await load();
+      if (!d) { msg.textContent = 'Could not load the list of towns. Check your connection and try again.'; return; }
+      const a = find(d, fromIn.value);
+      if (a < 0 || !d.d[a].length) { msg.textContent = `No direct services found from "${fromIn.value.trim()}". Pick a town from the list.`; fromIn.focus(); return; }
+      const from = `/${key}/from/${d.p[a][0]}`;
+      if (!toIn.value.trim()) { location.href = from; return; }
+      const b = find(d, toIn.value);
+      if (b >= 0 && d.d[a].includes(b)) { location.href = `${from}/to/${d.p[b][0]}`; return; }
+      msg.replaceChildren(`No direct service from ${d.p[a][1]} to ${toIn.value.trim()}. `, Object.assign(document.createElement('a'), { href: from, textContent: `See everywhere you can go from ${d.p[a][1]}` }), '.');
+    });
+  });
+}
+
 function setupOffline() {
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
@@ -524,6 +568,7 @@ setupFavs();
 setupSearch();
 setupMaps();
 setupActions();
+setupPickers();
 scheduleAdSense();
 setupAds();
 setupOffline();

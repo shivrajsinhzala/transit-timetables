@@ -5,7 +5,7 @@ import Ad from '../../../components/Ad.astro';
 import RouteBadge from '../../../components/RouteBadge.astro';
 import Faq from '../../../components/Faq.astro';
 import Source from '../../../components/Source.astro';
-import { shardSystems, stopPageCodes, routeJourneys, pairDaily } from '../../../lib/data.js';
+import { shardSystems, stopPageCodes, routeJourneys, routeEnds, pairDaily } from '../../../lib/data.js';
 import { clock, every, shortDate, routeLabel, runsText, place, plain, slugify, possessive, modeName, vehicle, plural, brandFor, cap, stopWord } from '../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../lib/page.js';
 import { duration } from '../../../lib/journey.js';
@@ -37,14 +37,31 @@ const lineWord = /train|subway/.test(m) ? 'line' : 'route';
 // Titles lead with what riders type: "<town> bus route <n>", "dublin bus 46a timetable".
 const fit = (max, ...c) => c.find((s) => s.length <= max) ?? c.at(-1);
 const head = route.label ? `${brand}: ${label}` : `${brand} ${label}`;
-// When the brand and the places don't both fit, keep the places: Search Console shows riders
-// typing the number and a place ("813 bus timetable to waverley gardens", "517 bus timetable
-// greensborough"), never the operator's name.
+// Riders type the number and the places ("201 bus timetable leeds", "tram 96 timetable", "813 bus
+// timetable to waverley gardens"), rarely the operator's name: a numbered route's title and h1
+// lead with "<n> <Vehicle> <Word>", then where it goes, and the operator only when it fits.
 const num = /\d/.test(route.short || '') && label === `Route ${route.short}` ? `${route.short} ${cap(vehicle(route.type, system))}` : '';
+// "Dandenong - Brandon Park" reads as a search does: "Dandenong to Brandon Park". A feed with no
+// route name gets the towns at the ends of its longest journey instead.
+const ends = routeEnds(system.key, route.slug);
+// "Dublin - Airport - Drogheda" is "Dublin to Drogheda via Airport" (titles drop the "via" when short of room).
+const toName = (s) => {
+  const [, ends, via = ''] = /^(.*?)(\s+via\s.*)?$/i.exec(s);
+  const p = ends.split(' - ');
+  return p.length < 2 ? s : `${p[0]} to ${p.at(-1)}${p.length > 2 ? ` via ${p.slice(1, -1).join(', ')}` : via}`;
+};
+const where = name ? toName(name) : ends && ends.from !== ends.to ? `${ends.from} to ${ends.to}` : '';
+const shortWhere = where.replace(/\s*\([^)]*\)/g, '').replace(/\s+via\s.*$/i, '').trim();
+// Only an "A to B" leads the title: a corridor name stays as it was ("Phoenix Valley Metro Bus
+// Route 7 Schedule: 7th St" is our best-clicked title, and riders there search the street).
+const a2b = Boolean(num) && / to /.test(where);
 const shortName = name.replace(/\s+via\s.*$/i, '');
-const title = fit(60, `${head} ${Word}${name ? `: ${name}` : ''}`,
-  ...(num && name ? [`${num} ${Word}: ${name}`, `${num} ${Word}: ${shortName}`] : []),
-  `${head} ${Word} and Map`, `${head} ${Word}`, `${label} ${Word} (${system.name})`, `${label} ${Word}`);
+const title = a2b
+  ? fit(60, `${num} ${Word}: ${where} (${system.name})`, `${num} ${Word}: ${shortWhere} (${system.name})`, `${num} ${Word}: ${where}`, `${num} ${Word}: ${shortWhere}`, `${num} ${Word} (${system.name})`)
+  : fit(60, `${head} ${Word}${name ? `: ${name}` : ''}`,
+    ...(num && name ? [`${num} ${Word}: ${name}`, `${num} ${Word}: ${shortName}`] : []),
+    `${head} ${Word} and Map`, `${head} ${Word}`, `${label} ${Word} (${system.name})`, `${label} ${Word}`);
+const h1 = a2b ? `${num} ${Word}: ${where}` : num && !name ? `${num} ${Word} (${system.name})` : `${route.label ? `${system.name}: ${label}` : `${system.name} ${label}`}${name ? `: ${name}` : ''}`;
 const description = fit(160,
   `${system.name} ${label}${name ? ` ${name}` : ''} ${word}: first ${v} ${t(mainSummary.first)}, last ${t(mainSummary.last)} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. All ${stopW}s, both directions, map and next ${v}.`,
   `${system.name} ${label} ${word}: first ${v} ${t(mainSummary.first)}, last ${t(mainSummary.last)} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. All ${stopW}s, map and next ${v}.`,
@@ -110,8 +127,8 @@ const faq = [
   <div class="page-head">
     <RouteBadge route={route} lg />
     <div>
-      <h1>{route.label ? `${system.name}: ${label}` : `${system.name} ${label}`}{name ? <>: {name}</> : null}</h1>
-      <p class="sub">{cap(m)} {word} and {lineWord} map · {route.days.map((d) => d.label).join(', ')}</p>
+      <h1>{h1}</h1>
+      <p class="sub">{a2b ? <>{system.name} · </> : null}{cap(m)} {word} and {lineWord} map · {route.days.map((d) => d.label).join(', ')}</p>
     </div>
   </div>
   <div class="actions">
