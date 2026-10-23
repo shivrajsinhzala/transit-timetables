@@ -145,6 +145,18 @@ export function pageStops(key) {
   return memo(`pstops:${key}`, () => getStops(key).filter((s) => busiestDay(s) >= MIN_STOP_DEPARTURES));
 }
 
+/**
+ * Whether a stop page is for Google (scripts/indexed-stops.mjs): the busiest stops, and those
+ * already in its results. The rest are noindex and out of the sitemaps. No list: all of them.
+ */
+export function isIndexedStop(key, code) {
+  const all = memo('indexed-stops', () => {
+    const file = path.join(ROOT, 'src/data/indexed-stops.json');
+    return fs.existsSync(file) ? Object.fromEntries(Object.entries(JSON.parse(fs.readFileSync(file, 'utf8'))).map(([k, v]) => [k, new Set(v)])) : null;
+  });
+  return !all || Boolean(all[key]?.has(code));
+}
+
 export function stopPageCodes(key) {
   return memo(`codes:${key}`, () => new Set(pageStops(key).map((s) => s.code)));
 }

@@ -9,6 +9,7 @@ src/data/systems/
 src/data/stops/
 src/data/journeys/
 src/data/index.json
+src/data/indexed-stops.json
 public/geo/
 public/og/
 public/vendor/

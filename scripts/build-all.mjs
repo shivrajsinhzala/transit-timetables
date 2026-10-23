@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Builds every shard of the site (see scripts/shards.mjs and worker/router.js):
- *   1. plan the shards, write the search, near-me and vendor files;
+ *   1. plan the shards, write the search, near-me and vendor files and the indexable stops;
  *   2. `astro build` once per shard with SHARD set, into dist/<shard>, one at a time;
  *   3. strip from each shard what another one serves (public/ is copied into every build);
  *   4. move every shard's sitemap into main under one sitemap index, and copy every shard's
@@ -34,6 +34,7 @@ if (!only) {
   run('node', ['scripts/vendor.mjs']);
   run('node', ['--max-old-space-size=8192', 'scripts/shards.mjs']);
   run('node', ['--max-old-space-size=8192', 'scripts/search-index.mjs']);
+  run('node', ['--max-old-space-size=8192', 'scripts/indexed-stops.mjs']);
 }
 const plan = JSON.parse(fs.readFileSync('src/data/shards.json', 'utf8'));
 // Main last: it carries the sitemap index for every shard, and the router binds to them all.
