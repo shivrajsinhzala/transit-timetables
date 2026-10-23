@@ -13,10 +13,11 @@
     "deploy": "node scripts/deploy-all.mjs",
     "refresh": "npm run fetch && npm run data && node scripts/make-images.mjs && node scripts/build-all.mjs --deploy && npm run indexnow",
     "indexnow": "node scripts/indexnow.mjs",
+    "google": "node scripts/google.mjs",
     "build:one": "node scripts/vendor.mjs && astro build && node scripts/verify-build.mjs",
     "search": "node scripts/search-index.mjs",
     "release": "node scripts/build-all.mjs --deploy",
-    "refresh:server": "npm run fetch && npm run data && node scripts/make-images.mjs && node scripts/build-all.mjs --server && npm run indexnow",
+    "refresh:server": "npm run fetch && npm run data && node scripts/make-images.mjs && node scripts/build-all.mjs --server && npm run indexnow && node scripts/google.mjs submit",
     "release:server": "node scripts/build-all.mjs --server"
   },
   "dependencies": {

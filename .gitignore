@@ -25,3 +25,5 @@ data/logs/
 data/indexnow-sent.txt
 data/shard-assets/
 deploy/server.env
+deploy/google-sa.json
+data/google-inspected.json
