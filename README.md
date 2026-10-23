@@ -65,6 +65,23 @@ All in `scripts/build-data.mjs`, documented at the top of that file:
   timetable" / "no service"; a lasting change (a new season) is shown as a change date.
 - Columns are the feed's own timepoints, at most 7 so a table fits a phone.
 
+## Town-to-town pages
+
+People search between places ("cork to macroom bus", "stawell to horsham", "bus from bovingdon
+to hemel hempstead") far more than a route page can answer. `scripts/journeys.mjs`, run inside
+`npm run data`, finds every pair of places a system links directly and writes
+`src/data/journeys/<cc>/<system>.json`; each pair gets `/<cc>/<system>/from/<a>/to/<b>` (every
+departure, journey time, where to catch it, next departure) and each place
+`/<cc>/<system>/from/<a>` (every direct destination). System and route pages link to them.
+
+- Which town a stop is in comes from GeoNames' populated places (`data/raw/geonames-cities500.zip`,
+  CC BY 4.0, fetched by `npm run fetch`; `scripts/places.mjs`). Without that file the data step
+  simply builds no journeys.
+- Pairs must be 3 km apart with 5 departures a week, and each system keeps its best pairs only
+  (`maxPairs`, at most ~42,000 in all; each town's main link each way first): a city network links hundreds of suburbs to each other, and
+  Google crawls a young site only a couple of thousand pages a day.
+- They need a full data step: deploy with `npm run refresh:server`, not `release:server` on old data.
+
 ## Licence and attribution
 
 BC Transit's [open data terms](https://www.bctransit.com/open-data/terms-of-use) allow use,

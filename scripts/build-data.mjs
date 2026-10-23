@@ -26,10 +26,13 @@ import { parse } from 'csv-parse';
 import { parse as parseSync } from 'csv-parse/sync';
 import Holidays from 'date-holidays';
 import { SYSTEMS } from '../data/systems.mjs';
+import { havePlaces } from './places.mjs';
+import { buildJourneys } from './journeys.mjs';
 
 const RAW = 'data/raw';
 const OUT = 'src/data/systems';
 const STOPS_OUT = 'src/data/stops';
+const JOURNEYS_OUT = 'src/data/journeys';
 const WINDOW_DAYS = 28;
 const EXCEPTION_DAYS = 60;
 const MAX_COLUMNS = 7;
@@ -255,6 +258,7 @@ async function buildSystem(meta) {
       min: minutes(r.departure_time || r.arrival_time),
       tp: r.timepoint === '1',
       board: r.pickup_type !== '1',
+      alight: r.drop_off_type !== '1',
     });
   });
   for (const t of trips.values()) t.stops.sort((a, b) => a.seq - b.seq);
@@ -278,7 +282,13 @@ async function buildSystem(meta) {
   };
 
   // --- the usual timetable for each weekday, and the day types they form -------------------
-  const window = Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(start, i)).filter((d) => !holiday(d));
+  // A feed whose publisher has not yet posted the next timetable has no trips at all after its
+  // last date (Morebus, October 2026: nothing after 1 November). Those days are unknown, not
+  // "no service": counted, two empty Mondays outvoted two real ones and every weekday timetable
+  // vanished. So days after the last date anything runs do not vote.
+  let lastRun = null;
+  for (let d = start; d <= end; d = addDays(d, 1)) if (sigOf(d)) lastRun = d;
+  const window = Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(start, i)).filter((d) => !holiday(d) && (!lastRun || d <= lastRun));
   const usual = WEEKDAYS.map((_, w) => mode(window.filter((d) => weekday(d) === w).map(sigOf)) ?? '');
   // The services of one real date that ran the usual timetable — what the tables are built from.
   const sample = usual.map((sig, w) => window.find((d) => weekday(d) === w && sigOf(d) === sig));
@@ -313,6 +323,7 @@ async function buildSystem(meta) {
   const tripsByRoute = new Map();
   for (const t of trips.values()) { if (!tripsByRoute.has(t.route_id)) tripsByRoute.set(t.route_id, []); tripsByRoute.get(t.route_id).push(t); }
   const outRoutes = [];
+  const slugOf = new Map(); // route_id -> page slug, for the journeys
   for (const r of routes) {
     // Day types per route, not per system: Victoria as a whole differs on Wednesdays because a
     // handful of its 69 routes do, and that must not split route 4's Monday-to-Friday table.
@@ -435,6 +446,7 @@ async function buildSystem(meta) {
 
     geo.routes.push({ slug, short: r.route_short_name || '', name: r.route_long_name || '', color: r.route_color ? `#${r.route_color}` : null, dirs: geoDirs });
 
+    slugOf.set(r.route_id, slug);
     outRoutes.push({
       slug,
       short: r.route_short_name || '',
@@ -458,7 +470,8 @@ async function buildSystem(meta) {
     key: `${meta.cc}/${meta.slug}`,
     timezone: tz,
     builtOn: start,
-    feed: { version: feedInfo.feed_version || '', from: feedInfo.feed_start_date ? gtfsDate(feedInfo.feed_start_date) : null, to: feedInfo.feed_end_date ? gtfsDate(feedInfo.feed_end_date) : null },
+    // With no stated end date, the last day anything runs is the end, when it is within the range.
+    feed: { version: feedInfo.feed_version || '', from: feedInfo.feed_start_date ? gtfsDate(feedInfo.feed_start_date) : null, to: feedInfo.feed_end_date ? gtfsDate(feedInfo.feed_end_date) : lastRun && lastRun < end ? lastRun : null },
     dayTypes: dayTypes.map(({ key, label, days }) => ({ key, label, days })),
     noServiceDays: noServiceDays.map((d) => WEEKDAYS[d]),
     exceptions,
@@ -477,7 +490,9 @@ async function buildSystem(meta) {
     };
   }).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
 
-  return { system, stops: stopsOut, geo };
+  const journeys = havePlaces() ? buildJourneys({ cc: meta.cc, trips, stops, slugOf, sample, usual, servicesOn, dayKey, dayLabel, routeCount: outRoutes.length }) : null;
+
+  return { system, stops: stopsOut, geo, journeys };
 }
 
 const only = process.argv[2] ? new Set(process.argv[2].split(',')) : null;
@@ -489,11 +504,14 @@ for (const meta of SYSTEMS) {
   const t0 = Date.now();
   let built;
   try { built = await buildSystem(meta); } catch (e) { console.warn(`! ${key}: ${e.message}`); continue; }
-  const { system, stops, geo } = built;
+  const { system, stops, geo, journeys } = built;
   if (!system.routes.length) { console.warn(`skip ${key}: no routes running in the next four weeks`); continue; }
-  for (const dir of [OUT, STOPS_OUT]) fs.mkdirSync(path.join(dir, meta.cc), { recursive: true });
+  for (const dir of [OUT, STOPS_OUT, JOURNEYS_OUT]) fs.mkdirSync(path.join(dir, meta.cc), { recursive: true });
   fs.writeFileSync(path.join(OUT, meta.cc, `${meta.slug}.json`), JSON.stringify(system));
   fs.writeFileSync(path.join(STOPS_OUT, meta.cc, `${meta.slug}.json`), JSON.stringify(stops));
+  // Without the place list (scripts/places.mjs) there are no journeys: drop last week's rather than publish stale ones.
+  const journeyFile = path.join(JOURNEYS_OUT, meta.cc, `${meta.slug}.json`);
+  if (journeys) fs.writeFileSync(journeyFile, JSON.stringify(journeys)); else fs.rmSync(journeyFile, { force: true });
   // Map data is fetched by the browser only when a rider opens a map, so it lives in public/,
   // outside the pages: one file per route, plus a lighter overview of the whole system.
   const geoDir = path.join('public/geo', meta.cc, meta.slug);
@@ -503,9 +521,9 @@ for (const meta of SYSTEMS) {
   fs.writeFileSync(path.join('public/geo', meta.cc, `${meta.slug}.json`), JSON.stringify({
     routes: geo.routes.map((r) => ({ slug: r.slug, short: r.short, name: r.name, color: r.color, line: simplify(r.dirs[0]?.line || [], 0.0004) })),
   }));
-  const entry = { key, cc: meta.cc, slug: meta.slug, name: meta.name, area: meta.area, region: meta.region, group: meta.group || null, routes: system.routes.length, stops: stops.length, modes: [...new Set(system.routes.map((r) => r.type))], builtOn: system.builtOn };
+  const entry = { key, cc: meta.cc, slug: meta.slug, name: meta.name, area: meta.area, region: meta.region, group: meta.group || null, routes: system.routes.length, stops: stops.length, journeys: journeys?.pairs.length || 0, modes: [...new Set(system.routes.map((r) => r.type))], builtOn: system.builtOn };
   const i = index.findIndex((x) => x.key === key);
   if (i >= 0) index[i] = entry; else index.push(entry);
-  console.log(`${key.padEnd(30)} ${String(system.routes.length).padStart(4)} routes ${String(stops.length).padStart(6)} stops  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
+  console.log(`${key.padEnd(30)} ${String(system.routes.length).padStart(4)} routes ${String(stops.length).padStart(6)} stops ${String(journeys?.pairs.length || 0).padStart(5)}/${journeys?.candidates || 0} journeys  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 }
 fs.writeFileSync('src/data/index.json', JSON.stringify(index.sort((a, b) => b.routes - a.routes), null, 1));

@@ -22,6 +22,8 @@ export function GET() {
     `- Route: ${site}/<country>/<system>/<route> (full timetable both directions, first/last departure, frequency), e.g. ${site}/ca/kelowna/route-8`,
     `- Stop: ${site}/<country>/<system>/stop/<stop number> (every departure at that stop by day), e.g. ${site}/ca/kelowna/stop/103075`,
     `- Interchange: ${site}/<country>/<system>/hub/<name> (departures from every bay), e.g. ${site}/ca/kelowna/hub/orchard-park-exchange`,
+    `- Town to town: ${site}/<country>/<system>/from/<town>/to/<town> (every direct departure between two places, how long it takes, where to catch it), e.g. ${site}/ie/bus-eireann/from/cork/to/macroom`,
+    `- Town: ${site}/<country>/<system>/from/<town> (every place with a direct bus or train from that town), e.g. ${site}/ie/bus-eireann/from/cork`,
     '',
     'Times are written as riders in each country write them: 24-hour in the UK and Ireland, 12-hour elsewhere.',
     '',

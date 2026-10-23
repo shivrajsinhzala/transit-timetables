@@ -69,7 +69,9 @@ function setupSections() {
       return;
     }
     show(key);
-    const marks = [...panel.querySelectorAll('[data-m]')].filter((el) => el.dataset.m !== '');
+    // A journey page's weekday tab can hold a departure that runs on some weekdays only (data-w).
+    const runsToday = (el) => !el.dataset.w || el.dataset.w.split(',').includes(String(t.wd));
+    const marks = [...panel.querySelectorAll('[data-m]')].filter((el) => el.dataset.m !== '' && runsToday(el));
     const next = marks.find((el) => Number(el.dataset.m) >= t.min);
     if (!line) return;
     if (!next) { line.textContent = 'No more departures today.'; return; }

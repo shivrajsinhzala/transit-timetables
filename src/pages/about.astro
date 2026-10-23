@@ -27,6 +27,8 @@ const byCountry = all.map((c) => ({ ...c, sources: [...new Map(c.systems.map((s)
     </>
   ))}
   {sources.some((a) => /Open Government Licence v3/.test(a.license || '')) && <p class="small muted">Contains public sector information licensed under the Open Government Licence v3.0.</p>}
+  <h3>Town names</h3>
+  <p>The town-to-town pages (“Cork to Macroom bus”) name the town or suburb each stop is in using <a href="https://www.geonames.org/" rel="nofollow">GeoNames</a>, under <a href="https://creativecommons.org/licenses/by/4.0/" rel="nofollow license">CC BY 4.0</a>. They list only direct journeys, at the scheduled times of the stops they name.</p>
   <h2>What it is not</h2>
   <p>Stopwatch is independent. It is not run by, affiliated with or endorsed by any transit operator, transport authority or government. It shows scheduled times, not live vehicle positions. For fares, disruptions, cancellations and service alerts, use the operator’s own website or app.</p>
   <h2>Who makes it</h2>

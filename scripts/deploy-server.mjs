@@ -13,8 +13,12 @@
  * Each shard is copied into the new release as soon as it is built (the shards hold different
  * files, so together they make the whole site), and `current` moves to it only once every shard
  * is there: visitors never see a half-deployed site. rsync compares contents (-c) and hardlinks
- * unchanged files from the live release (--link-dest), so a weekly refresh sends only what
- * changed and two releases take little more disk than one. The last three releases are kept.
+ * unchanged files from the live release (--link-dest), so a rebuild of the same data sends only
+ * what changed. A weekly refresh, though, changes nearly every page (each says when it was
+ * updated), so its release is a whole new copy of the site (~11 GB, more with the journey
+ * pages), and the 45 GB disk the site shares with other sites does not hold three: while a
+ * release uploads only the live one is kept, and afterwards the live one and the one before it
+ * (for rollback).
  */
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -50,6 +54,8 @@ export function startRelease({ partial = false } = {}) {
     `mkdir -p ${root}/releases`,
     `live=$(basename "$(readlink ${root}/current 2>/dev/null)" 2>/dev/null || true)`,
     `cd ${root}/releases && ls -1 | awk -v live="$live" '$0 > live' | xargs -r rm -rf`,
+    // Room for the new release: drop the ones before the live one (see above).
+    ...(partial ? [] : [`if [ -n "$live" ]; then ls -1 | awk -v live="$live" '$0 < live' | xargs -r rm -rf; fi`]),
     `mkdir -p ${dir}`,
     ...(partial ? [`if [ -d ${root}/current/ ]; then cp -al ${root}/current/. ${dir}/; fi`] : []),
   ].join('; '));
@@ -67,7 +73,7 @@ export function syncShard(release, localDir) {
   ], { stdio: 'inherit' });
 }
 
-/** Makes the release live (an atomic symlink swap), then deletes all but the last three. */
+/** Makes the release live (an atomic symlink swap), then deletes all but it and the one before. */
 export function finishRelease(release) {
   const { host, root, dir } = release;
   sh(host, [
@@ -75,7 +81,7 @@ export function finishRelease(release) {
     `test -f ${dir}/index.html || { echo "release has no index.html, not switching"; exit 1; }`,
     `ln -sfn ${dir} ${root}/current.new`,
     `mv -T ${root}/current.new ${root}/current`,
-    `cd ${root}/releases && ls -1 | sort | head -n -3 | xargs -r rm -rf`,
+    `cd ${root}/releases && ls -1 | sort | head -n -2 | xargs -r rm -rf`,
   ].join('; '));
   console.log(`server: ${dir} is live`);
 }

@@ -81,7 +81,7 @@ back, remove the DNS record and add the custom domain to the Worker again.
 ## Rolling back a bad release
 
 ```bash
-ssh server 'ls /var/www/stopwatch/releases'      # the last three
+ssh server 'ls /var/www/stopwatch/releases'      # the live one and the one before it
 ssh server 'ln -sfn /var/www/stopwatch/releases/<older> /var/www/stopwatch/current.new &&
   mv -T /var/www/stopwatch/current.new /var/www/stopwatch/current'
 ```
