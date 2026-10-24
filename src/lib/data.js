@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { SYSTEMS, COUNTRIES, GROUPS } from '../../data/systems.mjs';
 import { place, slugify, plain, baseType } from './format.js';
+import { minorVariants } from './variants.js';
 
 const ROOT = process.cwd();
 const read = (p) => JSON.parse(fs.readFileSync(path.join(ROOT, p), 'utf8'));
@@ -310,6 +311,11 @@ export function routeEnds(key, slug) {
   let best = null;
   for (const p of j.pairs) if (p.routes.includes(slug) && (!best || p.km > best.km || (p.km === best.km && pairDaily(p) > pairDaily(best)))) best = p;
   return best ? { from: j.places[best.a].name, to: j.places[best.b].name } : null;
+}
+
+/** The main route a minor variant defers to ("7S" to "7", src/lib/variants.js), or null. */
+export function mainRouteOf(key, slug) {
+  return memo(`variants:${key}`, () => minorVariants(getSystem(key).routes)).get(slug) || null;
 }
 
 /** URL helpers: every page lives under /<country>/<system>/. */
