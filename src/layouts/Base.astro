@@ -4,7 +4,7 @@ import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
 import { SYSTEM_INDEX, COUNTRIES, countries, systemsIn } from '../lib/data.js';
 import { plain } from '../lib/format.js';
-import { LANG } from '../lib/page.js';
+import { LANG, countryNames } from '../lib/page.js';
 
 interface Props {
   title: string;
@@ -67,7 +67,7 @@ const entityLd = [
   {
     '@context': 'https://schema.org', '@type': 'Organization', '@id': ORG_ID, name: 'Stopwatch', url: `${SITE}/`,
     logo: { '@type': 'ImageObject', url: `${SITE}/icon-512.png`, width: 512, height: 512 },
-    description: `Independent website publishing bus, tram, train and ferry timetables for ${SYSTEM_INDEX.length} transit systems in ${allCountries.map((c) => c.name).join(', ')}, built from the operators' open data.`,
+    description: `Independent website publishing bus, tram, train and ferry timetables for ${SYSTEM_INDEX.length} transit systems in ${countryNames(allCountries)}, built from the operators' open data.`,
     founder: { '@type': 'Person', '@id': PERSON_ID, name: 'Shivrajsinh Zala', jobTitle: 'Web developer', url: 'https://shivrajsinh.in', sameAs: ['https://shivrajsinh.in', 'https://github.com/shivrajsinhzala'] },
     areaServed: allCountries.map((c) => ({ '@type': 'Country', name: c.name })),
   },

@@ -28,6 +28,12 @@ export function ctxFor(system) {
   };
 }
 
+/** [Canada, United Kingdom, Ireland] -> "Canada, the United Kingdom and Ireland", as a sentence needs it. */
+export function countryNames(list) {
+  const n = list.map((c) => (/^United /.test(c.name) ? `the ${c.name}` : c.name));
+  return n.length > 1 ? `${n.slice(0, -1).join(', ')} and ${n.at(-1)}` : n[0] || '';
+}
+
 /** Dates as the country writes them: "October 12, 2026" in North America, "12 October 2026" elsewhere. */
 export function dateFor(iso, cc) {
   const d = new Date(`${iso}T12:00:00Z`);

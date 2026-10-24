@@ -62,17 +62,24 @@ const title = a2b
     ...(num && name ? [`${num} ${Word}: ${name}`, `${num} ${Word}: ${shortName}`] : []),
     `${head} ${Word} and Map`, `${head} ${Word}`, `${label} ${Word} (${system.name})`, `${label} ${Word}`);
 const h1 = a2b ? `${num} ${Word}: ${where}` : num && !name ? `${num} ${Word} (${system.name})` : `${route.label ? `${system.name}: ${label}` : `${system.name} ${label}`}${name ? `: ${name}` : ''}`;
+// A route with one trip a day (school and works services) has no "first" and "last": "first bus
+// 2:35 pm, last 2:35 pm" read as a bug in the snippet of our most-shown Phoenix page.
+const once = mainSummary.first === mainSummary.last;
+const span = once ? `one ${v} a day, at ${t(mainSummary.first)}` : `first ${v} ${t(mainSummary.first)}, last ${t(mainSummary.last)}`;
 const description = fit(160,
-  `${system.name} ${label}${name ? ` ${name}` : ''} ${word}: first ${v} ${t(mainSummary.first)}, last ${t(mainSummary.last)} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. All ${stopW}s, both directions, map and next ${v}.`,
-  `${system.name} ${label} ${word}: first ${v} ${t(mainSummary.first)}, last ${t(mainSummary.last)} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. All ${stopW}s, map and next ${v}.`,
-  `${system.name} ${label} ${word}: first ${v} ${t(mainSummary.first)}, last ${t(mainSummary.last)} ${main.label}. All ${stopW}s and next ${v}.`);
+  `${system.name} ${label}${name ? ` ${name}` : ''} ${word}: ${span} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. All ${stopW}s, both directions, map and next ${v}.`,
+  `${system.name} ${label} ${word}: ${span} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. All ${stopW}s, map and next ${v}.`,
+  `${system.name} ${label} ${word}: ${span} ${main.label}. All ${stopW}s and next ${v}.`);
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const covered = new Set(route.days.flatMap((d) => d.days));
 const missing = WEEKDAYS.filter((_, i) => !covered.has(i));
 
-// Places served: the route's timepoints, which are the stops the operator itself names.
-const places = [...new Set(route.directions.flatMap((d) => d.columns.map((c) => place(plain(c.name)))))];
+// Places served, in the order a rider passes them: the timepoints (the stops the operator itself
+// names) of the longest direction. Mixing both directions jumbled the lede ("serving Bargy Road,
+// College Green, Castlegrange Sq"), and a tram stop's number ("Acland St #139") is not a place.
+const along = [...route.directions].sort((a, b) => b.stops.length - a.stops.length)[0];
+const places = [...new Set(along.columns.map((c) => place(plain(c.name)).replace(/\s*#\d+$/, '')))];
 // At most five: the two ends and up to three timepoints between, in route order.
 const shown = places.length > 5 ? [places[0], ...places.slice(1, -1).filter((_, i, a) => i % Math.ceil(a.length / 3) === 0).slice(0, 3), places.at(-1)] : places;
 const placesText = shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}` : shown[0];
@@ -144,7 +151,7 @@ const faq = [
   </div>
 
   <p class="lede" style="margin-top:1.2rem">
-    {system.name} {label}{name ? ` (${name})` : ''} is a {m} {lineWord} in {system.area}, serving {placesText}. {main.label} the first {v} is at {t(mainSummary.first)} and the last at {t(mainSummary.last)}{mainSummary.gap ? <>, {every(mainSummary.gap)} during the day</> : null}. Updated {dateFor(system.builtOn, system.cc)}.
+    {system.name} {label}{name ? ` (${name})` : ''} is a {m} {lineWord} in {system.area}, serving {placesText}. {main.label} {once ? <>there is one {v} a day, at {t(mainSummary.first)}</> : <>the first {v} is at {t(mainSummary.first)} and the last at {t(mainSummary.last)}</>}{mainSummary.gap ? <>, {every(mainSummary.gap)} during the day</> : null}. Updated {dateFor(system.builtOn, system.cc)}.
   </p>
 
   <h2 class="sr">{Word} summary</h2>

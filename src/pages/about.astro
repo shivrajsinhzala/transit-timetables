@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { SYSTEM_INDEX, countries, META } from '../lib/data.js';
 import { plain } from '../lib/format.js';
+import { countryNames } from '../lib/page.js';
 
 const all = countries();
 const routes = SYSTEM_INDEX.reduce((a, s) => a + s.routes, 0);
@@ -13,7 +14,7 @@ const byCountry = all.map((c) => ({ ...c, sources: [...new Map(c.systems.map((s)
 <Base title="About Stopwatch: Who Makes It and Where the Times Come From" description={`Stopwatch is an independent site that turns open transit data into readable timetables for ${SYSTEM_INDEX.length} systems in ${all.length} countries. Who builds it, the data sources and licences.`} path="about" pageType="AboutPage">
 <main class="wrap" style="max-width:760px">
   <h1>About Stopwatch</h1>
-  <p class="lede">Stopwatch is an independent website that turns official transit timetable data into pages that are quick to read on a phone: the whole day for a route on one screen, with the next departure first. It covers {routes.toLocaleString('en')} routes from {SYSTEM_INDEX.length} transit systems in {all.map((c) => c.name).join(', ')}.</p>
+  <p class="lede">Stopwatch is an independent website that turns official transit timetable data into pages that are quick to read on a phone: the whole day for a route on one screen, with the next departure first. It covers {routes.toLocaleString('en')} routes from {SYSTEM_INDEX.length} transit systems in {countryNames(all)}.</p>
   <h2>Why it exists</h2>
   <p>Timetables usually live in PDFs that are hard to read on a phone, or behind apps that want an install before they show more than the next trip. Stopwatch shows every departure on an ordinary web page that loads fast on a weak signal and keeps working offline once you have opened it.</p>
   <h2>Where the times come from</h2>

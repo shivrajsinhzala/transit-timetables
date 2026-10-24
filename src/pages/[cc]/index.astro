@@ -25,7 +25,16 @@ const info = Object.fromEntries(systems.map((s) => {
   return [s.key, { colors: sys.routes.map((r) => r.color).filter(Boolean).slice(0, 8), mode: sharedMode(sys.routes, sys) }];
 }));
 // "bus, streetcar and subway": the modes in this country, commonest first.
-const modeList = (() => { const m = [...modeCount.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k); return m.length > 1 ? `${m.slice(0, -1).join(', ')} and ${m.at(-1)}` : m[0]; })();
+const modes = [...modeCount.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
+const andList = (m) => (m.length > 1 ? `${m.slice(0, -1).join(', ')} and ${m.at(-1)}` : m[0]);
+const modeList = andList(modes);
+// Titles and the h1 carry the three commonest modes, as riders search ("australia bus, train and
+// tram timetables"); the full list stays in the description and lede.
+const modeShort = andList(modes.slice(0, 3));
+// "in the United Kingdom", and the "UK" riders type in titles.
+const inName = /^United /.test(c.name) ? `the ${c.name}` : c.name;
+const short = { uk: 'UK', us: 'US' }[c.cc] || c.name;
+const fit = (max, ...t) => t.find((x) => x.length <= max) ?? t.at(-1);
 const regions = Object.entries(c.regions).map(([slug, name]) => ({ slug, name, systems: systems.filter((s) => s.region === slug) })).filter((r) => r.systems.length);
 // British Columbia is big enough to group by part of the province.
 const sections = regions.flatMap((r) => {
@@ -35,11 +44,14 @@ const sections = regions.flatMap((r) => {
 });
 const top = systems.slice(0, 4).map((s) => s.name);
 const W = cap(c.word);
-const title = `${c.name} ${W}s: ${systems.length} Transit Systems | Stopwatch`;
-const description = `Full ${c.word}s for ${routes.toLocaleString('en')} ${modeList} routes from ${systems.length} ${c.name} transit systems, including ${top.slice(0, 3).join(', ')}. Next departure first.`;
+const titleCase = (x) => x.replace(/\b(?!and\b)[a-z]/g, (ch) => ch.toUpperCase());
+const title = fit(60, `${short} ${titleCase(modeShort)} ${W}s | Stopwatch`, `${short} ${titleCase(modes[0])} ${W}s | Stopwatch`);
+const description = fit(160,
+  ...[3, 2, 1].map((n) => `${W}s for ${routes.toLocaleString('en')} ${modeList} routes from ${systems.length} transit systems in ${inName}, including ${andList(top.slice(0, n))}. Next departure first.`),
+  `${W}s for ${routes.toLocaleString('en')} ${modeShort} routes from ${systems.length} transit systems in ${inName}, with the next departure first.`);
 const faq = [
-  [`Which ${c.name} transit systems does Stopwatch cover?`, `${systems.length} systems with ${routes.toLocaleString('en')} routes and ${stops.toLocaleString('en')} stops, from ${top.join(', ')} to ${systems.at(-1).name}. Each one has its own page with every route, a map and the busiest stops.`],
-  [`Where do the ${c.name} ${c.word}s come from?`, `From open ${c.word} data (GTFS) that the operators and transport authorities publish under open licences. Every page names its source and licence, and the data was last refreshed on ${dateFor(builtOn, c.cc)}.`],
+  [`Which transit systems in ${inName} does Stopwatch cover?`, `${systems.length} systems with ${routes.toLocaleString('en')} routes and ${stops.toLocaleString('en')} stops, from ${top.join(', ')} to ${systems.at(-1).name}. Each one has its own page with every route, a map and the busiest stops.`],
+  [`Where do the ${short} ${c.word}s come from?`, `From open ${c.word} data (GTFS) that the operators and transport authorities publish under open licences. Every page names its source and licence, and the data was last refreshed on ${dateFor(builtOn, c.cc)}.`],
   [`Are these live times?`, `No. Stopwatch shows the published ${c.word} and works out the next departure from it and your phone's clock. For disruptions, check the operator.`],
   [`Is my area missing?`, `Stopwatch only publishes ${c.word}s whose data licence allows it. More systems are added as their data is checked.`],
 ];
@@ -47,8 +59,8 @@ const faq = [
 <Base title={title} description={description} path={c.cc} pageType="CollectionPage" lang={LANG[c.cc]} cc={c.cc} speakable={['.lede', '.faq .answer']}>
 <main class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Stopwatch</a> › {c.name}</nav>
-  <h1>{c.name} {c.word}s</h1>
-  <p class="lede">Stopwatch has full {c.word}s for {systems.length} transit systems in {c.name}: {routes.toLocaleString('en')} {modeList} routes and {stops.toLocaleString('en')} stops, built from the operators' open data and refreshed every week (last on {dateFor(builtOn, c.cc)}). Every route shows the whole day and highlights the next departure.</p>
+  <h1>{c.name} {modeShort} {c.word}s</h1>
+  <p class="lede">Stopwatch has full {c.word}s for {systems.length} transit systems in {inName}: {routes.toLocaleString('en')} {modeList} routes and {stops.toLocaleString('en')} stops, built from the operators' open data and refreshed every week (last on {dateFor(builtOn, c.cc)}). Every route shows the whole day and highlights the next departure.</p>
   <div class="actions">
     <button class="btn btn-primary" type="button" data-search-open><Icon name="magnifying-glass" /> Find a route or town</button>
     <button class="btn btn-quiet" type="button" data-near-me><Icon name="navigation-arrow" /> Stops near me</button>
@@ -75,7 +87,7 @@ const faq = [
       {i === 0 && sections.length > 2 && <Ad />}
     </>
   ))}
-  <PopularRoutes title={`Popular routes in ${c.name}`} keys={systems.slice(0, 4).map((s) => s.key)} per={5} />
-  <Faq items={faq} title={`${c.name} ${c.word} questions`} />
+  <PopularRoutes title={`Popular routes in ${inName}`} keys={systems.slice(0, 4).map((s) => s.key)} per={5} />
+  <Faq items={faq} title={`${short} ${c.word} questions`} />
 </main>
 </Base>

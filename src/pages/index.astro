@@ -8,6 +8,7 @@ import PopularRoutes from '../components/PopularRoutes.astro';
 import { SYSTEM_INDEX, countries, getSystem } from '../lib/data.js';
 import { clock, shortDate, place, plain, sharedMode, plural } from '../lib/format.js';
 import { FEATURED } from '../lib/featured.js';
+import { countryNames } from '../lib/page.js';
 
 const routes = SYSTEM_INDEX.reduce((a, s) => a + s.routes, 0);
 const stops = SYSTEM_INDEX.reduce((a, s) => a + s.stops, 0);
@@ -42,7 +43,10 @@ const holiday = holidayRoute?.exceptions.find((e) => e.holiday);
 const runsLabel = holiday ? (holidayRoute.days.find((d) => d.key === holiday.runs)?.label || 'a special') : '';
 
 const boards = FEATURED.map((f) => ({ key: f.key, city: f.city, tz: f.tz, src: `/boards/${f.key.replace('/', '-')}.json` }));
-const countryList = `${all.slice(0, -1).map((c) => c.name).join(', ')} and ${all.at(-1).name}`;
+const countryList = countryNames(all);
+// The meta description has 160 characters: "UK" and "US", as riders write them.
+const shortName = (c) => ({ uk: 'the UK', us: 'the US' }[c.cc] || c.name);
+const shortList = `${all.slice(0, -1).map(shortName).join(', ')} and ${shortName(all.at(-1))}`;
 
 const faq = [
   ['What is Stopwatch?', `Stopwatch is a free, independent website with the full timetable for ${nf(routes)} bus, tram, train and ferry routes from ${systems} transit systems in ${countryList}. Every route and stop page highlights the next scheduled departure, and pages work offline once opened.`],
@@ -53,7 +57,7 @@ const faq = [
   ['How often are the timetables updated?', 'Every week, from the data each operator publishes. Each page says when its timetable was last refreshed.'],
 ];
 ---
-<Base title="Stopwatch: Bus, Tram and Train Timetables in 6 Countries" description={`Full timetables for ${nf(routes)} routes from ${systems} transit systems in ${countryList}, with the next departure first. No app needed.`} path="" speakable={['.hero h1', '.hero .lede']}>
+<Base title="Stopwatch: Bus, Tram and Train Timetables in 6 Countries" description={`Timetables for ${nf(routes)} bus, tram, train and ferry routes in ${shortList}. Next departure first, no app needed.`} path="" speakable={['.hero h1', '.hero .lede']}>
 <main class="wrap" style="padding-top:0">
   <section class="hero">
     <div>
