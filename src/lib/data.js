@@ -162,6 +162,17 @@ export function stopPageCodes(key) {
 }
 
 /**
+ * Stop pages that get a link from other pages: those Google may index. Noindex keeps a page out of
+ * results, not out of the crawl: with every route linking its quiet stops, Googlebot fetched
+ * 320-350 noindex stop pages a day and 25-47 route pages (server log, 22-24 Oct 2026), and only
+ * ~1,000 of ~9,400 route and network pages were indexed. Quiet stops keep their pages, reachable
+ * from search and near me; their names show as plain text elsewhere.
+ */
+export function linkedStopCodes(key) {
+  return memo(`linked:${key}`, () => new Set(pageStops(key).filter((s) => isIndexedStop(key, s.code)).map((s) => s.code)));
+}
+
+/**
  * Hubs: places with several boarding bays ("Orchard Park Exchange Bay A" … "Bay G"). Riders
  * search for the exchange, not the bay, so each gets one page listing every bay and route.
  */
