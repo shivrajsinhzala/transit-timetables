@@ -11,7 +11,7 @@ import Ad from '../../../../../../components/Ad.astro';
 import RouteBadge from '../../../../../../components/RouteBadge.astro';
 import Faq from '../../../../../../components/Faq.astro';
 import Source from '../../../../../../components/Source.astro';
-import { shardSystems, getJourneys, journeyUrl, fromUrl, pairDaily, stopPageCodes } from '../../../../../../lib/data.js';
+import { shardSystems, getJourneys, journeyUrl, fromUrl, pairDaily, linkedStopCodes } from '../../../../../../lib/data.js';
 import { clock, plain, routeLabel, vehicle, plural, cap, shortDate, runsText, possessive, inkFor } from '../../../../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../../../../lib/page.js';
 import { duration, daysOnly, listText, routeList, pairExceptions, perWeekday } from '../../../../../../lib/journey.js';
@@ -35,7 +35,7 @@ const modes = [...new Set(routes.map((r) => vehicle(r.type, system)))];
 const v = modes.length === 1 ? modes[0] : 'departure';
 const vs = v === 'departure' ? 'departures' : plural(v);
 const Mode = modes.map(cap).join(' and ');
-const stopPages = stopPageCodes(system.key);
+const stopPages = linkedStopCodes(system.key);
 const stopHref = (code) => `${base}/stop/${encodeURIComponent(code)}`;
 const stopName = (code) => plain(j.stops[code] || code);
 
@@ -180,10 +180,10 @@ const faq = [
       <h2>Where to catch it</h2>
       <div class="list-cols">
         <ul class="list">
-          {fromCodes.map((c) => <li>{stopPages.has(c) ? <a href={stopHref(c)}><Icon name="map-pin" /><span>{stopName(c)}<span class="meta">In {A} · stop {c}</span></span><Icon name="arrow-right" class="go" /></a> : <span style="display:flex;gap:.9rem;padding:.8rem 1rem"><Icon name="map-pin" /><span>{stopName(c)}<span class="meta">In {A} · stop {c}</span></span></span>}</li>)}
+          {fromCodes.map((c) => <li>{stopPages.has(c) ? <a href={stopHref(c)}><Icon name="map-pin" /><span>{stopName(c)}<span class="meta">In {A} · stop {c}</span></span><Icon name="arrow-right" class="go" /></a> : <span class="row"><Icon name="map-pin" /><span>{stopName(c)}<span class="meta">In {A} · stop {c}</span></span></span>}</li>)}
         </ul>
         <ul class="list">
-          {toCodes.map((c) => <li>{stopPages.has(c) ? <a href={stopHref(c)}><Icon name="map-pin" /><span>{stopName(c)}<span class="meta">In {B} · stop {c}</span></span><Icon name="arrow-right" class="go" /></a> : <span style="display:flex;gap:.9rem;padding:.8rem 1rem"><Icon name="map-pin" /><span>{stopName(c)}<span class="meta">In {B} · stop {c}</span></span></span>}</li>)}
+          {toCodes.map((c) => <li>{stopPages.has(c) ? <a href={stopHref(c)}><Icon name="map-pin" /><span>{stopName(c)}<span class="meta">In {B} · stop {c}</span></span><Icon name="arrow-right" class="go" /></a> : <span class="row"><Icon name="map-pin" /><span>{stopName(c)}<span class="meta">In {B} · stop {c}</span></span></span>}</li>)}
         </ul>
       </div>
     </section>

@@ -157,7 +157,9 @@ const cfg = { tz: system.timezone, h24, routes: Object.fromEntries(stop.routes.m
     <section>
       <h2>Stops nearby</h2>
       <ul class="list">
-        {near.map(({ stop: s, m }) => <li><a href={stopHref(s.code)}><Icon name="map-pin" /><span>{plain(s.name)}<span class="meta">{s.code} · about {Math.max(1, Math.round(m / 80))} min walk ({Math.round(m / 10) * 10} m)</span></span><Icon name="arrow-right" class="go" /></a></li>)}
+        {near.map(({ stop: s, m }) => { const body = <><Icon name="map-pin" /><span>{plain(s.name)}<span class="meta">{s.code} · about {Math.max(1, Math.round(m / 80))} min walk ({Math.round(m / 10) * 10} m)</span></span></>; return isIndexedStop(system.key, s.code)
+          ? <li><a href={stopHref(s.code)}>{body}<Icon name="arrow-right" class="go" /></a></li>
+          : <li><span class="row">{body}</span></li>; })}
       </ul>
     </section>
   )}

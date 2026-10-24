@@ -5,7 +5,7 @@ import Ad from '../../../components/Ad.astro';
 import RouteBadge from '../../../components/RouteBadge.astro';
 import Faq from '../../../components/Faq.astro';
 import Source from '../../../components/Source.astro';
-import { shardSystems, stopPageCodes, routeJourneys, routeEnds, pairDaily } from '../../../lib/data.js';
+import { shardSystems, linkedStopCodes, routeJourneys, routeEnds, pairDaily } from '../../../lib/data.js';
 import { clock, every, shortDate, routeLabel, runsText, place, plain, slugify, possessive, modeName, vehicle, plural, brandFor, cap, stopWord, inkFor } from '../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../lib/page.js';
 import { duration } from '../../../lib/journey.js';
@@ -20,7 +20,7 @@ export function getStaticPaths() {
 const { system, route } = Astro.props;
 const x = ctxFor(system);
 const { t, base, h24, Word, word } = x;
-const stopPages = stopPageCodes(system.key);
+const stopPages = linkedStopCodes(system.key);
 const label = routeLabel(route);
 const longName = plain(route.name);
 // The long name is a subtitle only when it adds something ("Line 1 (Yonge-University)" already says Line 1).
@@ -84,6 +84,17 @@ const dirNames = route.directions.map((d, i) => {
     ? { heading: `${label}: ${plain(d.headsign) || `direction ${i + 1}`}`, anchor: slugify(d.headsign) || `direction-${i + 1}` }
     : { heading: `${label} to ${dests[i]}`, anchor: `to-${slugify(dests[i])}` };
 });
+// Variant trips can share a destination sign too ("Route 848: Brandon Park SC" twice): say where each starts.
+const clashing = dirNames.map((y) => dirNames.filter((z) => z.heading === y.heading).length > 1);
+dirNames.forEach((y, i) => {
+  if (!clashing[i]) return;
+  const from = place(plain(route.directions[i].stops[0].name));
+  y.heading += ` from ${from}`;
+  y.anchor += `-from-${slugify(from)}`;
+});
+// Still the same (same start too): a short working differs in length.
+const still = dirNames.map((y) => dirNames.filter((z) => z.heading === y.heading).length > 1);
+dirNames.forEach((y, i) => { if (still[i]) y.heading += ` (${route.directions[i].stops.length} ${stopW}s)`; });
 dirNames.forEach((y, i) => { if (dirNames.findIndex((z) => z.anchor === y.anchor) !== i) y.anchor += `-${i + 1}`; });
 
 // Big networks (Melbourne has 700 bus routes) link the 40 routes either side of this one, not all of them.

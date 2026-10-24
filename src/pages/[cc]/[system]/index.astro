@@ -6,7 +6,7 @@ import Ad from '../../../components/Ad.astro';
 import RouteBadge from '../../../components/RouteBadge.astro';
 import Faq from '../../../components/Faq.astro';
 import Source from '../../../components/Source.astro';
-import { shardSystems, pageStops, busiestDay, hubs, regionOf, journeyPlaces } from '../../../lib/data.js';
+import { shardSystems, pageStops, busiestDay, hubs, regionOf, journeyPlaces, isIndexedStop } from '../../../lib/data.js';
 import { every, shortDate, routeLabel, plain, possessive, modeName, vehicle, plural, cap, stopWord } from '../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../lib/page.js';
 
@@ -42,7 +42,8 @@ const firsts = firstsAll.filter((m) => m >= 240).length ? firstsAll.filter((m) =
 const lasts = lastsAll.filter((m) => m <= 1590).length ? lastsAll.filter((m) => m <= 1590) : lastsAll;
 const sundayRoutes = system.routes.filter((r) => r.days.some((d) => d.days.includes(6))).length;
 const holidays = [...new Map(system.routes.flatMap((r) => r.exceptions).filter((e) => e.holiday).map((e) => [e.date, e])).values()].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4);
-const busiest = [...pageStops(system.key)].sort((a, b) => busiestDay(b) - busiestDay(a)).slice(0, 10);
+// Only stops Google may index get a link (see linkedStopCodes in lib/data.js).
+const busiest = pageStops(system.key).filter((s) => isIndexedStop(system.key, s.code)).sort((a, b) => busiestDay(b) - busiestDay(a)).slice(0, 10);
 const hubList = hubs(system.key).slice(0, 12);
 // Towns with direct journeys (scripts/journeys.mjs): every one is linked, busiest first, so each journey page is two hops from here.
 const towns = journeyPlaces(system.key);

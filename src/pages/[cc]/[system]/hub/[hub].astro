@@ -5,7 +5,7 @@ import Ad from '../../../../components/Ad.astro';
 import RouteBadge from '../../../../components/RouteBadge.astro';
 import Faq from '../../../../components/Faq.astro';
 import Source from '../../../../components/Source.astro';
-import { shardSystems, hubs, routeBadges, busiestDay } from '../../../../lib/data.js';
+import { shardSystems, hubs, routeBadges, busiestDay, isIndexedStop } from '../../../../lib/data.js';
 import { inkFor, place, plain, possessive, routeLabel, sharedVehicle, plural, stopWord, toward } from '../../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../../lib/page.js';
 
@@ -34,7 +34,7 @@ const board = {
   rows: hub.stops.flatMap((s) => s.routes.map((r) => {
     const route = system.routes.find((y) => y.slug === r.route);
     return {
-      short: r.short, color: r.color, text: inkFor(r.color), to: toward(r.headsign), at: bay(s), url: stopHref(s.code),
+      short: r.short, color: r.color, text: inkFor(r.color), to: toward(r.headsign), at: bay(s), url: isIndexedStop(system.key, s.code) ? stopHref(s.code) : undefined,
       days: route?.days.map(({ key, days }) => ({ key, days })) || [], exceptions: route?.exceptions.map(({ date, runs }) => ({ date, runs })) || [], times: r.times,
     };
   })),
@@ -98,11 +98,10 @@ const jsonLd = [
   <h2>Which {bays.slice(0, -1)} for which route</h2>
   <ul class="list">
     {hub.stops.map((s) => (
-      <li><a href={stopHref(s.code)}>
-        <span class="badge" style="background:var(--surface-2);color:var(--ink)">{bay(s).replace(/^(Bay|Stand|Stop|Platform)\s+/i, '').slice(0, 4)}</span>
+      <li>{(() => { const body = <>
+        <span class="badge" style="background:var(--fill);color:var(--ink)">{bay(s).replace(/^(Bay|Stand|Stop|Platform)\s+/i, '').slice(0, 4)}</span>
         <span>{bay(s)} <span class="meta">{s.code} · {[...new Map(s.routes.map((r) => [r.route + r.headsign, r])).values()].slice(0, 12).map((r) => `${r.short || plain(r.name)} to ${toward(r.headsign)}`).join(', ')}</span></span>
-        <Icon name="arrow-right" class="go" />
-      </a></li>
+      </>; return isIndexedStop(system.key, s.code) ? <a href={stopHref(s.code)}>{body}<Icon name="arrow-right" class="go" /></a> : <span class="row">{body}</span>; })()}</li>
     ))}
   </ul>
 
