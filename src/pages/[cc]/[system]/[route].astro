@@ -5,7 +5,7 @@ import Ad from '../../../components/Ad.astro';
 import RouteBadge from '../../../components/RouteBadge.astro';
 import Faq from '../../../components/Faq.astro';
 import Source from '../../../components/Source.astro';
-import { shardSystems, linkedStopCodes, routeJourneys, routeEnds, pairDaily } from '../../../lib/data.js';
+import { shardSystems, linkedStopCodes, routeJourneys, routeEnds, pairDaily, mainRouteOf } from '../../../lib/data.js';
 import { clock, every, shortDate, routeLabel, runsText, place, plain, slugify, possessive, modeName, vehicle, plural, brandFor, cap, stopWord, inkFor } from '../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../lib/page.js';
 import { duration } from '../../../lib/journey.js';
@@ -70,6 +70,12 @@ const description = fit(160,
   `${system.name} ${label}${name ? ` ${name}` : ''} ${word}: ${span} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. All ${stopW}s, both directions, map and next ${v}.`,
   `${system.name} ${label} ${word}: ${span} ${main.label}${mainSummary.gap ? `, ${every(mainSummary.gap)}` : ''}. All ${stopW}s, map and next ${v}.`,
   `${system.name} ${label} ${word}: ${span} ${main.label}. All ${stopW}s and next ${v}.`);
+
+// A minor variant ("7S": one school trip on Route 7) sends riders and Google to its main route.
+const mainRoute = mainRouteOf(system.key, route.slug);
+const mainLabel = mainRoute && routeLabel(mainRoute);
+const mainDay = mainRoute?.days[0];
+const mainSpan = mainRoute && mainRoute.summary[mainDay.key];
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const covered = new Set(route.days.flatMap((d) => d.days));
@@ -138,7 +144,7 @@ const faq = [
   [`Are these live ${v} times?`, `No. They are the published ${word} from ${possessive(plain(system.attribution?.text || system.name))} open data, refreshed ${dateFor(system.builtOn, system.cc)}. A ${v} can run early or late, and disruptions are not shown.`],
 ];
 ---
-<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system}>
+<Base title={title} description={description} path={path} canonicalPath={mainRoute ? `${base.slice(1)}/${mainRoute.slug}` : undefined} jsonLd={jsonLd} og={system.key} modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system}>
 <main class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a> › {label}</nav>
 
@@ -149,6 +155,12 @@ const faq = [
       <p class="sub">{a2b ? <>{system.name} · </> : null}{cap(m)} {word} and {lineWord} map · {route.days.map((d) => d.label).join(', ')}</p>
     </div>
   </div>
+  {mainRoute && (
+    <div class="notice variant-of"><Icon name="info" /><div>
+      <p><b>Looking for {mainLabel}?</b> {label} is only {mainSummary.trips === 1 ? `one ${v}` : `${mainSummary.trips} ${vs}`} a day. {mainLabel} runs {mainDay.label}{mainSpan.first === mainSpan.last ? <>, once at {t(mainSpan.first)}</> : <> from {t(mainSpan.first)} to {t(mainSpan.last)}</>}{mainSpan.gap ? <>, {every(mainSpan.gap)}</> : null}.</p>
+      <p style="margin-top:.6rem"><a class="btn btn-sm" href={`${base}/${mainRoute.slug}`}>{mainLabel} {word} <Icon name="arrow-right" /></a></p>
+    </div></div>
+  )}
   <div class="actions">
     <button class="btn btn-quiet btn-sm" type="button" data-fav={`route:${system.key}/${route.slug}`} data-name={`${system.name} ${label}`} data-sub={name}><Icon name="star" /><span data-fav-label>Save</span></button>
     <button class="btn btn-quiet btn-sm" type="button" data-print><Icon name="printer" /> Print or PDF</button>

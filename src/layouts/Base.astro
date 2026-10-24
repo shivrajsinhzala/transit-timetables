@@ -14,6 +14,8 @@ interface Props {
   jsonLd?: unknown[];
   /** Pages that should not be in Google (e.g. 404, offline). */
   noindex?: boolean;
+  /** Path of the page Google should show instead (a minor route variant names its main route). */
+  canonicalPath?: string;
   /** Share image path under /og, e.g. 'kelowna' for public/og/kelowna.png. */
   og?: string;
   /** schema.org page type: WebPage, CollectionPage, AboutPage… */
@@ -40,6 +42,8 @@ const SITE = 'https://transit.shivrajsinh.in';
 // The homepage is canonical with its trailing slash: that is the URL in the sitemap, and the
 // one Search Console and the crawl audit compare against.
 const canonical = path ? `${SITE}/${path}` : `${SITE}/`;
+// The page's own URL stays its @id; only the canonical link and og:url point elsewhere.
+const canonicalHref = Astro.props.canonicalPath ? `${SITE}/${Astro.props.canonicalPath}` : canonical;
 const updated = modified || SYSTEM_INDEX[0]?.builtOn;
 
 /*
@@ -81,7 +85,7 @@ const AD_CLIENT = 'ca-pub-7164999486301748';
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>{title}</title>
   <meta name="description" content={description} />
-  <link rel="canonical" href={canonical} />
+  <link rel="canonical" href={canonicalHref} />
   {noindex && <meta name="robots" content="noindex" />}
   <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
   <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossorigin />
@@ -89,7 +93,7 @@ const AD_CLIENT = 'ca-pub-7164999486301748';
   <meta property="og:site_name" content="Stopwatch" />
   <meta property="og:title" content={title} />
   <meta property="og:description" content={description} />
-  <meta property="og:url" content={canonical} />
+  <meta property="og:url" content={canonicalHref} />
   <meta property="og:image" content={`${SITE}/og/${og}.png`} />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />

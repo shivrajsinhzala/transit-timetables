@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import fs from 'node:fs';
+import { minorVariants } from './src/lib/variants.js';
 
 export const SITE = 'https://transit.shivrajsinh.in';
 
@@ -19,6 +20,20 @@ const listedStop = (page) => {
   return !m || !indexedSets || Boolean(indexedSets[m[1]]?.has(decodeURIComponent(m[2])));
 };
 
+// Minor route variants ("7S" next to "7") name their main route as canonical (src/lib/variants.js),
+// so they are left out too. Only the slugs are kept, not the system's timetables.
+const variantSlugs = new Map();
+const listedRoute = (page) => {
+  const m = /^https:\/\/[^/]+\/([a-z]{2})\/([^/]+)\/(route-[^/]+)$/.exec(page);
+  if (!m) return true;
+  const key = `${m[1]}/${m[2]}`;
+  if (!variantSlugs.has(key)) {
+    const file = `src/data/systems/${key}.json`;
+    variantSlugs.set(key, fs.existsSync(file) ? new Set(minorVariants(JSON.parse(fs.readFileSync(file, 'utf8')).routes).keys()) : new Set());
+  }
+  return !variantSlugs.get(key).has(m[3]);
+};
+
 export default defineConfig({
   site: SITE,
   // `/ca/kelowna/route-8` is served from `route-8.html` with no redirect hop (Workers static
@@ -31,7 +46,7 @@ export default defineConfig({
   integrations: [sitemap({
     // Each shard lists only its own pages: every shard also builds the home and about pages
     // (Astro builds every static page), but they are served from main.
-    filter: (page) => !/\/(offline|404|embed)$/.test(page) && listedStop(page) && (!sharded || SHARD === 'main' || /^https:\/\/[^/]+\/[a-z]{2}\/[^/]+/.test(page)),
+    filter: (page) => !/\/(offline|404|embed)$/.test(page) && listedStop(page) && listedRoute(page) && (!sharded || SHARD === 'main' || /^https:\/\/[^/]+\/[a-z]{2}\/[^/]+/.test(page)),
     // Pages change when the timetable data is rebuilt (dates, the next four weeks), so the
     // build date is their true last-modified date.
     serialize(item) { item.lastmod = new Date().toISOString().slice(0, 10); return item; },
