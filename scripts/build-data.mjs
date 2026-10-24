@@ -98,7 +98,9 @@ function dayLabel(days) {
     const last = runs.at(-1);
     if (last && last[1] === d - 1) last[1] = d; else runs.push([d, d]);
   }
-  const parts = runs.map(([a, b]) => (a === b ? WEEKDAYS[a] : b === a + 1 ? `${WEEKDAYS[a]} and ${WEEKDAYS[b]}` : `${WEEKDAYS[a]} to ${WEEKDAYS[b]}`));
+  // A two-day run is two list items, so [0,1,3] reads "Monday, Tuesday and Thursday", not
+  // "Monday and Tuesday and Thursday" (the description Google showed for Phoenix route 61s).
+  const parts = runs.flatMap(([a, b]) => (a === b ? [WEEKDAYS[a]] : b === a + 1 ? [WEEKDAYS[a], WEEKDAYS[b]] : [`${WEEKDAYS[a]} to ${WEEKDAYS[b]}`]));
   return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0];
 }
 

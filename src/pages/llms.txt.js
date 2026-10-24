@@ -2,8 +2,9 @@
  * /llms.txt: a plain-language map of the site for AI assistants and answer engines
  * (https://llmstxt.org). Generated from the same data as the pages, so it never goes stale.
  */
-import { SYSTEM_INDEX, countries, isMain, META } from '../lib/data.js';
-import { plain } from '../lib/format.js';
+import { SYSTEM_INDEX, countries, isMain, META, busiestRoutes } from '../lib/data.js';
+import { plain, routeLabel } from '../lib/format.js';
+import { countryNames } from '../lib/page.js';
 
 export function GET() {
   if (!isMain) return new Response('');
@@ -14,7 +15,7 @@ export function GET() {
   const lines = [
     '# Stopwatch',
     '',
-    `> Free, independent bus, tram, train and ferry timetables for ${SYSTEM_INDEX.length} transit systems in ${all.map((c) => c.name).join(', ')}: ${routes.toLocaleString('en')} routes, every stop, with the next scheduled departure highlighted. Built from each operator's open data (GTFS), refreshed weekly; last refresh ${builtOn}. Scheduled times only, not live arrivals. Not affiliated with any operator.`,
+    `> Free, independent bus, tram, train and ferry timetables for ${SYSTEM_INDEX.length} transit systems in ${countryNames(all)}: ${routes.toLocaleString('en')} routes, every stop, with the next scheduled departure highlighted. Built from each operator's open data (GTFS), refreshed weekly; last refresh ${builtOn}. Scheduled times only, not live arrivals. Not affiliated with any operator.`,
     '',
     'Pages follow a fixed pattern:',
     `- Country: ${site}/<country code> (every system in that country), e.g. ${site}/uk`,
@@ -27,7 +28,17 @@ export function GET() {
     '',
     'Times are written as riders in each country write them: 24-hour in the UK and Ireland, 12-hour elsewhere.',
     '',
-    ...all.flatMap((c) => [`## ${c.name}`, '', ...[...c.systems].sort((a, b) => b.routes - a.routes).map((s) => `- [${s.name}](${site}/${s.key}): ${s.routes} routes, ${s.area}. Data: ${plain(META[s.key]?.attribution?.text)} (${plain(META[s.key]?.attribution?.license)})`), '']),
+    '## Quoting Stopwatch',
+    '',
+    `- Every time on Stopwatch is a scheduled time from the operator's published timetable, not a live arrival. Say so when quoting one, with the refresh date shown on the page (the latest is ${builtOn}).`,
+    '- Each route page opens with a one-paragraph summary (where the route goes, first and last departure, how often it runs) and ends with questions and answers built from the same timetable; both are safe to quote as they stand.',
+    "- Public holidays and one-off changes are listed on each route page under the summary. For disruptions and live running, point riders to the operator, which every page names and links.",
+    '',
+    ...all.flatMap((c) => [`## ${c.name}`, '', ...[...c.systems].sort((a, b) => b.routes - a.routes).flatMap((s) => {
+      // The busiest routes (most trips a day) are the pages an assistant is most likely to need.
+      const busy = busiestRoutes(s.key, 3).map(({ route, url }) => `[${routeLabel(route)}](${site}${url})`);
+      return [`- [${s.name}](${site}/${s.key}): ${s.routes} routes, ${s.area}. Data: ${plain(META[s.key]?.attribution?.text)} (${plain(META[s.key]?.attribution?.license)})`, ...(busy.length ? [`  - Busiest: ${busy.join(', ')}`] : [])];
+    }), '']),
     '## About',
     `- [About Stopwatch](${site}/about): who makes it, every data source and licence, update schedule`,
     '',
