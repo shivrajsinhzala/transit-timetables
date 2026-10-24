@@ -23,8 +23,8 @@ echo "→ checking ssh to ${HOST}"
 
 echo "→ installing nginx and rsync, creating ${DEPLOY_PATH}"
 "${SSH[@]}" -t "$HOST" "set -e
-  if ! command -v nginx >/dev/null || ! command -v rsync >/dev/null; then
-    sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q nginx rsync
+  if ! command -v nginx >/dev/null || ! command -v rsync >/dev/null || ! command -v logrotate >/dev/null; then
+    sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q nginx rsync logrotate
   fi
   sudo mkdir -p ${DEPLOY_PATH}/releases && sudo chown -R \"\$(id -un)\" ${DEPLOY_PATH}"
 

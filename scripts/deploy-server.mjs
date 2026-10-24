@@ -15,13 +15,50 @@
  * is there: visitors never see a half-deployed site. rsync compares contents (-c) and hardlinks
  * unchanged files from the live release (--link-dest), so a rebuild of the same data sends only
  * what changed. A weekly refresh, though, changes nearly every page (each says when it was
- * updated), so its release is a whole new copy of the site (~11 GB, more with the journey
- * pages), and the 45 GB disk the site shares with other sites does not hold three: while a
- * release uploads only the live one is kept, and afterwards the live one and the one before it
- * (for rollback).
+ * updated), so its release is a whole new copy of the site. Pages are stored gzipped
+ * (compressPages): ~2 GB a release instead of ~14 GB of HTML, which on 24 Oct 2026 left 2.4 GB
+ * free on the 45 GB disk the site shares with other sites. While a release uploads only the
+ * live one is kept, and afterwards the live one and the one before it (for rollback).
  */
 import fs from 'node:fs';
+import path from 'node:path';
+import { promisify } from 'node:util';
+import { gzip } from 'node:zlib';
 import { execFileSync } from 'node:child_process';
+
+const gz = promisify(gzip);
+
+/**
+ * Stores a built shard's pages gzipped: route-8.html becomes route-8.gz, which nginx serves for
+ * /ca/kelowna/route-8 (deploy/nginx.conf, location @page) as stored or unpacked. HTML packs ~7x
+ * (route 96: 225 KB to 30 KB). index.html and 404.html stay as they are (served by name). The
+ * output has no name or time in it, so an unchanged page packs to the same bytes and rsync
+ * hardlinks it from the live release. Run after verify-build, which reads the HTML.
+ */
+export async function compressPages(dir) {
+  const files = [];
+  (function walk(d, rel) {
+    for (const f of fs.readdirSync(d, { withFileTypes: true })) {
+      const r = rel ? `${rel}/${f.name}` : f.name;
+      if (f.isDirectory()) { if (!['_a', '_astro', 'vendor', 'geo'].includes(r)) walk(path.join(d, f.name), r); }
+      else if (f.name.endsWith('.html') && r !== 'index.html' && r !== '404.html') files.push(path.join(d, f.name));
+    }
+  })(dir, '');
+  let before = 0, after = 0;
+  for (let i = 0; i < files.length; i += 64) {
+    await Promise.all(files.slice(i, i + 64).map(async (f) => {
+      const html = fs.readFileSync(f);
+      const packed = await gz(html, { level: 6 });
+      const out = `${f.slice(0, -5)}.gz`;
+      fs.writeFileSync(out, packed);
+      const { atime, mtime } = fs.statSync(f);
+      fs.utimesSync(out, atime, mtime);
+      fs.unlinkSync(f);
+      before += html.length; after += packed.length;
+    }));
+  }
+  console.log(`${dir}: ${files.length} pages gzipped, ${(before / 1e9).toFixed(2)} GB to ${(after / 1e9).toFixed(2)} GB`);
+}
 
 function config() {
   const env = {};
@@ -67,7 +104,8 @@ export function startRelease({ partial = false } = {}) {
 export function syncShard(release, localDir) {
   execFileSync('rsync', [
     // Flags macOS's own rsync (openrsync) also takes.
-    '-rlcz', '--partial',
+    // No -z: the pages are gzipped already (compressPages).
+    '-rlc', '--partial',
     '--link-dest', `${release.root}/current/`,
     `${localDir}/`, `${release.host}:${release.dir}/`,
   ], { stdio: 'inherit' });

@@ -22,7 +22,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { startRelease, syncShard, finishRelease } from './deploy-server.mjs';
+import { startRelease, syncShard, finishRelease, compressPages } from './deploy-server.mjs';
 
 const args = process.argv.slice(2);
 const DEPLOY = args.includes('--deploy');
@@ -155,6 +155,7 @@ for (const shard of SHARDS) {
   console.log(`${shard}: ${n} files`);
   run('node', ['scripts/verify-build.mjs', dir]);
   if (SERVER) {
+    await compressPages(dir);
     syncShard(release, dir);
     if (shard === 'main') finishRelease(release);
     else fs.rmSync(dir, { recursive: true, force: true });
