@@ -19,11 +19,15 @@ Then do step 4 (Cloudflare) by hand.
 
 ## 1. Prepare the server (once)
 
-Any Linux server with SSH. About 15 GB free disk: one release is ~6.5 GB, and the older
-releases kept for rollback share unchanged files with it through hardlinks.
+Any Linux server with SSH. About 6 GB free disk: pages are stored gzipped, so one release is
+~2 GB (it was ~14 GB of plain HTML in October 2026), and a release uploads next to the live one.
+nginx serves `route-8.gz` for `/ca/kelowna/route-8` (`location @page` in `deploy/nginx.conf`).
+A release from before compression still works; `deploy/compress-release.py` compresses one in
+place. Install logrotate too: minimal images leave it out, and the nginx access log then grows
+without limit (1.85 GB by 24 Oct 2026).
 
 ```bash
-sudo apt install nginx rsync
+sudo apt install nginx rsync logrotate
 sudo mkdir -p /var/www/stopwatch && sudo chown "$USER" /var/www/stopwatch
 ```
 

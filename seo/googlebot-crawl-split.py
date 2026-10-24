@@ -1,6 +1,6 @@
 # Googlebot fetches of transit URLs by page type, per day, from the nginx log. On the server:
 #   scp src/data/indexed-stops.json stopwatch:/tmp/ && scp seo/googlebot-crawl-split.py stopwatch:/tmp/
-#   ssh stopwatch "(zcat /var/log/nginx/access.log-*.gz; cat /var/log/nginx/access.log) | python3 /tmp/googlebot-crawl-split.py"
+#   ssh stopwatch "zcat -f /var/log/nginx/access.log* | python3 /tmp/googlebot-crawl-split.py"
 import re, sys, json, collections, gzip
 idx = {k: set(v) for k, v in json.load(open('/tmp/indexed-stops.json')).items()}
 LINE = re.compile(r'^(\S+) \S+ \S+ \[(\d+)/(\w+)/(\d+):[^\]]+\] "GET (\S+) [^"]*" (\d+) (\d+) "[^"]*" "([^"]*)"')
