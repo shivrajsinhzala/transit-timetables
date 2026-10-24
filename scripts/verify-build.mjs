@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-/** Post-build checks on dist/: every page has a title, a description and a self canonical, and
+/** Post-build checks on dist/: every page has a title, a description and a self canonical (a minor
+ * route variant's names its main route in the same system, src/lib/variants.js), and
  * no route page shipped without a timetable. Fails the build rather than publishing a broken page. */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -26,7 +27,9 @@ for (const f of files) {
   const canonical = /<link rel="canonical" href="([^"]+)"/.exec(html)?.[1];
   if (!title) problems.push(`${rel}: no <title>`);
   if (!/<meta name="description" content="[^"]{50,}"/.test(html)) problems.push(`${rel}: missing or short description`);
-  if (canonical !== (rel ? `${SITE}/${rel}` : `${SITE}/`)) problems.push(`${rel}: canonical ${canonical}`);
+  const self = rel ? `${SITE}/${rel}` : `${SITE}/`;
+  const toMain = /class="notice variant-of"/.test(html) && canonical?.startsWith(`${SITE}/${path.dirname(rel)}/route-`);
+  if (canonical !== self && !toMain) problems.push(`${rel}: canonical ${canonical}`);
   if (/^[a-z]{2}\/[^/]+\/stop\/[^/]+$/.test(rel) && !/<table class="hours"/.test(html)) problems.push(`${rel}: stop page without times`);
   if (/^[a-z]{2}\/[^/]+\/hub\/[^/]+$/.test(rel) && !/data-board/.test(html)) problems.push(`${rel}: hub page without a board`);
   if (/^[a-z]{2}\/[^/]+\/from\/[^/]+\/to\/[^/]+$/.test(rel)) {
