@@ -70,14 +70,23 @@ function boardRows(board) {
   const src = board.querySelector('script[type="application/json"]');
   if (src) return JSON.parse(src.textContent);
   if (!CFG) return null;
+  const { wd } = now(CFG.tz);
   return {
     tz: CFG.tz,
     h24: CFG.h24,
-    rows: [...document.querySelectorAll('[data-section]')].map((sec) => {
+    rows: [...document.querySelectorAll('[data-section]')].flatMap((sec) => {
       const route = CFG.routes[sec.dataset.route];
-      const times = {};
-      sec.querySelectorAll('.panel').forEach((p) => { times[p.dataset.day] = [...p.querySelectorAll('[data-m]')].map((el) => Number(el.dataset.m)); });
-      return { ...route, short: sec.dataset.short, color: sec.dataset.color, text: sec.dataset.text, to: sec.dataset.to, at: sec.dataset.at, url: sec.dataset.url, times };
+      // A journey table mixes routes: each row names its route (data-r) in the section's data-badges.
+      const badges = sec.dataset.badges ? JSON.parse(sec.dataset.badges) : null;
+      const groups = new Map();
+      sec.querySelectorAll('.panel').forEach((p) => p.querySelectorAll('[data-m]').forEach((el) => {
+        // A trip starting past the first column has no time there; a weekdays-only one (data-w) may not run today.
+        if (el.dataset.m === '' || (el.dataset.w && !el.dataset.w.split(',').includes(String(wd)))) return;
+        const g = badges ? Number(el.dataset.r) : 0;
+        if (!groups.has(g)) groups.set(g, {});
+        (groups.get(g)[p.dataset.day] ??= []).push(Number(el.dataset.m));
+      }));
+      return [...groups].map(([g, times]) => ({ ...route, short: sec.dataset.short, color: sec.dataset.color, text: sec.dataset.text, ...(badges ? badges[g] : {}), to: sec.dataset.to, at: sec.dataset.at, url: sec.dataset.url, times }));
     }),
   };
 }
@@ -109,7 +118,10 @@ function renderBoard(board) {
     const to = document.createElement(r.url ? 'a' : 'span');
     to.className = 'to';
     if (r.url) { to.href = r.url; to.style.textDecoration = 'none'; }
-    to.textContent = `To ${r.to}`;
+    const dest = document.createElement('span');
+    dest.className = 'dest';
+    dest.textContent = `To ${r.to}`;
+    to.append(dest);
     if (r.at) { const s = document.createElement('small'); s.textContent = r.at; to.append(s); }
     const time = document.createElement('time');
     time.textContent = fmt(m, h24);

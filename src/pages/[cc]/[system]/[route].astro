@@ -6,7 +6,7 @@ import RouteBadge from '../../../components/RouteBadge.astro';
 import Faq from '../../../components/Faq.astro';
 import Source from '../../../components/Source.astro';
 import { shardSystems, stopPageCodes, routeJourneys, routeEnds, pairDaily } from '../../../lib/data.js';
-import { clock, every, shortDate, routeLabel, runsText, place, plain, slugify, possessive, modeName, vehicle, plural, brandFor, cap, stopWord } from '../../../lib/format.js';
+import { clock, every, shortDate, routeLabel, runsText, place, plain, slugify, possessive, modeName, vehicle, plural, brandFor, cap, stopWord, inkFor } from '../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../lib/page.js';
 import { duration } from '../../../lib/journey.js';
 
@@ -137,6 +137,12 @@ const faq = [
     <button class="btn btn-quiet btn-sm" type="button" data-share><Icon name="share-network" /><span data-share-label>Share</span></button>
   </div>
 
+  <div class="board near-top js-only" data-board data-rows="4" aria-label={`Next scheduled ${vs} on ${label}`}>
+    <div class="board-head"><strong>Next {vs}</strong><span class="board-clock" data-clock></span></div>
+    <ol><li class="empty">Loading the next {vs}…</li></ol>
+    <p class="board-foot">Scheduled times at the first {stopW} in each direction. <a class="board-link" href={`#${dirNames[0].anchor}`}>Full {word}</a></p>
+  </div>
+
   <p class="lede" style="margin-top:1.2rem">
     {system.name} {label}{name ? ` (${name})` : ''} is a {m} {lineWord} in {system.area}, serving {placesText}. {main.label} the first {v} is at {t(mainSummary.first)} and the last at {t(mainSummary.last)}{mainSummary.gap ? <>, {every(mainSummary.gap)} during the day</> : null}. Updated {dateFor(system.builtOn, system.cc)}.
   </p>
@@ -160,7 +166,7 @@ const faq = [
 
   {route.directions.map((dir, di) => (
     <>
-      <section class="direction" id={dirNames[di].anchor} data-section data-route={route.slug} data-from={place(plain(dir.columns[0].name))}>
+      <section class="direction" id={dirNames[di].anchor} data-section data-route={route.slug} data-from={place(plain(dir.columns[0].name))} data-short={route.short || ''} data-color={route.color || ''} data-text={inkFor(route.color)} data-to={dests[di]} data-at={`from ${place(plain(dir.stops[0].name))}`} data-url={`#${dirNames[di].anchor}`}>
         <h2>{dirNames[di].heading}</h2>
         <p class="muted small" style="margin:0">{dir.headsign ? <>Destination sign “{plain(dir.headsign)}” · </> : null}from {place(plain(dir.stops[0].name))} · {dir.stops.length} {stopW}s</p>
         <div class="tabs" role="tablist" aria-label="Day of the week">
