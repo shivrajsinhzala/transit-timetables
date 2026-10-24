@@ -109,13 +109,13 @@ const cfg = { tz: system.timezone, h24, routes: Object.fromEntries(stop.routes.m
     {hub && <a class="btn btn-quiet btn-sm" href={`${base}/hub/${hub.slug}`}><Icon name="bus" /> All of {plain(hub.name)}</a>}
   </div>
 
-  <p class="lede" style="margin-top:1.2rem">{name} is a {modeWord === 'transit' ? 'transit' : modeWord} {stopW} on the {system.name} network (stop {stop.code}), served by {linesText}.{mon ? ` On weekdays ${vs} run from ${t(mon.first)} to ${t(mon.last)}.` : ''}{hub ? ` It is one of ${hub.stops.length} stops at ${plain(hub.name)}.` : ''}</p>
-
-  <div class="board" data-board data-rows="6" style="margin-top:1.4rem" aria-label={`Next scheduled ${vs} at ${name}`}>
+  <div class="board near-top" data-board data-rows="6" aria-label={`Next scheduled ${vs} at ${name}`}>
     <div class="board-head"><strong>Next {vs} here</strong><span class="board-clock" data-clock></span></div>
     <ol><li class="empty">Loading the next {vs}…</li></ol>
     <p class="board-foot">Scheduled times. The first {v} of the day leaves at {t(firstAll)}.</p>
   </div>
+
+  <p class="lede" style="margin-top:1.2rem">{name} is a {modeWord === 'transit' ? 'transit' : modeWord} {stopW} on the {system.name} network (stop {stop.code}), served by {linesText}.{mon ? ` On weekdays ${vs} run from ${t(mon.first)} to ${t(mon.last)}.` : ''}{hub ? ` It is one of ${hub.stops.length} stops at ${plain(hub.name)}.` : ''}</p>
 
   <Ad />
 

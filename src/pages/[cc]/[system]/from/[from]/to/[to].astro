@@ -12,7 +12,7 @@ import RouteBadge from '../../../../../../components/RouteBadge.astro';
 import Faq from '../../../../../../components/Faq.astro';
 import Source from '../../../../../../components/Source.astro';
 import { shardSystems, getJourneys, journeyUrl, fromUrl, pairDaily, stopPageCodes } from '../../../../../../lib/data.js';
-import { clock, plain, routeLabel, vehicle, plural, cap, shortDate, runsText, possessive } from '../../../../../../lib/format.js';
+import { clock, plain, routeLabel, vehicle, plural, cap, shortDate, runsText, possessive, inkFor } from '../../../../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../../../../lib/page.js';
 import { duration, daysOnly, listText, routeList, pairExceptions, perWeekday } from '../../../../../../lib/journey.js';
 
@@ -115,6 +115,12 @@ const faq = [
     {reverse && <a class="btn btn-quiet btn-sm" href={journeyUrl(system.key, j, reverse)}><Icon name="arrows-left-right" /> {B} to {A}</a>}
   </div>
 
+  <div class="board near-top js-only" data-board data-rows="4" aria-label={`Next scheduled ${vs} from ${A} to ${B}`}>
+    <div class="board-head"><strong>Next {vs} to {B}</strong><span class="board-clock" data-clock></span></div>
+    <ol><li class="empty">Loading the next {vs}…</li></ol>
+    <p class="board-foot">Scheduled times from {A}. <a class="board-link" href="#times">Full {word}</a></p>
+  </div>
+
   <p class="lede" style="margin-top:1.2rem">
     {system.name} runs {daily(main)} direct {vs} a day from {A} to {B} ({main.label}){tabs.length > 1 ? `, ${weekendText}` : ''}, on {routesText}. The journey takes about {duration(typical)}{fromCodes.length === 1 ? `, from ${stopName(fromCodes[0])}` : ''}. The first {v === 'departure' ? 'one' : v} leaves at {t(main.first)} and the last at {t(main.last)}. Updated {dateFor(system.builtOn, system.cc)}.
   </p>
@@ -137,7 +143,7 @@ const faq = [
     </div></div>
   )}
 
-  <section class="direction" data-section data-route="journey" data-from={A}>
+  <section class="direction" id="times" data-section data-route="journey" data-from={A} data-to={B} data-at={fromCodes.length === 1 ? `from ${stopName(fromCodes[0])}` : ''} data-badges={JSON.stringify(routes.map((r) => ({ short: r.short || '', color: r.color || '', text: inkFor(r.color), url: '#times' })))}>
     <h2>{cap(vs)} from {A} to {B}</h2>
     <p class="muted small" style="margin:0">{fromCodes.length === 1 ? <>From {stopPages.has(fromCodes[0]) ? <a href={stopHref(fromCodes[0])}>{stopName(fromCodes[0])}</a> : stopName(fromCodes[0])}</> : <>From {fromCodes.length} stops in {A}</>} · {toCodes.length === 1 ? <>to {stopPages.has(toCodes[0]) ? <a href={stopHref(toCodes[0])}>{stopName(toCodes[0])}</a> : stopName(toCodes[0])}</> : <>to {toCodes.length} stops in {B}</>} · direct, no change</p>
     <div class="tabs" role="tablist" aria-label="Day of the week">
@@ -153,7 +159,7 @@ const faq = [
             <thead><tr><th scope="col">{routes.length > 1 ? 'Route' : routeLabel(routes[0])}</th><th scope="col">Leaves {A}</th><th scope="col">Arrives {B}</th><th scope="col">Takes</th></tr></thead>
             <tbody>
               {tab.rows.map((r) => { const dep = clock(r[0], h24), arr = clock(r[1], h24); const route = routes[r[2]]; return (
-                <tr data-m={r[0]} data-w={r[5] ? r[5].join(',') : undefined}>
+                <tr data-m={r[0]} data-r={r[2]} data-w={r[5] ? r[5].join(',') : undefined}>
                   <td><a href={`${base}/${route.slug}`} aria-label={routeLabel(route)} style="text-decoration:none"><RouteBadge route={route} /></a>{r[5] && <span class="only">{daysOnly(r[5])}</span>}</td>
                   <td class={dep.pm ? 'pm' : undefined}>{dep.text}{fromCodes.length > 1 && <small>{stopName(r[3])}</small>}</td>
                   <td class={arr.pm ? 'pm' : undefined}>{arr.text}{toCodes.length > 1 && <small>{stopName(r[4])}</small>}</td>
