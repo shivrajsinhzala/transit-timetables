@@ -28,3 +28,5 @@ data/shard-assets/
 deploy/server.env
 deploy/google-sa.json
 data/google-inspected.json
+# each page's content fingerprint and last-changed date (scripts/lastmod.mjs); kept across builds on this Mac
+data/lastmod.json
