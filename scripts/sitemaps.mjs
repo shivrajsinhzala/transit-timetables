@@ -16,6 +16,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { lastmodOf } from './lastmod.mjs';
 
 const SITE = 'https://transit.shivrajsinh.in';
 const PER_FILE = 40_000; // the protocol allows 50,000; leave headroom
@@ -30,7 +31,8 @@ const sources = [
 const entries = new Map(); // url -> lastmod
 for (const file of sources) {
   const xml = fs.readFileSync(file, 'utf8');
-  for (const m of xml.matchAll(/<url><loc>([^<]+)<\/loc>(?:<lastmod>([^<]+)<\/lastmod>)?/g)) entries.set(m[1], m[2] || '');
+  // The date the page's content last changed (scripts/lastmod.mjs), not the build date Astro gives.
+  for (const m of xml.matchAll(/<url><loc>([^<]+)<\/loc>(?:<lastmod>([^<]+)<\/lastmod>)?/g)) entries.set(m[1], lastmodOf(m[1]) || m[2]?.slice(0, 10) || '');
 }
 if (entries.size < 1000) throw new Error(`only ${entries.size} URLs found in ${sources.length} sitemaps under ${dir}: is this a full build?`);
 
@@ -43,14 +45,16 @@ const stops = [...entries.keys()].filter(isStop).sort();
 const urlset = (urls) => `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${u}</loc>${entries.get(u) ? `<lastmod>${entries.get(u)}</lastmod>` : ''}</url>`).join('')}</urlset>\n`;
 
 for (const file of sources) fs.rmSync(file);
-const maps = ['sitemaps/core.xml'];
+const newest = (urls) => urls.reduce((a, u) => (entries.get(u) > a ? entries.get(u) : a), '');
+const maps = [['sitemaps/core.xml', newest(core)]];
 fs.writeFileSync(path.join(sub, 'core.xml'), urlset(core));
 for (const [name, list] of [['journeys', journeys], ['stops', stops]]) {
   for (let i = 0; i * PER_FILE < list.length; i++) {
-    fs.writeFileSync(path.join(sub, `${name}-${i + 1}.xml`), urlset(list.slice(i * PER_FILE, (i + 1) * PER_FILE)));
-    maps.push(`sitemaps/${name}-${i + 1}.xml`);
+    const part = list.slice(i * PER_FILE, (i + 1) * PER_FILE);
+    fs.writeFileSync(path.join(sub, `${name}-${i + 1}.xml`), urlset(part));
+    maps.push([`sitemaps/${name}-${i + 1}.xml`, newest(part)]);
   }
 }
-const today = new Date().toISOString().slice(0, 10);
-fs.writeFileSync(path.join(dir, 'sitemap-index.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${maps.map((m) => `<sitemap><loc>${SITE}/${m}</loc><lastmod>${today}</lastmod></sitemap>`).join('')}</sitemapindex>\n`);
+// Each file's lastmod is its newest page's, so Google rereads only the files that changed.
+fs.writeFileSync(path.join(dir, 'sitemap-index.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${maps.map(([m, d]) => `<sitemap><loc>${SITE}/${m}</loc>${d ? `<lastmod>${d}</lastmod>` : ''}</sitemap>`).join('')}</sitemapindex>\n`);
 console.log(`sitemaps: ${core.length} core URLs, ${journeys.length} journey URLs, ${stops.length} stop URLs in ${maps.length - 1} files`);

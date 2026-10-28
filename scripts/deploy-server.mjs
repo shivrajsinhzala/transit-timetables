@@ -105,7 +105,9 @@ export function syncShard(release, localDir) {
   execFileSync('rsync', [
     // Flags macOS's own rsync (openrsync) also takes.
     // No -z: the pages are gzipped already (compressPages).
-    '-rlc', '--partial',
+    // -t: a page's file time is the date its content last changed (scripts/lastmod.mjs), which
+    // nginx sends as Last-Modified.
+    '-rlct', '--partial',
     '--link-dest', `${release.root}/current/`,
     `${localDir}/`, `${release.host}:${release.dir}/`,
   ], { stdio: 'inherit' });
