@@ -25,7 +25,25 @@ fs.mkdirSync(RAW, { recursive: true });
 const FEEDS = [...new Set(SYSTEMS.flatMap((s) => s.merge ?? [s.feed]))];
 const stats = { new: 0, same: 0, failed: 0 };
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Network errors and 5xx are tried three times: Translink's server drops the odd connection
+// mid-download ("terminated", "fetch failed"), which kept Brisbane a fortnight stale in Oct 2026.
 async function fetchFeed(id, url = FEED_URLS[id] || `https://files.mobilitydatabase.org/${id}/latest.zip`) {
+  for (let attempt = 1; ; attempt++) {
+    const err = await fetchOnce(id, url);
+    if (!err) return;
+    if (attempt === 3 || /^HTTP 4/.test(err)) {
+      stats.failed++;
+      console.warn(`! ${id}: ${err}, keeping the previous file`);
+      return;
+    }
+    console.warn(`  ${id}: ${err}, retrying`);
+    await sleep(attempt * 30_000);
+  }
+}
+
+async function fetchOnce(id, url) {
   const file = path.join(RAW, `${id}.zip`);
   const etagFile = path.join(RAW, `${id}.etag`);
   const tmp = `${file}.part`;
@@ -33,7 +51,7 @@ async function fetchFeed(id, url = FEED_URLS[id] || `https://files.mobilitydatab
   try {
     const res = await fetch(url, { headers, signal: AbortSignal.timeout(15 * 60_000) });
     if (res.status === 304) { stats.same++; return; }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) return `HTTP ${res.status}`;
     await pipeline(Readable.fromWeb(res.body), fs.createWriteStream(tmp));
     const fd = fs.openSync(tmp, 'r');
     const head = Buffer.alloc(2);
@@ -46,8 +64,7 @@ async function fetchFeed(id, url = FEED_URLS[id] || `https://files.mobilitydatab
     stats.new++;
   } catch (e) {
     fs.rmSync(tmp, { force: true });
-    stats.failed++;
-    console.warn(`! ${id}: ${e.message}, keeping the previous file`);
+    return e.message;
   }
 }
 

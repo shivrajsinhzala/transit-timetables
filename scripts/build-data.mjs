@@ -187,19 +187,29 @@ async function buildSystem(meta) {
   const agency = readCsv(zip, 'agency.txt')[0] || {};
   const tz = agency.agency_timezone || 'America/Vancouver';
   const feedInfo = readCsv(zip, 'feed_info.txt')[0] || {};
-  const start = today(tz);
+  const builtOn = today(tz);
+  const calendar = readCsv(zip, 'calendar.txt');
+  const calendarDates = readCsv(zip, 'calendar_dates.txt');
+  // A feed its publisher has stopped updating has nothing from today on (the UK mirror's
+  // Reading Buses file ended on 25 Oct 2026), and the system used to vanish from the site: every
+  // page Google had indexed became a 404. For four weeks after its last date it is built from its
+  // last four weeks instead, and its pages say these are the last times published (`lapsed`).
+  const feedLast = [...calendar.map((c) => gtfsDate(c.end_date)), ...calendarDates.filter((c) => c.exception_type === '1').map((c) => gtfsDate(c.date))].sort().at(-1);
+  const lapsed = feedLast && feedLast < builtOn && feedLast >= addDays(builtOn, -WINDOW_DAYS) ? feedLast : null;
+  const start = lapsed ? addDays(lapsed, 1 - WINDOW_DAYS) : builtOn;
+  if (lapsed) console.warn(`  ${meta.cc}/${meta.slug}: the feed ended on ${lapsed}; built from its last four weeks`);
 
   // --- which services run on which date -------------------------------------------------
   const servicesOn = new Map(); // date -> Set(service_id)
   const add = (d, s) => { if (!servicesOn.has(d)) servicesOn.set(d, new Set()); servicesOn.get(d).add(s); };
   const end = addDays(start, EXCEPTION_DAYS);
-  for (const c of readCsv(zip, 'calendar.txt')) {
+  for (const c of calendar) {
     for (let d = start; d <= end; d = addDays(d, 1)) {
       if (d < gtfsDate(c.start_date) || d > gtfsDate(c.end_date)) continue;
       if (c[WEEKDAYS[weekday(d)].toLowerCase()] === '1') add(d, c.service_id);
     }
   }
-  for (const c of readCsv(zip, 'calendar_dates.txt')) {
+  for (const c of calendarDates) {
     const d = gtfsDate(c.date);
     if (d < start || d > end) continue;
     if (c.exception_type === '1') add(d, c.service_id);
@@ -288,9 +298,11 @@ async function buildSystem(meta) {
   // last date (Morebus, October 2026: nothing after 1 November). Those days are unknown, not
   // "no service": counted, two empty Mondays outvoted two real ones and every weekday timetable
   // vanished. So days after the last date anything runs do not vote.
-  let lastRun = null;
-  for (let d = start; d <= end; d = addDays(d, 1)) if (sigOf(d)) lastRun = d;
-  const window = Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(start, i)).filter((d) => !holiday(d) && (!lastRun || d <= lastRun));
+  // A lapsed feed can also start inside its last four weeks (the UK mirror's files cover nine
+  // days), so for one the days before anything runs do not vote either.
+  let lastRun = null, firstRun = null;
+  for (let d = start; d <= end; d = addDays(d, 1)) if (sigOf(d)) { lastRun = d; firstRun ??= d; }
+  const window = Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(start, i)).filter((d) => !holiday(d) && (!lastRun || d <= lastRun) && (!lapsed || d >= firstRun));
   const usual = WEEKDAYS.map((_, w) => mode(window.filter((d) => weekday(d) === w).map(sigOf)) ?? '');
   // The services of one real date that ran the usual timetable — what the tables are built from.
   const sample = usual.map((sig, w) => window.find((d) => weekday(d) === w && sigOf(d) === sig));
@@ -305,13 +317,14 @@ async function buildSystem(meta) {
   // Dates that run something other than their weekday's usual timetable. A run of them is a
   // timetable change (a new season), reported once as a date rather than as forty exceptions.
   const differs = (d) => sigOf(d) !== usual[weekday(d)];
+  // A lapsed feed's dates are all past, and its empty days after the end are unknown, not a change.
   let changesOn = null;
-  for (let d = start; d <= addDays(end, -7); d = addDays(d, 1)) {
+  if (!lapsed) for (let d = start; d <= addDays(end, -7); d = addDays(d, 1)) {
     const week = Array.from({ length: 7 }, (_, i) => addDays(d, i));
     if (week.filter(differs).length >= 5) { changesOn = d; break; }
   }
   const exceptions = [];
-  for (let d = start; d <= (changesOn ? addDays(changesOn, -1) : end); d = addDays(d, 1)) {
+  if (!lapsed) for (let d = start; d <= (changesOn ? addDays(changesOn, -1) : end); d = addDays(d, 1)) {
     if (!differs(d)) continue;
     const same = dayTypes.find((t) => t.sig === sigOf(d));
     exceptions.push({ date: d, holiday: holiday(d), runs: sigOf(d) === '' ? 'none' : same ? same.key : 'special' });
@@ -471,9 +484,9 @@ async function buildSystem(meta) {
     ...meta,
     key: `${meta.cc}/${meta.slug}`,
     timezone: tz,
-    builtOn: start,
+    builtOn,
     // With no stated end date, the last day anything runs is the end, when it is within the range.
-    feed: { version: feedInfo.feed_version || '', from: feedInfo.feed_start_date ? gtfsDate(feedInfo.feed_start_date) : null, to: feedInfo.feed_end_date ? gtfsDate(feedInfo.feed_end_date) : lastRun && lastRun < end ? lastRun : null },
+    feed: { version: feedInfo.feed_version || '', from: feedInfo.feed_start_date ? gtfsDate(feedInfo.feed_start_date) : null, to: feedInfo.feed_end_date ? gtfsDate(feedInfo.feed_end_date) : lastRun && lastRun < end ? lastRun : null, lapsed },
     dayTypes: dayTypes.map(({ key, label, days }) => ({ key, label, days })),
     noServiceDays: noServiceDays.map((d) => WEEKDAYS[d]),
     exceptions,

@@ -23,6 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { startRelease, syncShard, finishRelease, compressPages } from './deploy-server.mjs';
+import { stampPages } from './lastmod.mjs';
 
 const args = process.argv.slice(2);
 const DEPLOY = args.includes('--deploy');
@@ -126,6 +127,7 @@ for (const shard of SHARDS) {
       console.log('main: no room for the map data, the router serves /geo/ from the shards');
     }
     writeRouterConfig(geoInMain);
+    stampPages(dir);
     // One sitemap index over main's sitemap and every shard's, regrouped by page type
     // (scripts/sitemaps.mjs): core pages first, stop pages after.
     fs.mkdirSync(`${dir}/sitemaps`, { recursive: true });
@@ -148,6 +150,7 @@ for (const shard of SHARDS) {
       return false;
     });
     console.log(`pruned ${removed} files from ${shard}`);
+    stampPages(dir);
   }
   const n = count(dir);
   total += n;
