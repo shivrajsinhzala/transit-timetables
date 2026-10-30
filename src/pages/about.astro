@@ -32,7 +32,11 @@ const byCountry = all.map((c) => ({ ...c, sources: [...new Map(c.systems.map((s)
   <p>The town-to-town pages (“Cork to Macroom bus”) name the town or suburb each stop is in using <a href="https://www.geonames.org/" rel="nofollow">GeoNames</a>, under <a href="https://creativecommons.org/licenses/by/4.0/" rel="nofollow license">CC BY 4.0</a>. They list only direct journeys, at the scheduled times of the stops they name.</p>
   <h2>What it is not</h2>
   <p>Stopwatch is independent. It is not run by, affiliated with or endorsed by any transit operator, transport authority or government. It shows scheduled times, not live vehicle positions. For fares, disruptions, cancellations and service alerts, use the operator’s own website or app.</p>
+  <h2>How the times are checked</h2>
+  <p>Before a weekly refresh goes live, every one of the site’s pages is checked automatically: each must have its title, description, canonical address and a timetable with departures, or the release stops. A feed that fails to download keeps last week’s timetable rather than leaving a gap, and a network whose operator has not yet published its next timetable says so on every page, with the date its last one ran to. Each timetable page shows the day its data was refreshed and how far ahead the current timetable runs.</p>
   <h2>Who makes it</h2>
-  <p>Stopwatch is built by <a href="https://shivrajsinh.in" rel="me">Shivrajsinh Zala</a>, a web developer who builds transit and timetable tools. Found a mistake? Get in touch through that site.</p>
+  <p>Stopwatch is built and run by <a href="https://shivrajsinh.in" rel="me author">Shivrajsinh Zala</a>, a web developer who makes public transport tools, including <a href="https://gsrtc.shivrajsinh.in">GSRTC bus timetables</a> for Gujarat. The code that turns operators’ data into these pages is on <a href="https://github.com/shivrajsinhzala" rel="me">GitHub</a>.</p>
+  <h2>Contact and corrections</h2>
+  <p>Email <a href="mailto:zalashivraj2642003@gmail.com">zalashivraj2642003@gmail.com</a>. If a time looks wrong, send the page’s address and what you expected: corrections go out with the weekly refresh. Requests from operators or transport authorities about their data are answered first.</p>
 </main>
 </Base>
