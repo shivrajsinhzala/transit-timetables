@@ -22,7 +22,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { startRelease, syncShard, finishRelease, compressPages } from './deploy-server.mjs';
+import { startRelease, syncShard, finishRelease, compressPages, purgeCache } from './deploy-server.mjs';
 import { stampPages } from './lastmod.mjs';
 
 const args = process.argv.slice(2);
@@ -160,7 +160,7 @@ for (const shard of SHARDS) {
   if (SERVER) {
     await compressPages(dir);
     syncShard(release, dir);
-    if (shard === 'main') finishRelease(release);
+    if (shard === 'main') { finishRelease(release); await purgeCache(); }
     else fs.rmSync(dir, { recursive: true, force: true });
   } else if (DEPLOY) {
     if (shard === 'main') run('npx', ['wrangler', 'deploy']);
