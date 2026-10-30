@@ -14,7 +14,7 @@ import Source from '../../../../../../components/Source.astro';
 import { shardSystems, getJourneys, journeyUrl, fromUrl, pairDaily, linkedStopCodes } from '../../../../../../lib/data.js';
 import { clock, plain, routeLabel, vehicle, plural, cap, shortDate, runsText, possessive, inkFor } from '../../../../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../../../../lib/page.js';
-import { duration, daysOnly, listText, routeList, pairExceptions, perWeekday } from '../../../../../../lib/journey.js';
+import { duration, daysOnly, listText, routeList, pairExceptions, perWeekday, indexedPair } from '../../../../../../lib/journey.js';
 
 export function getStaticPaths() {
   return shardSystems().flatMap((system) => {
@@ -97,7 +97,7 @@ const faq = [
   ['Are these live times?', `No. They are the scheduled times from ${possessive(plain(system.attribution?.text || system.name))} published ${word}, refreshed ${dateFor(system.builtOn, system.cc)}. A ${v === 'departure' ? 'service' : v} can run early or late, and disruptions are not shown.`],
 ];
 ---
-<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system}>
+<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system} noindex={!indexedPair(pair)}>
 <main class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a> › <a href={fromUrl(system.key, j, pair.a)}>{cap(vs)} from {A}</a> › {B}</nav>
 
