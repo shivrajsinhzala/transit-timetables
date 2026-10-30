@@ -6,6 +6,8 @@
  * The server is set in deploy/server.env (not committed; see deploy/server.env.example):
  *   DEPLOY_SSH=user@host       how `ssh` reaches the server (a Host alias from ~/.ssh/config works)
  *   DEPLOY_PATH=/var/www/stopwatch
+ *   CLOUDFLARE_ZONE_ID=…        optional: purge Cloudflare's copies once a release is live
+ *   CLOUDFLARE_API_TOKEN=…      (purgeCache; a token with only Zone > Cache Purge > Purge)
  *
  * Layout on the server, served by nginx (deploy/nginx.conf):
  *   <DEPLOY_PATH>/releases/<stamp>/   one complete copy of the site per refresh
@@ -60,7 +62,7 @@ export async function compressPages(dir) {
   console.log(`${dir}: ${files.length} pages gzipped, ${(before / 1e9).toFixed(2)} GB to ${(after / 1e9).toFixed(2)} GB`);
 }
 
-function config() {
+function readEnv() {
   const env = {};
   if (fs.existsSync('deploy/server.env')) {
     for (const line of fs.readFileSync('deploy/server.env', 'utf8').split('\n')) {
@@ -68,6 +70,11 @@ function config() {
       if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '');
     }
   }
+  return env;
+}
+
+function config() {
+  const env = readEnv();
   const host = process.env.DEPLOY_SSH || env.DEPLOY_SSH;
   const root = (process.env.DEPLOY_PATH || env.DEPLOY_PATH || '/var/www/stopwatch').replace(/\/$/, '');
   if (!host) throw new Error('no server: set DEPLOY_SSH in deploy/server.env (see deploy/server.env.example)');
@@ -134,3 +141,45 @@ export function finishRelease(release) {
   ].join('; '));
   console.log(`server: ${dir} is live`);
 }
+
+/**
+ * Drops Cloudflare's copies of the site's pages, so a release shows at once. nginx lets Cloudflare
+ * keep HTML for a day (s-maxage, deploy/nginx.conf): after the 25 Oct 2026 release, pages cached
+ * before it were still served an hour later. Only transit.shivrajsinh.in is purged, not the other
+ * sites on the zone; if the plan refuses a purge by host, everything is purged. A failed purge
+ * only warns: the release is live, and the old copies expire within a day anyway.
+ * `node scripts/deploy-server.mjs purge` runs it on its own.
+ */
+export async function purgeCache() {
+  const env = readEnv();
+  const zone = process.env.CLOUDFLARE_ZONE_ID || env.CLOUDFLARE_ZONE_ID;
+  const token = process.env.CLOUDFLARE_API_TOKEN || env.CLOUDFLARE_API_TOKEN;
+  if (!zone || !token) {
+    console.log('cloudflare: no CLOUDFLARE_ZONE_ID/CLOUDFLARE_API_TOKEN in deploy/server.env, cached pages update within a day');
+    return false;
+  }
+  const purge = async (body) => {
+    const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zone}/purge_cache`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    return { ok: res.ok && json.success, why: json.errors?.map((e) => `${e.code} ${e.message}`).join('; ') || `HTTP ${res.status}` };
+  };
+  try {
+    let r = await purge({ hosts: ['transit.shivrajsinh.in'] });
+    if (r.ok) { console.log('cloudflare: purged transit.shivrajsinh.in'); return true; }
+    // A wrong token or zone fails the same way for both: no point in the wider purge.
+    if (/^(10000|9109|7003|7000) /m.test(r.why)) throw new Error(r.why);
+    console.log(`cloudflare: purge by host refused (${r.why}), purging everything`);
+    r = await purge({ purge_everything: true });
+    if (r.ok) { console.log('cloudflare: purged everything'); return true; }
+    console.warn(`cloudflare: purge failed (${r.why}); cached pages update within a day`);
+  } catch (e) {
+    console.warn(`cloudflare: purge failed (${e.message}); cached pages update within a day`);
+  }
+  return false;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === new URL(import.meta.url).pathname && process.argv[2] === 'purge') await purgeCache();
