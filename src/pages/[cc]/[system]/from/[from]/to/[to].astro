@@ -14,7 +14,7 @@ import Source from '../../../../../../components/Source.astro';
 import { shardSystems, getJourneys, journeyUrl, fromUrl, pairDaily, linkedStopCodes } from '../../../../../../lib/data.js';
 import { clock, plain, routeLabel, vehicle, plural, cap, shortDate, runsText, possessive, inkFor } from '../../../../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../../../../lib/page.js';
-import { duration, daysOnly, listText, routeList, pairExceptions, perWeekday } from '../../../../../../lib/journey.js';
+import { duration, daysOnly, listText, routeList, pairExceptions, perWeekday, indexedPair } from '../../../../../../lib/journey.js';
 
 export function getStaticPaths() {
   return shardSystems().flatMap((system) => {
@@ -91,13 +91,13 @@ const faq = [
   [`How long does the ${v} from ${A} to ${B} take?`, `About ${duration(typical)}. The quickest ${v === 'departure' ? 'one' : v} takes ${duration(durs[0])} and the slowest ${duration(durs.at(-1))}. ${A} and ${B} are about ${Math.round(pair.km)} km apart in a straight line.`],
   [`What time is the first ${v} from ${A} to ${B}?`, `${tabs.map((tab) => `${tab.label}: ${t(tab.first)}`).join('. ')}.`],
   [`What time is the last ${v} from ${A} to ${B}?`, `${tabs.map((tab) => `${tab.label}: ${t(tab.last)}`).join('. ')}.${lateNight ? ' A time after midnight belongs to the evening before.' : ''}`],
-  [`Which ${v === 'departure' ? 'service' : v} goes from ${A} to ${B}?`, `${routes.map((r) => `${routeLabel(r)}${plain(r.name) && plain(r.name) !== routeLabel(r) ? ` (${plain(r.name)})` : ''}`).join(', ')}. ${routes.length > 1 ? 'All of them go' : 'It goes'} direct, with no change.`],
+  [`Which ${v === 'departure' ? 'service' : v} goes from ${A} to ${B}?`, `${routes.map((r) => `${routeLabel(r)}${plain(r.name) && plain(r.name).replace(/\s+-\s+/g, ' to ') !== routeLabel(r) ? ` (${plain(r.name)})` : ''}`).join(', ')}. ${routes.length > 1 ? 'All of them go' : 'It goes'} direct, with no change.`],
   [`Is there a ${v} from ${A} to ${B} on Sundays?`, sunday ? `Yes, ${sunday} on a Sunday, the first at ${t(tabs.find((tab) => tab.days.includes(6)).first)}.` : `No. There is no direct ${v} from ${A} to ${B} on Sundays in the current ${word}.`],
   [`Where do I catch the ${v} in ${A}?`, `${fromCodes.length === 1 ? `At ${stopName(fromCodes[0])}` : `At ${listText(fromCodes.slice(0, 5).map(stopName))}, depending on the ${v === 'departure' ? 'service' : v}`}. It arrives in ${B} at ${listText(toCodes.slice(0, 5).map(stopName))}.`],
   ['Are these live times?', `No. They are the scheduled times from ${possessive(plain(system.attribution?.text || system.name))} published ${word}, refreshed ${dateFor(system.builtOn, system.cc)}. A ${v === 'departure' ? 'service' : v} can run early or late, and disruptions are not shown.`],
 ];
 ---
-<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system}>
+<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} speakable={['.lede', '.faq .answer']} system={system} noindex={!indexedPair(pair)}>
 <main class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a> › <a href={fromUrl(system.key, j, pair.a)}>{cap(vs)} from {A}</a> › {B}</nav>
 

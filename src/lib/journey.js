@@ -3,6 +3,19 @@ import { routeLabel } from './format.js';
 
 const SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+// On 28 Oct 2026, eleven days after ~40,000 town-to-town pages went up, Search Console showed the
+// whole site vanishing from most searches (impressions down ~75% overnight, positions unchanged
+// where it still showed): the pattern of a site judged to be mass-produced pages. Pairs with a
+// bus or two a week say little more than that, so they stay up for riders but ask Google not to
+// index them, and leave the sitemaps (astro.config.mjs). Each town's "from" page is a list of
+// such pairs (position 33, no clicks in the four weeks before) and is treated the same.
+// So are pairs under MIN_KM apart: a short hop inside one area, or a town to the island or
+// suburb it sits in ("Cowes to Phillip Island", 4 km, Cowes being on Phillip Island).
+export const THIN_WEEKLY = 10;
+export const MIN_KM = 5;
+/** Whether Google should index this town-to-town page: more than THIN_WEEKLY departures a week, MIN_KM or more apart. */
+export const indexedPair = (pair) => pair.weekly > THIN_WEEKLY && pair.km >= MIN_KM;
+
 /** 50 -> '50 min', 110 -> '1 h 50 min', 120 -> '2 h' */
 export function duration(m) {
   if (m == null || Number.isNaN(m)) return '';
