@@ -144,7 +144,7 @@ const faq = [
   [`Are these live ${v} times?`, `No. They are the published ${word} from ${possessive(plain(system.attribution?.text || system.name))} open data, refreshed ${dateFor(system.builtOn, system.cc)}. A ${v} can run early or late, and disruptions are not shown.`],
 ];
 ---
-<Base title={title} description={description} path={path} canonicalPath={mainRoute ? `${base.slice(1)}/${mainRoute.slug}` : undefined} jsonLd={jsonLd} og={system.key} modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system}>
+<Base title={title} description={description} path={path} canonicalPath={mainRoute ? `${base.slice(1)}/${mainRoute.slug}` : undefined} jsonLd={jsonLd} og={system.key} speakable={['.lede', '.faq .answer']} system={system}>
 <main class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a> › {label}</nav>
 

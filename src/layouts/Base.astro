@@ -44,7 +44,10 @@ const SITE = 'https://transit.shivrajsinh.in';
 const canonical = path ? `${SITE}/${path}` : `${SITE}/`;
 // The page's own URL stays its @id; only the canonical link and og:url point elsewhere.
 const canonicalHref = Astro.props.canonicalPath ? `${SITE}/${Astro.props.canonicalPath}` : canonical;
-const updated = modified || SYSTEM_INDEX[0]?.builtOn;
+// Only when a page passes a date it can stand behind. The weekly build date moved every page's
+// dateModified each Monday while its sitemap lastmod and Last-Modified (scripts/lastmod.mjs) said
+// the content had not changed.
+const updated = modified;
 
 /*
  * One entity graph for the whole site: the site, the organisation behind it and its founder,

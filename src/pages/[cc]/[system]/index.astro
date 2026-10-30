@@ -76,7 +76,7 @@ const jsonLd = [{
 const lede = `${system.name} is ${byMode ? 'a transit network' : `a ${mode === 'transit' ? 'transit' : mode} network`} serving ${system.area}${reg.name !== x.c.name ? `, ${reg.name}` : ''}, with ${modeText} in the current ${word}. On weekdays the first ${veh} leaves at ${t(Math.min(...firsts))} and the last at ${t(Math.max(...lasts))}${frequent.length ? `, and ${frequent.length} ${routeWord}${frequent.length === 1 ? ' runs' : 's run'} every 15 minutes or better` : ''}. Open a ${routeWord} for the whole day in both directions, with the next ${veh} highlighted.`;
 const heading = `${what} ${routeWord}s and ${word}s`;
 ---
-<Base title={title} description={description} path={base.slice(1)} jsonLd={jsonLd} og={system.key} pageType="CollectionPage" modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system}>
+<Base title={title} description={description} path={base.slice(1)} jsonLd={jsonLd} og={system.key} pageType="CollectionPage" speakable={['.lede', '.faq .answer']} system={system}>
 <main class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › {system.name}</nav>
   <h1>{heading.charAt(0).toUpperCase() + heading.slice(1)}</h1>
