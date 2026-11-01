@@ -9,10 +9,10 @@
     "not_found_handling": "404-page",
     "run_worker_first": [
       "/ca/*",
-      "/us/*",
       "/uk/*",
-      "/au/*",
       "/ie/*",
+      "/us/*",
+      "/au/*",
       "/nz/*",
       "/bc",
       "/bc/*",
@@ -43,6 +43,38 @@
     {
       "binding": "S6",
       "service": "stopwatch-s6"
+    },
+    {
+      "binding": "S7",
+      "service": "stopwatch-s7"
+    },
+    {
+      "binding": "S8",
+      "service": "stopwatch-s8"
+    },
+    {
+      "binding": "S9",
+      "service": "stopwatch-s9"
+    },
+    {
+      "binding": "S10",
+      "service": "stopwatch-s10"
+    },
+    {
+      "binding": "S11",
+      "service": "stopwatch-s11"
+    },
+    {
+      "binding": "S12",
+      "service": "stopwatch-s12"
+    },
+    {
+      "binding": "S13",
+      "service": "stopwatch-s13"
+    },
+    {
+      "binding": "S14",
+      "service": "stopwatch-s14"
     }
   ],
   "routes": [
