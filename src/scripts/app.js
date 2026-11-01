@@ -466,7 +466,10 @@ function setupActions() {
  */
 const AD_SRC = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7164999486301748';
 function loadAdSense() {
-  if (window.__stopwatchAds) return;
+  if (window.__stopwatchAds || document.querySelector('script[src*="pagead2.googlesyndication.com"]')) {
+    window.__stopwatchAds = true;
+    return;
+  }
   window.__stopwatchAds = true;
   const s = document.createElement('script');
   s.async = true;

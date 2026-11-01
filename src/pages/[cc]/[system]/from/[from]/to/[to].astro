@@ -143,6 +143,8 @@ const faq = [
     </div></div>
   )}
 
+  <Ad slot="1697297769" />
+
   <section class="direction" id="times" data-section data-route="journey" data-from={A} data-to={B} data-at={fromCodes.length === 1 ? `from ${stopName(fromCodes[0])}` : ''} data-badges={JSON.stringify(routes.map((r) => ({ short: r.short || '', color: r.color || '', text: inkFor(r.color), url: '#times' })))}>
     <h2>{cap(vs)} from {A} to {B}</h2>
     <p class="muted small" style="margin:0">{fromCodes.length === 1 ? <>From {stopPages.has(fromCodes[0]) ? <a href={stopHref(fromCodes[0])}>{stopName(fromCodes[0])}</a> : stopName(fromCodes[0])}</> : <>From {fromCodes.length} stops in {A}</>} · {toCodes.length === 1 ? <>to {stopPages.has(toCodes[0]) ? <a href={stopHref(toCodes[0])}>{stopName(toCodes[0])}</a> : stopName(toCodes[0])}</> : <>to {toCodes.length} stops in {B}</>} · direct, no change</p>
@@ -173,7 +175,7 @@ const faq = [
     ))}
   </section>
 
-  <Ad />
+  <Ad slot="9765370376" />
 
   {(fromCodes.length > 1 || toCodes.length > 1) && (
     <section>

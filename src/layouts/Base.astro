@@ -110,6 +110,7 @@ const AD_CLIENT = 'ca-pub-7164999486301748';
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="google-adsense-account" content={AD_CLIENT} />
+  <script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${AD_CLIENT}`} crossorigin="anonymous"></script>
   <script is:inline>document.documentElement.classList.add('js')</script>
   {[pageLd, ...(path === '' || path === 'about' ? entityLd : []), ...jsonLd].map((j) => <script type="application/ld+json" set:html={JSON.stringify(j)} />)}
 </head>

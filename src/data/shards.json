@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-28T15:31:42.169Z",
+ "generated": "2026-11-01T15:25:15.071Z",
  "shards": [
   "s1",
   "s2",
@@ -26,11 +26,11 @@
   "uk/go-north-east": "s2",
   "uk/intalink": "s2",
   "ca/kamloops": "s2",
+  "uk/newbury-district": "s2",
   "us/sf-bay-ferry": "s2",
   "ca/mount-waddington": "s2",
   "ca/quesnel": "s2",
   "ca/clearwater": "s2",
-  "uk/newbury-district": "s2",
   "uk/transdev-blazefield": "s3",
   "ie/dublin-bus": "s3",
   "uk/stagecoach-east": "s3",
@@ -87,10 +87,10 @@
   "uk/first-bristol": "s9",
   "uk/stagecoach-south-west": "s9",
   "uk/stagecoach-north-east": "s9",
+  "uk/reading-buses": "s9",
   "uk/first-worcestershire": "s9",
   "ca/vernon": "s9",
   "ca/powell-river": "s9",
-  "uk/reading-buses": "s9",
   "uk/arriva-herts-essex": "s10",
   "uk/first-essex": "s10",
   "uk/stagecoach-south-wales": "s10",
@@ -124,6 +124,7 @@
   "uk/coach-services": "s13",
   "ca/100-mile-house": "s13",
   "uk/cardiff-bus": "s14",
+  "uk/warringtons-own-buses": "s14",
   "ca/penticton": "s14",
   "uk/green-line-702": "s14",
   "ca/sunshine-coast": "s14",
@@ -138,8 +139,7 @@
   "ca/merritt": "s14",
   "us/avon": "s14",
   "ca/dawson-creek": "s14",
-  "ca/smithers": "s14",
-  "uk/warringtons-own-buses": "s14"
+  "ca/smithers": "s14"
  },
  "split": {
   "au/melbourne-buses": [
