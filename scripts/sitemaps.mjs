@@ -42,6 +42,15 @@ const core = [...entries.keys()].filter((u) => !isStop(u) && !isJourney(u)).sort
 const journeys = [...entries.keys()].filter(isJourney).sort();
 const stops = [...entries.keys()].filter(isStop).sort();
 
+// Pages that have just turned noindex (data/noindexed.txt: a "# yyyy-mm-dd" line, then one URL a
+// line) get a sitemap of their own until Google has recrawled them: without one it finds the
+// noindex whenever it next happens by, months later on a young site, and Search Console has
+// nothing to report them against. Delete the file once its "Excluded by 'noindex' tag" count
+// stops rising (PR #21, 2 Nov 2026: 13,990 town-to-town and town pages).
+const NOINDEXED = 'data/noindexed.txt';
+const noindexed = fs.existsSync(NOINDEXED) ? fs.readFileSync(NOINDEXED, 'utf8').split('\n').filter(Boolean) : [];
+const noindexedOn = noindexed[0]?.startsWith('# ') ? noindexed.shift().slice(2) : '';
+
 const urlset = (urls) => `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${u}</loc>${entries.get(u) ? `<lastmod>${entries.get(u)}</lastmod>` : ''}</url>`).join('')}</urlset>\n`;
 
 for (const file of sources) fs.rmSync(file);
@@ -55,6 +64,10 @@ for (const [name, list] of [['journeys', journeys], ['stops', stops]]) {
     maps.push([`sitemaps/${name}-${i + 1}.xml`, newest(part)]);
   }
 }
+if (noindexed.length) {
+  fs.writeFileSync(path.join(sub, 'noindexed.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${noindexed.map((u) => `<url><loc>${u}</loc>${noindexedOn ? `<lastmod>${noindexedOn}</lastmod>` : ''}</url>`).join('')}</urlset>\n`);
+  maps.push(['sitemaps/noindexed.xml', noindexedOn]);
+}
 // Each file's lastmod is its newest page's, so Google rereads only the files that changed.
 fs.writeFileSync(path.join(dir, 'sitemap-index.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${maps.map(([m, d]) => `<sitemap><loc>${SITE}/${m}</loc>${d ? `<lastmod>${d}</lastmod>` : ''}</sitemap>`).join('')}</sitemapindex>\n`);
-console.log(`sitemaps: ${core.length} core URLs, ${journeys.length} journey URLs, ${stops.length} stop URLs in ${maps.length - 1} files`);
+console.log(`sitemaps: ${core.length} core URLs, ${journeys.length} journey URLs, ${stops.length} stop URLs${noindexed.length ? `, ${noindexed.length} noindexed` : ''} in ${maps.length - 1} files`);

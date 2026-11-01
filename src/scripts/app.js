@@ -477,7 +477,7 @@ function loadAdSense() {
 function scheduleAdSense() {
   const go = () => loadAdSense();
   ['scroll', 'pointerdown', 'keydown'].forEach((e) => addEventListener(e, go, { once: true, passive: true }));
-  const idle = () => (window.requestIdleCallback ? requestIdleCallback(go, { timeout: 3000 }) : setTimeout(go, 1500));
+  const idle = () => (window.requestIdleCallback ? requestIdleCallback(go, { timeout: 1500 }) : setTimeout(go, 800));
   if (document.readyState === 'complete') idle(); else addEventListener('load', idle, { once: true });
 }
 
@@ -493,7 +493,7 @@ function setupAds() {
   if (!('IntersectionObserver' in window)) { slots.forEach(fill); return; }
   const io = new IntersectionObserver((entries) => {
     for (const e of entries) if (e.isIntersecting && fill(e.target)) io.unobserve(e.target);
-  }, { rootMargin: '600px 0px' });
+  }, { rootMargin: '800px 0px' });
   slots.forEach((ins) => io.observe(ins));
 }
 

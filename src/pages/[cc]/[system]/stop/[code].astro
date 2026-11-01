@@ -92,7 +92,7 @@ const jsonLd = [
 ];
 const cfg = { tz: system.timezone, h24, routes: Object.fromEntries(stop.routes.map((r) => { const route = routeOf(r.route); return [`${r.route}|${r.headsign}`, { days: route?.days.map(({ key, days }) => ({ key, days })) || [], exceptions: route?.exceptions.map(({ date, runs }) => ({ date, runs })) || [] }]; })) };
 ---
-<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system} noindex={!isIndexedStop(system.key, stop.code)}>
+<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} speakable={['.lede', '.faq .answer']} system={system} noindex={!isIndexedStop(system.key, stop.code)}>
 <main class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a>{hub && <> › <a href={`${base}/hub/${hub.slug}`}>{plain(hub.name)}</a></>} › Stop {stop.code}</nav>
   <div class="page-head">

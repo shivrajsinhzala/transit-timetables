@@ -3,6 +3,7 @@ import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import fs from 'node:fs';
 import { minorVariants } from './src/lib/variants.js';
+import { indexedPair } from './src/lib/journey.js';
 
 export const SITE = 'https://transit.shivrajsinh.in';
 
@@ -34,6 +35,22 @@ const listedRoute = (page) => {
   return !variantSlugs.get(key).has(m[3]);
 };
 
+// Town-to-town pages Google is asked not to index (src/lib/journey.js) leave the sitemaps too:
+// each town's "from" page, and pairs with THIN_WEEKLY or fewer departures a week.
+const thinPairs = new Map();
+const listedJourney = (page) => {
+  if (/\/from\/[^/]+$/.test(page)) return false;
+  const m = /^https:\/\/[^/]+\/([a-z]{2})\/([^/]+)\/from\/([^/]+)\/to\/([^/]+)$/.exec(page);
+  if (!m) return true;
+  const key = `${m[1]}/${m[2]}`;
+  if (!thinPairs.has(key)) {
+    const file = `src/data/journeys/${key}.json`;
+    const j = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null;
+    thinPairs.set(key, new Set(j ? j.pairs.filter((p) => !indexedPair(p)).map((p) => `${j.places[p.a].slug}/${j.places[p.b].slug}`) : []));
+  }
+  return !thinPairs.get(key).has(`${m[3]}/${m[4]}`);
+};
+
 export default defineConfig({
   site: SITE,
   // `/ca/kelowna/route-8` is served from `route-8.html` with no redirect hop (Workers static
@@ -46,7 +63,7 @@ export default defineConfig({
   integrations: [sitemap({
     // Each shard lists only its own pages: every shard also builds the home and about pages
     // (Astro builds every static page), but they are served from main.
-    filter: (page) => !/\/(offline|404|embed)$/.test(page) && listedStop(page) && listedRoute(page) && (!sharded || SHARD === 'main' || /^https:\/\/[^/]+\/[a-z]{2}\/[^/]+/.test(page)),
+    filter: (page) => !/\/(offline|404|embed)$/.test(page) && listedStop(page) && listedRoute(page) && listedJourney(page) && (!sharded || SHARD === 'main' || /^https:\/\/[^/]+\/[a-z]{2}\/[^/]+/.test(page)),
     // The build date, replaced in scripts/sitemaps.mjs by the date each page's content last
     // changed (scripts/lastmod.mjs) wherever a build has recorded one.
     serialize(item) { item.lastmod = new Date().toISOString().slice(0, 10); return item; },

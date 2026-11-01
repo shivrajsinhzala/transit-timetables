@@ -70,7 +70,7 @@ const jsonLd = [
   { '@context': 'https://schema.org', '@type': stopW === 'station' ? 'TrainStation' : 'BusStation', name, ...(hub.stops[0].lat ? { geo: { '@type': 'GeoCoordinates', latitude: hub.stops[0].lat, longitude: hub.stops[0].lon } } : {}), containedInPlace: { '@type': 'Place', name: system.area } },
 ];
 ---
-<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} modified={system.builtOn} speakable={['.lede', '.faq .answer']} system={system}>
+<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} speakable={['.lede', '.faq .answer']} system={system}>
 <main class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a> › {name}</nav>
   <div class="page-head">

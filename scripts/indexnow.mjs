@@ -20,16 +20,23 @@ const SENT = 'data/indexnow-sent.txt';
 const key = fs.readFileSync('data/indexnow-key.txt', 'utf8').trim();
 const index = await (await fetch(`https://${HOST}/sitemap-index.xml`)).text();
 const urls = [];
+// Pages that have just turned noindex (scripts/sitemaps.mjs): each sent once, so Bing recrawls
+// them and drops them too.
+const NOINDEXED_SENT = 'data/indexnow-noindexed-sent.txt';
+let noindexed = [];
 for (const sm of [...index.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1])) {
   const xml = await (await fetch(sm)).text();
-  urls.push(...[...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]));
+  const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  if (sm.endsWith('/noindexed.xml')) noindexed = locs; else urls.push(...locs);
 }
+const noindexedSet = new Set(noindexed);
+const noindexedSent = new Set(fs.existsSync(NOINDEXED_SENT) ? fs.readFileSync(NOINDEXED_SENT, 'utf8').split('\n').filter(Boolean) : []);
 // Stop and town-to-town pages are many and change little: each is sent once, when it is new.
 const isStop = (u) => /\/stop\/[^/]+$/.test(u) || /\/from\/[^/]+(\/to\/[^/]+)?$/.test(u);
 const stops = urls.filter(isStop);
 const seeded = fs.existsSync(SENT);
 const sent = new Set(seeded ? fs.readFileSync(SENT, 'utf8').split('\n').filter(Boolean) : stops);
-const list = [...urls.filter((u) => !isStop(u)), ...stops.filter((u) => !sent.has(u))];
+const list = [...urls.filter((u) => !isStop(u)), ...stops.filter((u) => !sent.has(u)), ...noindexed.filter((u) => !noindexedSent.has(u))];
 if (!seeded) console.log(`IndexNow: no record of sent stop pages, recording ${stops.length} without sending them`);
 
 let ok = true;
@@ -42,10 +49,11 @@ for (let i = 0; i < list.length; i += 10000) {
   });
   console.log(`IndexNow: ${batch.length} URLs -> HTTP ${res.status}`);
   if (!res.ok) { ok = false; continue; }
-  for (const u of batch) if (isStop(u)) sent.add(u);
+  for (const u of batch) if (noindexedSet.has(u)) noindexedSent.add(u); else if (isStop(u)) sent.add(u);
 }
 // Only pages still in the sitemap: a removed stop or journey that comes back is new again.
 const live = new Set(stops);
 fs.writeFileSync(SENT, `${[...sent].filter((u) => live.has(u)).sort().join('\n')}\n`);
+if (noindexed.length) fs.writeFileSync(NOINDEXED_SENT, `${[...noindexedSent].sort().join('\n')}\n`);
 // IndexNow answers 429 when it is sent too much: worth knowing, never worth failing the refresh.
 if (!ok) console.warn('! IndexNow refused some URLs; they will be sent again next week');
