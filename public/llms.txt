@@ -1,0 +1,29 @@
+# Stopwatch — Transit Timetables
+
+> Independent public transport timetables for bus, tram, train, light rail, and ferry networks across Australia, Canada, Ireland, New Zealand, the United Kingdom, and the United States. Built directly from public transit operators' GTFS open data disclosures.
+
+Stopwatch publishes route timetables, first and last trip schedules, daytime frequencies, full stop sequences, interactive route maps, and next scheduled departures for 123 transit authorities.
+
+## Countries & Main Transit Systems
+- [Australia (10 networks)](https://transit.shivrajsinh.in/au) — Brisbane Translink, Melbourne Buses & Trams, Adelaide Metro, V/Line, Canberra Light Rail, SkyBus.
+- [United Kingdom (65 networks)](https://transit.shivrajsinh.in/uk) — Go North East, Stagecoach, First Bus, Arriva, Cardiff Bus, Lothian, Transdev Blazefield.
+- [Canada (36 networks)](https://transit.shivrajsinh.in/ca) — BC Transit (Victoria, Kelowna, Kamloops, Nanaimo), Halifax Transit, OC Transpo.
+- [Ireland (5 networks)](https://transit.shivrajsinh.in/ie) — Dublin Bus, Bus Éireann, Go-Ahead Ireland, Luas.
+- [United States (5 networks)](https://transit.shivrajsinh.in/us) — Valley Metro Phoenix, SF Bay Ferry, Avon Transit, Martha's Vineyard Transit.
+- [New Zealand (2 networks)](https://transit.shivrajsinh.in/nz) — Metlink Wellington, Otago Regional Council Dunedin.
+
+## URL Structure
+- Route Timetable: `https://transit.shivrajsinh.in/{country-code}/{system-slug}/{route-slug}` (e.g., `/au/brisbane/route-272`, `/us/phoenix/route-61`)
+- Stop Timetable: `https://transit.shivrajsinh.in/{country-code}/{system-slug}/stop/{stop-code}` (e.g., `/au/brisbane/stop/320030`)
+- Town to Town Journeys: `https://transit.shivrajsinh.in/{country-code}/{system-slug}/from/{from-slug}/to/{to-slug}`
+- System Overview: `https://transit.shivrajsinh.in/{country-code}/{system-slug}`
+
+## Features
+- Next scheduled departure boards with live countdown clocks.
+- Full route sequence diagram with intermediate stops.
+- Interactive vector transit route maps (MapLibre GL).
+- Print & PDF formatted timetable sheets.
+- Offline support via Service Worker PWA.
+
+## Data Sourcing & Attribution
+- Built weekly from official GTFS schedule data published by transit authorities under open data licenses (CC BY 4.0, OGL UK, and municipal open licenses).
