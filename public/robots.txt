@@ -1,4 +1,39 @@
 User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=no
+Allow: /
+
+# Generative AI search engines, answer engines & agents
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
+User-agent: cohere-ai
 Allow: /
 
 # Scrapers that send no visitors and crawl the whole site every day
@@ -8,6 +43,7 @@ Disallow: /
 User-agent: AionBot
 Disallow: /
 
-# AI assistants and answer engines are welcome; a site map for them is at /llms.txt
+# LLM manifest for AI agents and RAG engines
+# https://transit.shivrajsinh.in/llms.txt
 
 Sitemap: https://transit.shivrajsinh.in/sitemap-index.xml
