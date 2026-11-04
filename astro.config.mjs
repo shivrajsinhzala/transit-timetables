@@ -51,6 +51,16 @@ const listedJourney = (page) => {
   return !thinPairs.get(key).has(`${m[3]}/${m[4]}`);
 };
 
+// Deep pages (routes, stops, towns, town-to-town) Google may index: data/index-keep.txt
+// (scripts/index-keep.mjs, src/layouts/Base.astro). With the list, it alone decides which deep
+// pages are listed; without it, the per-type rules above do.
+const KEEP = fs.existsSync('data/index-keep.txt') ? new Set(fs.readFileSync('data/index-keep.txt', 'utf8').split('\n').filter((l) => l && !l.startsWith('#'))) : null;
+const listedDeep = (page) => {
+  const m = /^https:\/\/[^/]+\/([a-z]{2}\/[^/]+\/.+)$/.exec(page);
+  if (!m) return true;
+  return KEEP ? KEEP.has(decodeURIComponent(m[1])) : listedStop(page) && listedJourney(page);
+};
+
 export default defineConfig({
   site: SITE,
   // `/ca/kelowna/route-8` is served from `route-8.html` with no redirect hop (Workers static
@@ -63,7 +73,7 @@ export default defineConfig({
   integrations: [sitemap({
     // Each shard lists only its own pages: every shard also builds the home and about pages
     // (Astro builds every static page), but they are served from main.
-    filter: (page) => !/\/(offline|404|embed)$/.test(page) && listedStop(page) && listedRoute(page) && listedJourney(page) && (!sharded || SHARD === 'main' || /^https:\/\/[^/]+\/[a-z]{2}\/[^/]+/.test(page)),
+    filter: (page) => !/\/(offline|404|embed)$/.test(page) && listedDeep(page) && listedRoute(page) && (!sharded || SHARD === 'main' || /^https:\/\/[^/]+\/[a-z]{2}\/[^/]+/.test(page)),
     // The build date, replaced in scripts/sitemaps.mjs by the date each page's content last
     // changed (scripts/lastmod.mjs) wherever a build has recorded one.
     serialize(item) { item.lastmod = new Date().toISOString().slice(0, 10); return item; },

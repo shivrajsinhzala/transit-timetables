@@ -34,8 +34,8 @@ sudo mkdir -p /var/www/stopwatch && sudo chown "$USER" /var/www/stopwatch
 From the project folder on the Mac, copy the nginx config across and enable it:
 
 ```bash
-scp deploy/nginx.conf deploy/stopwatch-security.conf server:/tmp/
-ssh server 'sudo mv /tmp/stopwatch-security.conf /etc/nginx/snippets/ &&
+scp deploy/nginx.conf deploy/stopwatch-security.conf deploy/stopwatch-moved.conf server:/tmp/
+ssh server 'sudo mv /tmp/stopwatch-security.conf /tmp/stopwatch-moved.conf /etc/nginx/snippets/ &&
   sudo mv /tmp/nginx.conf /etc/nginx/sites-available/stopwatch &&
   sudo ln -sf /etc/nginx/sites-available/stopwatch /etc/nginx/sites-enabled/stopwatch &&
   sudo nginx -t && sudo systemctl reload nginx'
