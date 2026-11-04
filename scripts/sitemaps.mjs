@@ -30,6 +30,8 @@ const sources = [
 ];
 const entries = new Map(); // url -> lastmod
 for (const file of sources) {
+  // A regrouped build still has these: their pages must not join the indexable sitemaps.
+  if (/\/noindexed(-\d+)?\.xml$/.test(file)) continue;
   const xml = fs.readFileSync(file, 'utf8');
   // The date the page's content last changed (scripts/lastmod.mjs), not the build date Astro gives.
   for (const m of xml.matchAll(/<url><loc>([^<]+)<\/loc>(?:<lastmod>([^<]+)<\/lastmod>)?/g)) entries.set(m[1], lastmodOf(m[1]) || m[2]?.slice(0, 10) || '');
@@ -48,8 +50,16 @@ const stops = [...entries.keys()].filter(isStop).sort();
 // nothing to report them against. Delete the file once its "Excluded by 'noindex' tag" count
 // stops rising (PR #21, 2 Nov 2026: 13,990 town-to-town and town pages).
 const NOINDEXED = 'data/noindexed.txt';
-const noindexed = fs.existsSync(NOINDEXED) ? fs.readFileSync(NOINDEXED, 'utf8').split('\n').filter(Boolean) : [];
-const noindexedOn = noindexed[0]?.startsWith('# ') ? noindexed.shift().slice(2) : '';
+// Each "# yyyy-mm-dd" line dates the URLs under it (keep list, 3 Nov 2026: 55,781 more).
+const noindexedOn = new Map(); // url -> date it turned noindex
+if (fs.existsSync(NOINDEXED)) {
+  let on = '';
+  for (const line of fs.readFileSync(NOINDEXED, 'utf8').split('\n').filter(Boolean)) {
+    // A page the keep list has since taken back is indexable again, so it is left out here.
+    if (line.startsWith('# ')) on = line.slice(2); else if (!entries.has(line)) noindexedOn.set(line, on);
+  }
+}
+const noindexed = [...noindexedOn.keys()];
 
 const urlset = (urls) => `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${u}</loc>${entries.get(u) ? `<lastmod>${entries.get(u)}</lastmod>` : ''}</url>`).join('')}</urlset>\n`;
 
@@ -64,9 +74,12 @@ for (const [name, list] of [['journeys', journeys], ['stops', stops]]) {
     maps.push([`sitemaps/${name}-${i + 1}.xml`, newest(part)]);
   }
 }
-if (noindexed.length) {
-  fs.writeFileSync(path.join(sub, 'noindexed.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${noindexed.map((u) => `<url><loc>${u}</loc>${noindexedOn ? `<lastmod>${noindexedOn}</lastmod>` : ''}</url>`).join('')}</urlset>\n`);
-  maps.push(['sitemaps/noindexed.xml', noindexedOn]);
+// The first file keeps the name Search Console already has: noindexed.xml, noindexed-2.xml, ...
+for (let i = 0; i * PER_FILE < noindexed.length; i++) {
+  const part = noindexed.slice(i * PER_FILE, (i + 1) * PER_FILE);
+  const name = `noindexed${i ? `-${i + 1}` : ''}.xml`;
+  fs.writeFileSync(path.join(sub, name), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${part.map((u) => `<url><loc>${u}</loc>${noindexedOn.get(u) ? `<lastmod>${noindexedOn.get(u)}</lastmod>` : ''}</url>`).join('')}</urlset>\n`);
+  maps.push([`sitemaps/${name}`, part.reduce((a, u) => (noindexedOn.get(u) > a ? noindexedOn.get(u) : a), '')]);
 }
 // Each file's lastmod is its newest page's, so Google rereads only the files that changed.
 fs.writeFileSync(path.join(dir, 'sitemap-index.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${maps.map(([m, d]) => `<sitemap><loc>${SITE}/${m}</loc>${d ? `<lastmod>${d}</lastmod>` : ''}</sitemap>`).join('')}</sitemapindex>\n`);
