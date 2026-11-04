@@ -194,8 +194,6 @@ const faq = [
     </div></div>
   )}
 
-  <Ad slot="1697297769" />
-
   {route.directions.map((dir, di) => (
     <>
       <section class="direction" id={dirNames[di].anchor} data-section data-route={route.slug} data-from={place(plain(dir.columns[0].name))} data-short={route.short || ''} data-color={route.color || ''} data-text={inkFor(route.color)} data-to={dests[di]} data-at={`from ${place(plain(dir.stops[0].name))}`} data-url={`#${dirNames[di].anchor}`}>
@@ -234,7 +232,7 @@ const faq = [
           </ol>
         </details>
       </section>
-      {di === 0 && route.directions.length > 1 && <Ad slot="9765370376" />}
+      {di === 0 && <Ad slot="1697297769" />}
     </>
   ))}
 

@@ -2,7 +2,7 @@
 import '../styles/global.css';
 import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
-import { SYSTEM_INDEX, COUNTRIES, countries, systemsIn } from '../lib/data.js';
+import { SYSTEM_INDEX, COUNTRIES, countries, systemsIn, keptPage } from '../lib/data.js';
 import { plain } from '../lib/format.js';
 import { LANG, countryNames } from '../lib/page.js';
 
@@ -48,6 +48,10 @@ const canonicalHref = Astro.props.canonicalPath ? `${SITE}/${Astro.props.canonic
 // dateModified each Monday while its sitemap lastmod and Last-Modified (scripts/lastmod.mjs) said
 // the content had not changed.
 const updated = modified;
+// Deep pages (routes, stops, towns, town-to-town) are indexable only when Search Console shows
+// demand for them (data/index-keep.txt); that list overrides the page's own rule both ways.
+const kept = keptPage(path);
+const robotsNoindex = kept === null ? noindex : !kept;
 
 /*
  * One entity graph for the whole site: the site, the organisation behind it and its founder,
@@ -82,6 +86,8 @@ const entityLd = [
   },
 ];
 const AD_CLIENT = 'ca-pub-7164999486301748';
+// Google Analytics 4 property "Stopwatch - transit.shivrajsinh.in" (created 4 Nov 2026): where visitors come from.
+const GA_ID = 'G-N4L1ZYDYGZ';
 ---
 <!doctype html>
 <html lang={lang} data-h24={h24 ? '' : undefined}>
@@ -91,7 +97,7 @@ const AD_CLIENT = 'ca-pub-7164999486301748';
   <title>{title}</title>
   <meta name="description" content={description} />
   <link rel="canonical" href={canonicalHref} />
-  {noindex && <meta name="robots" content="noindex" />}
+  {robotsNoindex && <meta name="robots" content="noindex" />}
   <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
   <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossorigin />
   <meta property="og:type" content="website" />
@@ -111,6 +117,8 @@ const AD_CLIENT = 'ca-pub-7164999486301748';
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="google-adsense-account" content={AD_CLIENT} />
   <script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${AD_CLIENT}`} crossorigin="anonymous"></script>
+  <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}></script>
+  <script is:inline define:vars={{ GA_ID }}>window.dataLayer = window.dataLayer || []; function gtag() { dataLayer.push(arguments); } gtag('js', new Date()); gtag('config', GA_ID);</script>
   <script is:inline>document.documentElement.classList.add('js')</script>
   {[pageLd, ...(path === '' || path === 'about' ? entityLd : []), ...jsonLd].map((j) => <script type="application/ld+json" set:html={JSON.stringify(j)} />)}
 </head>

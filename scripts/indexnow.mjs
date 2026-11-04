@@ -27,7 +27,7 @@ let noindexed = [];
 for (const sm of [...index.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1])) {
   const xml = await (await fetch(sm)).text();
   const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-  if (sm.endsWith('/noindexed.xml')) noindexed = locs; else urls.push(...locs);
+  if (/\/noindexed(-\d+)?\.xml$/.test(sm)) noindexed.push(...locs); else urls.push(...locs);
 }
 const noindexedSet = new Set(noindexed);
 const noindexedSent = new Set(fs.existsSync(NOINDEXED_SENT) ? fs.readFileSync(NOINDEXED_SENT, 'utf8').split('\n').filter(Boolean) : []);

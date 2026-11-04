@@ -158,6 +158,20 @@ export function isIndexedStop(key, code) {
   return !all || Boolean(all[key]?.has(code));
 }
 
+/**
+ * Whether Google may index a route, stop, hub, town or town-to-town page: only those in
+ * data/index-keep.txt, the pages Search Console shows people searching for (scripts/index-keep.mjs).
+ * null for pages the list does not decide (home, country, system and site pages), and for every
+ * page when there is no list, so the page's own rule applies.
+ */
+export function keptPage(pagePath) {
+  const keep = memo('index-keep', () => {
+    const file = path.join(ROOT, 'data/index-keep.txt');
+    return fs.existsSync(file) ? new Set(fs.readFileSync(file, 'utf8').split('\n').filter((l) => l && !l.startsWith('#'))) : null;
+  });
+  return keep && pagePath.split('/').length >= 3 ? keep.has(pagePath) : null;
+}
+
 export function stopPageCodes(key) {
   return memo(`codes:${key}`, () => new Set(pageStops(key).map((s) => s.code)));
 }
