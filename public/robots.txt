@@ -2,7 +2,7 @@ User-agent: *
 Content-Signal: search=yes, ai-input=yes, ai-train=no
 Allow: /
 
-# Generative AI search engines, answer engines & agents
+# Generative AI search engines, answer engines & web crawlers
 User-agent: OAI-SearchBot
 Allow: /
 
@@ -24,7 +24,7 @@ Allow: /
 User-agent: anthropic-ai
 Allow: /
 
-User-agent: Google-Extended
+User-agent: Applebot
 Allow: /
 
 User-agent: Applebot-Extended
@@ -36,6 +36,24 @@ Allow: /
 User-agent: cohere-ai
 Allow: /
 
+User-agent: ExaSearchBot
+Allow: /
+
+User-agent: Reflectionbot
+Allow: /
+
+User-agent: PetalBot
+Allow: /
+
+User-agent: bingbot
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
 # Scrapers that send no visitors and crawl the whole site every day
 User-agent: ShapBot
 Disallow: /
@@ -43,7 +61,8 @@ Disallow: /
 User-agent: AionBot
 Disallow: /
 
-# LLM manifest for AI agents and RAG engines
+# LLM manifests and specifications for AI search agents and RAG engines
 # https://transit.shivrajsinh.in/llms.txt
+# https://transit.shivrajsinh.in/llms-full.txt
 
 Sitemap: https://transit.shivrajsinh.in/sitemap-index.xml

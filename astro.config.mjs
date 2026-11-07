@@ -51,14 +51,11 @@ const listedJourney = (page) => {
   return !thinPairs.get(key).has(`${m[3]}/${m[4]}`);
 };
 
-// Deep pages (routes, stops, towns, town-to-town) Google may index: data/index-keep.txt
-// (scripts/index-keep.mjs, src/layouts/Base.astro). With the list, it alone decides which deep
-// pages are listed; without it, the per-type rules above do.
-const KEEP = fs.existsSync('data/index-keep.txt') ? new Set(fs.readFileSync('data/index-keep.txt', 'utf8').split('\n').filter((l) => l && !l.startsWith('#'))) : null;
+// Deep pages (routes, stops, towns, town-to-town) are indexed for AI search and general engines:
 const listedDeep = (page) => {
   const m = /^https:\/\/[^/]+\/([a-z]{2}\/[^/]+\/.+)$/.exec(page);
   if (!m) return true;
-  return KEEP ? KEEP.has(decodeURIComponent(m[1])) : listedStop(page) && listedJourney(page);
+  return listedStop(page) && listedJourney(page);
 };
 
 export default defineConfig({

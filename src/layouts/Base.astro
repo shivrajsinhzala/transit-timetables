@@ -2,7 +2,7 @@
 import '../styles/global.css';
 import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
-import { SYSTEM_INDEX, COUNTRIES, countries, systemsIn, keptPage } from '../lib/data.js';
+import { SYSTEM_INDEX, COUNTRIES, countries, systemsIn } from '../lib/data.js';
 import { plain } from '../lib/format.js';
 import { LANG, countryNames } from '../lib/page.js';
 
@@ -48,10 +48,8 @@ const canonicalHref = Astro.props.canonicalPath ? `${SITE}/${Astro.props.canonic
 // dateModified each Monday while its sitemap lastmod and Last-Modified (scripts/lastmod.mjs) said
 // the content had not changed.
 const updated = modified;
-// Deep pages (routes, stops, towns, town-to-town) are indexable only when Search Console shows
-// demand for them (data/index-keep.txt); that list overrides the page's own rule both ways.
-const kept = keptPage(path);
-const robotsNoindex = kept === null ? noindex : !kept;
+// All timetable pages are indexable for AI search engines & web bots (ChatGPT, Perplexity, Bing, Applebot)
+const robotsNoindex = noindex;
 
 /*
  * One entity graph for the whole site: the site, the organisation behind it and its founder,
@@ -97,7 +95,7 @@ const GA_ID = 'G-N4L1ZYDYGZ';
   <title>{title}</title>
   <meta name="description" content={description} />
   <link rel="canonical" href={canonicalHref} />
-  {robotsNoindex && <meta name="robots" content="noindex" />}
+  <meta name="robots" content={robotsNoindex ? "noindex, nofollow" : "index, follow, max-image-preview:large, max-snippet:-1"} />
   <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
   <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossorigin />
   <meta property="og:type" content="website" />
