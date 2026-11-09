@@ -1,8 +1,7 @@
-# Stopwatch: transit.shivrajsinh.in
+# Headway: [headway.shivrajsinh.in](https://headway.shivrajsinh.in)
 
-Phone-friendly bus timetables for 33 BC Transit systems: 429 route pages, ~5,300 stop pages and
-56 exchange (hub) pages, generated from BC Transit's open GTFS data. Static Astro site, served as a
-Cloudflare Workers static-assets deployment on `transit.shivrajsinh.in`. Monetised with AdSense.
+Phone-friendly bus and transit timetables generated from open GTFS data: route pages, stop pages and
+exchange hubs. Static Astro site, served as a Cloudflare Workers static-assets deployment on [`headway.shivrajsinh.in`](https://headway.shivrajsinh.in).
 
 What a rider gets that the operator PDFs and app-gated pages do not: the whole day on one screen
 with the next bus highlighted, live departure boards (from the schedule), search across every
