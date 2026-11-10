@@ -114,3 +114,9 @@ source and licence are in `data/systems.mjs`; each timetable page names them, an
 operators' marks are not used, and every page says it is not affiliated with them. For example,
 BC Transit's [terms](https://www.bctransit.com/open-data/terms-of-use) require naming it as the
 source and forbid using its marks, so titles use city names, not its brand.
+
+## Related Projects
+
+- [Headway](https://headway.shivrajsinh.in) - Fast browser-based transit timetables, headway frequencies, and stop departure schedules for Australia and Phoenix built on official open GTFS data.
+- [Stopwatch Live](https://transit.shivrajsinh.in) - High-performance public transport timetables for 120+ networks in Canada, the UK, Australia, the US, Ireland, and New Zealand.
+
