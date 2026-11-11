@@ -34,8 +34,10 @@ sudo mkdir -p /var/www/stopwatch && sudo chown "$USER" /var/www/stopwatch
 From the project folder on the Mac, copy the nginx config across and enable it:
 
 ```bash
-scp deploy/nginx.conf deploy/stopwatch-security.conf deploy/stopwatch-moved.conf server:/tmp/
-ssh server 'sudo mv /tmp/stopwatch-security.conf /tmp/stopwatch-moved.conf /etc/nginx/snippets/ &&
+node scripts/headway-migration.mjs
+node scripts/busclock-migration.mjs
+scp deploy/nginx.conf deploy/stopwatch-security.conf deploy/stopwatch-moved.conf deploy/headway-moved.conf deploy/busclock-moved.conf server:/tmp/
+ssh server 'sudo mv /tmp/stopwatch-security.conf /tmp/stopwatch-moved.conf /tmp/headway-moved.conf /tmp/busclock-moved.conf /etc/nginx/snippets/ &&
   sudo mv /tmp/nginx.conf /etc/nginx/sites-available/stopwatch &&
   sudo ln -sf /etc/nginx/sites-available/stopwatch /etc/nginx/sites-enabled/stopwatch &&
   sudo nginx -t && sudo systemctl reload nginx'
@@ -59,7 +61,7 @@ curl -sI -H 'Host: transit.shivrajsinh.in' http://SERVER_IP/ca/victoria       # 
 curl -sI -H 'Host: transit.shivrajsinh.in' http://SERVER_IP/bc/victoria       # 301 to /ca/victoria
 ```
 
-Each refresh after that sends only the files that changed.
+Each refresh after that sends only the files that changed. After Headway's published page list changes, run `node scripts/headway-migration.mjs` and reinstall `deploy/headway-moved.conf` plus `deploy/nginx.conf`; this keeps the exact redirects and Googlebot robots exceptions in step. After BusClock's published page list changes, run `node scripts/busclock-migration.mjs` and reinstall `deploy/busclock-moved.conf` plus `deploy/nginx.conf`; only install its redirects after BusClock's public HTTPS checks pass.
 
 ## 4. Switch transit.shivrajsinh.in to the server (Cloudflare dashboard)
 
