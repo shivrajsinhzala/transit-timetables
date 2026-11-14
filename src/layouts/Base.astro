@@ -51,6 +51,8 @@ const canonicalHref = Astro.props.canonicalPath ? `${SITE}/${Astro.props.canonic
 const updated = modified;
 // One rule for robots and the sitemaps (src/lib/indexing.js). noindex pages keep follow, so their links still count.
 const robotsNoindex = noindex || !indexable(path);
+// Ads only on indexable pages (components/Ad.astro renders nothing elsewhere; app.js reads data-ads).
+const adsOn = !robotsNoindex;
 
 /*
  * One entity graph for the whole site: the site, the organisation behind it and its founder,
@@ -90,7 +92,7 @@ const AD_CLIENT = 'ca-pub-7164999486301748';
 const GA_ID = 'G-N4L1ZYDYGZ';
 ---
 <!doctype html>
-<html lang={lang} data-h24={h24 ? '' : undefined}>
+<html lang={lang} data-h24={h24 ? '' : undefined} data-ads={adsOn ? '' : undefined}>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -98,8 +100,8 @@ const GA_ID = 'G-N4L1ZYDYGZ';
   <meta name="description" content={description} />
   <link rel="canonical" href={canonicalHref} />
   <meta name="robots" content={robotsNoindex ? 'noindex, follow' : 'index, follow, max-image-preview:large, max-snippet:-1'} />
-  <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
-  <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossorigin />
+  {adsOn && <link rel="preconnect" href="https://pagead2.googlesyndication.com" />}
+  {adsOn && <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossorigin />}
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Stopwatch" />
   <meta property="og:title" content={title} />
@@ -116,7 +118,8 @@ const GA_ID = 'G-N4L1ZYDYGZ';
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="google-adsense-account" content={AD_CLIENT} />
-  <script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${AD_CLIENT}`} crossorigin="anonymous"></script>
+  {/* The AdSense library is loaded by src/scripts/app.js after first paint (it held the homepage
+      headline back 1.7 s when it loaded here); the meta tag above is what verifies the site. */}
   <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}></script>
   <script is:inline define:vars={{ GA_ID }}>window.dataLayer = window.dataLayer || []; function gtag() { dataLayer.push(arguments); } gtag('js', new Date()); gtag('config', GA_ID);</script>
   <script is:inline>document.documentElement.classList.add('js')</script>

@@ -44,8 +44,8 @@ export default defineConfig({
     // Each shard lists only its own pages: every shard also builds the home and about pages
     // (Astro builds every static page), but they are served from main.
     filter: (page) => !/\/(offline|404|embed)$/.test(page) && listedPage(page) && listedRoute(page) && (!sharded || SHARD === 'main' || /^https:\/\/[^/]+\/[a-z]{2}\/[^/]+/.test(page)),
-    // The build date, replaced in scripts/sitemaps.mjs by the date each page's content last
-    // changed (scripts/lastmod.mjs) wherever a build has recorded one.
-    serialize(item) { item.lastmod = new Date().toISOString().slice(0, 10); return item; },
+    // No build date: scripts/sitemaps.mjs sets each page's <lastmod> to the date its content last
+    // changed (scripts/lastmod.mjs), or its timetable's refresh date.
+    serialize(item) { delete item.lastmod; return item; },
   })],
 });

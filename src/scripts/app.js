@@ -498,6 +498,31 @@ function setupAds() {
     for (const e of entries) if (e.isIntersecting && fill(e.target)) io.unobserve(e.target);
   }, { rootMargin: '800px 0px' });
   slots.forEach((ins) => io.observe(ins));
+  watchUnfilled(slots);
+}
+
+/**
+ * An ad AdSense leaves unfilled keeps its reserved space while any of it is on screen or above
+ * it, and is folded away only while it sits wholly below the viewport. Hiding it at once (the old
+ * CSS rule) pulled everything under it up by 120-250 px in front of the rider: a layout shift on
+ * every unfilled slot, and a timetable row jumping away from a thumb.
+ */
+function watchUnfilled(slots) {
+  const below = (el) => el.getBoundingClientRect().top > innerHeight;
+  const fold = (box) => { if (below(box)) { box.classList.add('ad-gone'); return true; } return false; };
+  const pending = new Set();
+  const onScroll = () => { for (const box of pending) if (fold(box)) pending.delete(box); if (!pending.size) removeEventListener('scroll', onScroll); };
+  const mo = new MutationObserver((records) => {
+    for (const r of records) {
+      if (r.target.dataset.adStatus !== 'unfilled') continue;
+      const box = r.target.closest('.ad');
+      if (!box || fold(box)) continue;
+      box.classList.add('ad-empty');
+      if (!pending.size) addEventListener('scroll', onScroll, { passive: true });
+      pending.add(box);
+    }
+  });
+  slots.forEach((ins) => mo.observe(ins, { attributes: true, attributeFilter: ['data-ad-status'] }));
 }
 
 /* ---------- from/to picker ---------- */
@@ -557,6 +582,9 @@ setupSearch();
 setupMaps();
 setupActions();
 setupPickers();
-scheduleAdSense();
-setupAds();
+// Only pages Google may index carry ads (src/layouts/Base.astro sets data-ads).
+if (document.documentElement.hasAttribute('data-ads')) {
+  scheduleAdSense();
+  setupAds();
+}
 setupOffline();

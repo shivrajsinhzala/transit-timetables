@@ -1,4 +1,5 @@
 ---
+import { indexable } from '../lib/indexing.js';
 /**
  * One responsive AdSense unit, labelled. Placed between whole sections, never inside a timetable,
  * so an ad can never be mistaken for a departure time. Space is reserved (see .ad ins) so a unit
@@ -10,8 +11,12 @@ interface Props {
 
 const { slot = '1697297769' } = Astro.props;
 const CLIENT = 'ca-pub-7164999486301748';
+// No ads on pages Google is asked not to index (thin or duplicate by our own rule), the 404 or
+// the offline page: AdSense's own policy asks for ads on pages with publisher content.
+const pagePath = Astro.url.pathname.replace(/^\/+|\.html$/g, '').replace(/\/$/, '');
+const show = !/^(404|offline|embed)$/.test(pagePath) && indexable(pagePath);
 ---
-<aside class="ad" aria-label="Advertisement">
+{show && <aside class="ad" aria-label="Advertisement">
   <span class="label">Advertisement</span>
   <ins class="adsbygoogle" style="display:block" data-ad-client={CLIENT} data-ad-slot={slot} data-ad-format="auto" data-full-width-responsive="true"></ins>
-</aside>
+</aside>}

@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 /**
- * Regroups the built site's sitemaps by page type, in a built main shard (default dist/main):
- *   sitemaps/core.xml        home, country, system, route and hub pages (~5,400)
- *   sitemaps/journeys-N.xml  town-to-town and town pages (/from/), 40,000 per file
- *   sitemaps/stops-N.xml     indexable stop pages (scripts/indexed-stops.mjs), 40,000 per file
- * and writes sitemap-index.xml with core first, then journeys, then stops.
+ * Regroups the built site's sitemaps by country, in a built main shard (default dist/main):
+ *   sitemaps/site.xml       home, about and privacy
+ *   sitemaps/<cc>.xml       one country's indexable pages: its hub, systems, routes, interchanges
+ *                           and the deep pages people search for (<cc>-2.xml past 40,000 URLs)
+ * and writes sitemap-index.xml, Australia first, then the UK, Ireland, the US, Canada and New
+ * Zealand. Only indexable pages are listed (astro.config.mjs asks src/lib/indexing.js), so each
+ * country's file in Search Console reads as "submitted vs indexed" for that market.
  *
- * Why: a new subdomain that submits ~98,000 URLs at once gets most of them parked as
- * "Discovered – currently not indexed". The route and system pages are what people search for
- * ("813 bus timetable", "vernon transit schedule"), so they get a sitemap of their own that
- * Search Console reports on separately, and the stop pages, still linked from every route page,
- * follow behind. Astro's per-shard sitemaps are read and replaced.
+ * <lastmod> is the date a page's content last changed (scripts/lastmod.mjs), or, for a page no
+ * build has recorded yet, its system's timetable refresh date: never the build date.
  *
  * `node scripts/sitemaps.mjs [dir]` regroups an existing build without rebuilding it.
  */
@@ -34,15 +33,32 @@ for (const file of sources) {
   if (/\/noindexed(-\d+)?\.xml$/.test(file)) continue;
   const xml = fs.readFileSync(file, 'utf8');
   // The date the page's content last changed (scripts/lastmod.mjs), not the build date Astro gives.
-  for (const m of xml.matchAll(/<url><loc>([^<]+)<\/loc>(?:<lastmod>([^<]+)<\/lastmod>)?/g)) entries.set(m[1], lastmodOf(m[1]) || m[2]?.slice(0, 10) || '');
+  for (const m of xml.matchAll(/<url><loc>([^<]+)<\/loc>(?:<lastmod>([^<]+)<\/lastmod>)?/g)) entries.set(m[1], lastmodOf(m[1]) || '');
 }
-if (entries.size < 1000) throw new Error(`only ${entries.size} URLs found in ${sources.length} sitemaps under ${dir}: is this a full build?`);
+if (entries.size < 500) throw new Error(`only ${entries.size} URLs found in ${sources.length} sitemaps under ${dir}: is this a full build?`);
 
-const isStop = (url) => /\/stop\/[^/]+$/.test(url);
-const isJourney = (url) => /\/from\/[^/]+(\/to\/[^/]+)?$/.test(url);
-const core = [...entries.keys()].filter((u) => !isStop(u) && !isJourney(u)).sort();
-const journeys = [...entries.keys()].filter(isJourney).sort();
-const stops = [...entries.keys()].filter(isStop).sort();
+// Fallback dates: a system's refresh date, a country's newest, the site's newest.
+const INDEX = JSON.parse(fs.readFileSync('src/data/index.json', 'utf8'));
+const builtOf = new Map(INDEX.map((x) => [x.key, x.builtOn]));
+const newestIn = (cc) => INDEX.filter((x) => !cc || x.cc === cc).map((x) => x.builtOn).sort().at(-1) || '';
+for (const [u, d] of entries) {
+  if (d) continue; // the date the content last changed, recorded by scripts/lastmod.mjs
+  const parts = u.slice(SITE.length + 1).split('/').filter(Boolean);
+  entries.set(u, parts.length >= 2 ? builtOf.get(`${parts[0]}/${parts[1]}`) || newestIn(parts[0]) : newestIn(parts.length === 1 && parts[0].length === 2 ? parts[0] : null));
+}
+
+const ORDER = ['au', 'uk', 'ie', 'us', 'ca', 'nz'];
+const ccOf = (url) => {
+  const first = url.slice(SITE.length + 1).split('/')[0];
+  return /^[a-z]{2}$/.test(first) ? first : 'site';
+};
+const groups = new Map(); // 'site' | cc -> urls
+for (const u of [...entries.keys()].sort()) {
+  const g = ccOf(u);
+  if (!groups.has(g)) groups.set(g, []);
+  groups.get(g).push(u);
+}
+const groupOrder = ['site', ...ORDER, ...[...groups.keys()].filter((g) => g !== 'site' && !ORDER.includes(g)).sort()].filter((g) => groups.has(g));
 
 // Pages that have just turned noindex (data/noindexed.txt: a "# yyyy-mm-dd" line, then one URL a
 // line) get a sitemap of their own until Google has recrawled them: without one it finds the
@@ -56,7 +72,7 @@ if (fs.existsSync(NOINDEXED)) {
   let on = '';
   for (const line of fs.readFileSync(NOINDEXED, 'utf8').split('\n').filter(Boolean)) {
     // A page the keep list has since taken back is indexable again, so it is left out here.
-    if (line.startsWith('# ')) on = line.slice(2); else if (!entries.has(line)) noindexedOn.set(line, on);
+    if (line.startsWith('# ')) on = line.slice(2); else if (line.startsWith(`${SITE}/`) && !entries.has(line)) noindexedOn.set(line, on);
   }
 }
 const noindexed = [...noindexedOn.keys()];
@@ -65,13 +81,14 @@ const urlset = (urls) => `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns=
 
 for (const file of sources) fs.rmSync(file);
 const newest = (urls) => urls.reduce((a, u) => (entries.get(u) > a ? entries.get(u) : a), '');
-const maps = [['sitemaps/core.xml', newest(core)]];
-fs.writeFileSync(path.join(sub, 'core.xml'), urlset(core));
-for (const [name, list] of [['journeys', journeys], ['stops', stops]]) {
+const maps = [];
+for (const g of groupOrder) {
+  const list = groups.get(g);
   for (let i = 0; i * PER_FILE < list.length; i++) {
     const part = list.slice(i * PER_FILE, (i + 1) * PER_FILE);
-    fs.writeFileSync(path.join(sub, `${name}-${i + 1}.xml`), urlset(part));
-    maps.push([`sitemaps/${name}-${i + 1}.xml`, newest(part)]);
+    const name = `${g}${i ? `-${i + 1}` : ''}.xml`;
+    fs.writeFileSync(path.join(sub, name), urlset(part));
+    maps.push([`sitemaps/${name}`, newest(part)]);
   }
 }
 // The first file keeps the name Search Console already has: noindexed.xml, noindexed-2.xml, ...
@@ -83,4 +100,4 @@ for (let i = 0; i * PER_FILE < noindexed.length; i++) {
 }
 // Each file's lastmod is its newest page's, so Google rereads only the files that changed.
 fs.writeFileSync(path.join(dir, 'sitemap-index.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${maps.map(([m, d]) => `<sitemap><loc>${SITE}/${m}</loc>${d ? `<lastmod>${d}</lastmod>` : ''}</sitemap>`).join('')}</sitemapindex>\n`);
-console.log(`sitemaps: ${core.length} core URLs, ${journeys.length} journey URLs, ${stops.length} stop URLs${noindexed.length ? `, ${noindexed.length} noindexed` : ''} in ${maps.length - 1} files`);
+console.log(`sitemaps: ${groupOrder.map((g) => `${g} ${groups.get(g).length}`).join(', ')}${noindexed.length ? `, ${noindexed.length} noindexed` : ''} in ${maps.length} files`);

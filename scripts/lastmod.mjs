@@ -20,9 +20,17 @@ const FILE = 'data/lastmod.json';
 import { SITE } from '../src/lib/site.js';
 const today = () => new Date().toISOString().slice(0, 10);
 
-let store; // url -> [fingerprint, yyyy-mm-dd]
+// Keyed by path ("/uk/x/route-8"), not URL, so the dates survive a move to a new host
+// (SITE_URL): records from before it, keyed by the old host's URLs, are read the same way.
+const keyOf = (url) => url.replace(/^https?:\/\/[^/]+/, '') || '/';
+let store; // path -> [fingerprint, yyyy-mm-dd]
 function load() {
-  store ??= fs.existsSync(FILE) ? new Map(Object.entries(JSON.parse(fs.readFileSync(FILE, 'utf8')))) : new Map();
+  if (store) return store;
+  store = new Map();
+  if (fs.existsSync(FILE)) for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(FILE, 'utf8')))) {
+    const key = keyOf(k);
+    if (!store.has(key) || v[1] > store.get(key)[1]) store.set(key, v);
+  }
   return store;
 }
 
@@ -60,7 +68,7 @@ export function stampPages(dir) {
       const p = path.join(d, f.name);
       if (f.isDirectory()) { walk(p); continue; }
       if (!f.name.endsWith('.html') || f.name === '404.html') continue;
-      const url = urlOf(path.relative(dir, p));
+      const url = keyOf(urlOf(path.relative(dir, p)));
       const fp = fingerprint(fs.readFileSync(p, 'utf8'));
       const prev = map.get(url);
       let date = day;
@@ -75,5 +83,5 @@ export function stampPages(dir) {
 
 /** The date a page last changed, or undefined for a page no build has stamped. */
 export function lastmodOf(url) {
-  return load().get(url)?.[1];
+  return load().get(keyOf(url))?.[1];
 }

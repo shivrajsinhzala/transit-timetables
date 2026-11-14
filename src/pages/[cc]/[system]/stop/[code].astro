@@ -117,9 +117,9 @@ const cfg = { tz: system.timezone, h24, routes: Object.fromEntries(stop.routes.m
 
   <p class="lede" style="margin-top:1.2rem">{name} is a {modeWord === 'transit' ? 'transit' : modeWord} {stopW} on the {system.name} network (stop {stop.code}), served by {linesText}.{mon ? ` On weekdays ${vs} run from ${t(mon.first)} to ${t(mon.last)}.` : ''}{hub ? ` It is one of ${hub.stops.length} stops at ${plain(hub.name)}.` : ''}</p>
 
-  <Ad />
-
-  {stop.routes.map((r) => { const key = `${r.route}|${r.headsign}`; const route = routeOf(r.route); return (
+  {/* No ad between the stop's action buttons, its next-departures board and the first timetable:
+      the first ad comes after one whole timetable, away from anything a rider taps. */}
+  {stop.routes.map((r, ri) => { const key = `${r.route}|${r.headsign}`; const route = routeOf(r.route); return (<>
     <section class="direction stop-route" data-section data-route={key} data-short={r.short || ''} data-color={r.color || ''} data-text={inkFor(r.color)} data-to={toward(r.headsign)} data-url={`${base}/${r.route}`}>
       <h2><a href={`${base}/${r.route}`} style="text-decoration:none" aria-label={`${labelOf(r)} ${word}`}><RouteBadge route={{ short: r.short, color: r.color, textColor: route?.textColor, type: route?.type }} /></a> {labelOf(r)} <span class="muted">to {toward(r.headsign)}</span></h2>
       <div class="tabs" role="tablist" aria-label="Day of the week">
@@ -139,7 +139,8 @@ const cfg = { tz: system.timezone, h24, routes: Object.fromEntries(stop.routes.m
         </div>
       ))}
     </section>
-  ); })}
+    {ri === 0 && stop.routes.length > 1 && <Ad />}
+  </>); })}
 
   <p class="small muted" style="margin-top:1.5rem">Read each row as the hour, then the minutes past it: {h24 ? '07 then 05 35 means 07:05 and 07:35.' : <>7 then 05 35 means 7:05 and 7:35. <b>Bold hours are pm.</b></>} Scheduled times from {possessive(system.name)} official {word} data, refreshed {dateFor(system.builtOn, system.cc)}. Not live arrivals.</p>
 
