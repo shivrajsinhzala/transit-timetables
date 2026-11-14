@@ -52,7 +52,9 @@ const timesWord = modeWord === 'transit' ? 'Departures' : `${cap(modeWord.split(
 // "orchard park exchange bay f" is a real autocomplete query: the stop's own name leads, and
 // the stop number is always kept so stops sharing a name (two sides of one road) never share a title.
 const fit = (max, ...c) => c.find((s) => s.length <= max) ?? c.at(-1);
-const title = fit(60, `${name} ${timesWord} (Stop ${stop.code})`, `${name} (Stop ${stop.code})`, `${name.slice(0, 40).trim()}… (Stop ${stop.code})`);
+// UK stop codes are national (NaPTAN), so one stop can have a page under each operator that calls
+// there (Bournemouth: morebus and unibus): those titles name the operator to stay distinct.
+const title = fit(60, ...(system.cc === 'uk' ? [`${name}: ${system.name} ${timesWord} (Stop ${stop.code})`, `${name}, ${system.name} (Stop ${stop.code})`] : []), `${name} ${timesWord} (Stop ${stop.code})`, `${name} (Stop ${stop.code})`, `${name.slice(0, 40).trim()}… (Stop ${stop.code})`);
 const description = fit(155,
   `${cap(v === 'departure' ? 'departure' : v)} times at ${name}, ${system.name} (stop ${stop.code}): ${routeNums.length > 1 ? 'routes' : 'route'} ${routeList}.${mon ? ` Weekdays ${t(mon.first)} to ${t(mon.last)}.` : ''} Next ${v} and full ${word}.`,
   `${cap(v === 'departure' ? 'departure' : v)} times at ${name}, ${system.name} (stop ${stop.code}): ${routeNums.slice(0, 6).join(', ')}${routeNums.length > 6 ? ' and more' : ''}. Next ${v} and full ${word}.`,
