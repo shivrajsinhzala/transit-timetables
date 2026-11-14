@@ -14,8 +14,9 @@
  * The first run with no record only records the stop pages: they were all sent on 11 Oct 2026.
  */
 import fs from 'node:fs';
+import { SITE_HOST } from '../src/lib/site.js';
 
-const HOST = 'transit.shivrajsinh.in';
+const HOST = SITE_HOST;
 const SENT = 'data/indexnow-sent.txt';
 const key = fs.readFileSync('data/indexnow-key.txt', 'utf8').trim();
 const index = await (await fetch(`https://${HOST}/sitemap-index.xml`)).text();

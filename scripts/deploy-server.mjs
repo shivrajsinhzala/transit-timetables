@@ -27,6 +27,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { gzip } from 'node:zlib';
 import { execFileSync } from 'node:child_process';
+import { SITE_HOST, OLD_HOSTS } from '../src/lib/site.js';
 
 const gz = promisify(gzip);
 
@@ -145,8 +146,8 @@ export function finishRelease(release) {
 /**
  * Drops Cloudflare's copies of the site's pages, so a release shows at once. nginx lets Cloudflare
  * keep HTML for a day (s-maxage, deploy/nginx.conf): after the 25 Oct 2026 release, pages cached
- * before it were still served an hour later. Only transit.shivrajsinh.in is purged, not the other
- * sites on the zone; if the plan refuses a purge by host, everything is purged. A failed purge
+ * before it were still served an hour later. Only this site's hosts (SITE_URL's, and the old host's
+ * redirect responses) are purged, not the other sites on the zone; if the plan refuses a purge by host, everything is purged. A failed purge
  * only warns: the release is live, and the old copies expire within a day anyway.
  * `node scripts/deploy-server.mjs purge` runs it on its own.
  */
@@ -168,8 +169,9 @@ export async function purgeCache() {
     return { ok: res.ok && json.success, why: json.errors?.map((e) => `${e.code} ${e.message}`).join('; ') || `HTTP ${res.status}` };
   };
   try {
-    let r = await purge({ hosts: ['transit.shivrajsinh.in'] });
-    if (r.ok) { console.log('cloudflare: purged transit.shivrajsinh.in'); return true; }
+    const hosts = [SITE_HOST, ...OLD_HOSTS];
+    let r = await purge({ hosts });
+    if (r.ok) { console.log(`cloudflare: purged ${hosts.join(', ')}`); return true; }
     // A wrong token or zone fails the same way for both: no point in the wider purge.
     if (/^(10000|9109|7003|7000) /m.test(r.why)) throw new Error(r.why);
     console.log(`cloudflare: purge by host refused (${r.why}), purging everything`);

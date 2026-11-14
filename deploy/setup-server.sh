@@ -59,8 +59,9 @@ npm run release:server
 echo "→ checking the server directly"
 IP="${SERVER_IP:-$("${SSH[@]}" "$HOST" "hostname -I | awk '{print \$1}'")}"  # SERVER_IP=… if the server is behind NAT
 fail=0
+SITE_HOST="$(node -e "import('./src/lib/site.js').then((m) => console.log(m.SITE_HOST))")"
 check() {  # path, expected status
-  got=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -H 'Host: transit.shivrajsinh.in' "http://${IP}$1")
+  got=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -H "Host: ${SITE_HOST}" "http://${IP}$1")
   if [ "$got" = "$2" ]; then echo "  ok   $2 $1"; else echo "  FAIL $1: got $got, wanted $2"; fail=1; fi
 }
 check / 200

@@ -21,9 +21,10 @@
  */
 import fs from 'node:fs';
 import crypto from 'node:crypto';
+import { SITE, SITE_HOST, OLD_HOSTS } from '../src/lib/site.js';
 
-const SITE = 'https://transit.shivrajsinh.in';
-const PROPERTY = 'sc-domain:shivrajsinh.in';
+// The Search Console property: a Domain property for the new domain (Phase 3 runbook, step 2).
+const PROPERTY = process.env.GSC_PROPERTY || `sc-domain:${SITE_HOST.replace(/^www\./, '')}`;
 const KEY_FILE = process.env.GOOGLE_SA || 'deploy/google-sa.json';
 const SEEN = 'data/google-inspected.json'; // url -> { at, verdict, state }
 const OUT = 'reports/google';
@@ -145,7 +146,7 @@ async function report(days) {
   const d = (x) => x.toISOString().slice(0, 10);
   const q = (dimensions, rowLimit = 1000) => api(`${WM}/searchAnalytics/query`, {
     method: 'POST',
-    body: JSON.stringify({ startDate: d(start), endDate: d(end), dimensions, rowLimit, dimensionFilterGroups: [{ filters: [{ dimension: 'page', operator: 'contains', expression: 'transit.shivrajsinh.in' }] }] }),
+    body: JSON.stringify({ startDate: d(start), endDate: d(end), dimensions, rowLimit, dimensionFilterGroups: [{ filters: [{ dimension: 'page', operator: 'contains', expression: SITE_HOST }] }] }),
   });
   const { rows = [] } = await q(['date']);
   console.log('date        clicks  impressions  ctr    position');

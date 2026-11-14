@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import { minorVariants } from './src/lib/variants.js';
 import { indexedPair } from './src/lib/journey.js';
 
-export const SITE = 'https://transit.shivrajsinh.in';
+import { SITE } from './src/lib/site.js';
+export { SITE };
 
 // The site is built in shards (scripts/build-all.mjs): each is its own static deployment, so
 // each gets its own output folder and its own folder for scripts, so the router can tell them apart.

@@ -1,4 +1,5 @@
 ---
+import { SITE } from '../lib/site.js';
 /**
  * /embed?s=<cc>/<system>/stop/<code>: next departures at one stop, for other websites to put in
  * an iframe (the stop page gives the code). One page for every stop: src/scripts/embed.js reads
@@ -38,9 +39,9 @@
 </head>
 <body>
   <div class="board" id="board">
-    <div class="head"><a data-name href="https://transit.shivrajsinh.in/">Next departures</a><span class="clock" data-clock></span></div>
+    <div class="head"><a data-name href={`${SITE}/`}>Next departures</a><span class="clock" data-clock></span></div>
     <ol><li class="empty">Loading the next departures…</li></ol>
-    <div class="foot"><span>Scheduled times, not live</span><a data-full href="https://transit.shivrajsinh.in/">Full timetable on Stopwatch</a></div>
+    <div class="foot"><span>Scheduled times, not live</span><a data-full href={`${SITE}/`}>Full timetable on Stopwatch</a></div>
   </div>
   <script>import '../scripts/embed.js';</script>
 </body>

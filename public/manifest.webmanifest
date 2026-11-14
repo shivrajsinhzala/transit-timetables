@@ -1,7 +1,7 @@
 {
   "name": "Stopwatch: bus, tram and train timetables",
   "short_name": "Stopwatch",
-  "description": "Every timetable on one screen, with the next departure first, for 90 transit systems in six countries. Works offline for pages you have opened.",
+  "description": "Every timetable on one screen, with the next departure first, for bus, tram and train networks in six countries. Works offline for pages you have opened.",
   "start_url": "/?source=homescreen",
   "scope": "/",
   "display": "standalone",

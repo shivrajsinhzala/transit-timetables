@@ -17,7 +17,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 
 const FILE = 'data/lastmod.json';
-const SITE = 'https://transit.shivrajsinh.in';
+import { SITE } from '../src/lib/site.js';
 const today = () => new Date().toISOString().slice(0, 10);
 
 let store; // url -> [fingerprint, yyyy-mm-dd]
@@ -44,7 +44,7 @@ export function fingerprint(html) {
   return createHash('sha1').update(text).digest('base64url').slice(0, 16);
 }
 
-/** `dist/s3/uk/x/route-8.html` -> https://transit.shivrajsinh.in/uk/x/route-8 */
+/** `dist/s3/uk/x/route-8.html` -> ${SITE}/uk/x/route-8 */
 function urlOf(rel) {
   const p = rel.replace(/\\/g, '/').replace(/\.html$/, '');
   return p === 'index' ? `${SITE}/` : `${SITE}/${p}`;

@@ -2,6 +2,7 @@
  * /llms.txt: a plain-language map of the site for AI assistants and answer engines
  * (https://llmstxt.org). Generated from the same data as the pages, so it never goes stale.
  */
+import { SITE } from '../lib/site.js';
 import { SYSTEM_INDEX, countries, isMain, META, busiestRoutes } from '../lib/data.js';
 import { plain, routeLabel } from '../lib/format.js';
 import { countryNames } from '../lib/page.js';
@@ -9,7 +10,7 @@ import { countryNames } from '../lib/page.js';
 export function GET() {
   if (!isMain) return new Response('');
   const routes = SYSTEM_INDEX.reduce((a, s) => a + s.routes, 0);
-  const site = 'https://transit.shivrajsinh.in';
+  const site = SITE;
   const all = countries();
   const builtOn = SYSTEM_INDEX.map((s) => s.builtOn).sort().at(-1);
   const lines = [

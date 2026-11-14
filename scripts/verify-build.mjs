@@ -6,16 +6,25 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const DIST = process.argv[2] || 'dist';
-const SITE = 'https://transit.shivrajsinh.in';
+import { SITE, OLD_HOSTS } from '../src/lib/site.js';
 const files = [];
+const textFiles = [];
 (function walk(dir) {
   for (const f of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, f.name);
-    if (f.isDirectory()) walk(p); else if (f.name.endsWith('.html')) files.push(p);
+    if (f.isDirectory()) walk(p);
+    else if (f.name.endsWith('.html')) files.push(p);
+    else if (/\.(xml|txt|json|js|mjs|webmanifest|css)$/.test(f.name)) textFiles.push(p);
   }
 })(DIST);
 
 const problems = [];
+// The move to SITE_URL: no page, sitemap, robots, llms, manifest or script may still name an old host.
+const oldHost = new RegExp(OLD_HOSTS.map((h) => h.replace(/\./g, '\\.')).join('|'));
+for (const f of [...files, ...textFiles]) {
+  const m = oldHost.exec(fs.readFileSync(f, 'utf8'));
+  if (m) problems.push(`${path.relative(DIST, f)}: still names ${m[0]}`);
+}
 let routePages = 0;
 let journeyPages = 0;
 for (const f of files) {

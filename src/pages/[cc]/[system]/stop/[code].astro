@@ -1,4 +1,5 @@
 ---
+import { SITE } from '../../../../lib/site.js';
 import Base from '../../../../layouts/Base.astro';
 import Icon from '../../../../components/Icon.astro';
 import Ad from '../../../../components/Ad.astro';
@@ -66,7 +67,6 @@ const faq = [
   ['Are these live arrival times?', `No. They are the scheduled times from ${possessive(system.name)} published ${word}, refreshed ${dateFor(system.builtOn, system.cc)}. A ${v === 'departure' ? 'service' : v} can run early or late, and disruptions are not shown.`],
 ];
 
-const SITE = 'https://transit.shivrajsinh.in';
 const path = `${base.slice(1)}/stop/${encodeURIComponent(stop.code)}`;
 // The embed code (src/pages/embed.astro): an iframe, plus a plain link under it so the stop's page is credited.
 const embedCode = `<iframe src="${SITE}/embed?s=${path}" title="Next ${vs} at ${name.replace(/"/g, '&quot;')}" width="100%" height="330" style="border:0;max-width:480px" loading="lazy"></iframe>\n<p style="font:13px sans-serif;margin:4px 0"><a href="${SITE}/${path}">${name.replace(/</g, '&lt;')} ${v} times</a> by Stopwatch</p>`;

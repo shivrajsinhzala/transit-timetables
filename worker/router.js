@@ -1,6 +1,6 @@
 /**
  * Stopwatch router. The site is ~100,000 static files, more than one Workers deployment holds,
- * so it is split into shards (scripts/shards.mjs). This Worker owns transit.shivrajsinh.in:
+ * so it is split into shards (scripts/shards.mjs). This Worker owns the site's host (SITE_URL):
  * its own assets (home, country pages, search, icons) are served before it ever runs; every
  * other request comes here and is passed to the shard that holds it, over a service binding.
  */

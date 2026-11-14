@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { lastmodOf } from './lastmod.mjs';
 
-const SITE = 'https://transit.shivrajsinh.in';
+import { SITE } from '../src/lib/site.js';
 const PER_FILE = 40_000; // the protocol allows 50,000; leave headroom
 const dir = process.argv[2] || 'dist/main';
 const sub = path.join(dir, 'sitemaps');

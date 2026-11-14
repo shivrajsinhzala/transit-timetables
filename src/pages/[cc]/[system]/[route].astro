@@ -1,4 +1,5 @@
 ---
+import { SITE } from '../../../lib/site.js';
 import Base from '../../../layouts/Base.astro';
 import Icon from '../../../components/Icon.astro';
 import Ad from '../../../components/Ad.astro';
@@ -121,7 +122,6 @@ const stopHref = (code) => `${base}/stop/${encodeURIComponent(code)}`;
 const journeys = routeJourneys(system.key, route.slug, 10);
 const medianTime = (p) => { const d = p.trips[p.days[0].key].map((r) => r[1] - r[0]).sort((a, b) => a - b); return d[Math.floor(d.length / 2)]; };
 
-const SITE = 'https://transit.shivrajsinh.in';
 const path = `${base.slice(1)}/${route.slug}`;
 const jsonLd = [{
   '@context': 'https://schema.org',

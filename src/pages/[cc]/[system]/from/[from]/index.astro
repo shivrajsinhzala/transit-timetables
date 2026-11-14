@@ -1,4 +1,5 @@
 ---
+import { SITE } from '../../../../../lib/site.js';
 /**
  * Every place one town has a direct bus or train to on one network, busiest first, each linking
  * to its journey page; and the places with a direct one back. Answers "buses from cork" and is
@@ -51,7 +52,6 @@ const description = fit(160,
   `Every direct ${v === 'departure' ? 'service' : v} from ${A} with ${system.name}: ${out.length} ${out.length === 1 ? 'destination' : 'destinations'} including ${listText(top)}, with times, journey lengths and where to catch each one.`,
   `Every direct ${v === 'departure' ? 'service' : v} from ${A} with ${system.name}: ${out.length} ${out.length === 1 ? 'destination' : 'destinations'}, with times and journey lengths.`);
 
-const SITE = 'https://transit.shivrajsinh.in';
 const path = `${base.slice(1)}/from/${place.slug}`;
 const jsonLd = [{
   '@context': 'https://schema.org',

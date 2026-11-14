@@ -79,7 +79,7 @@
   ],
   "routes": [
     {
-      "pattern": "transit.shivrajsinh.in",
+      "pattern": "stopwatchtimetables.com",
       "custom_domain": true
     }
   ]

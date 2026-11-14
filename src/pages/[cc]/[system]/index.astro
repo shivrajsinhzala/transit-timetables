@@ -1,4 +1,5 @@
 ---
+import { SITE } from '../../../lib/site.js';
 import Base from '../../../layouts/Base.astro';
 import Icon from '../../../components/Icon.astro';
 import JourneyPicker from '../../../components/JourneyPicker.astro';
@@ -64,7 +65,6 @@ const faq = [
   [`Where do the ${system.name} times come from?`, `From the open ${word} data published by ${plain(system.attribution?.text)}, refreshed ${dateFor(system.builtOn, system.cc)}. These are scheduled times, not live arrivals.`],
 ];
 
-const SITE = 'https://transit.shivrajsinh.in';
 const jsonLd = [{
   '@context': 'https://schema.org',
   '@type': 'BreadcrumbList',

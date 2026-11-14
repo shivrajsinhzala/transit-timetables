@@ -1,4 +1,5 @@
 ---
+import { SITE } from '../../../../../../lib/site.js';
 /**
  * One town to another on one network: every direct departure, how long it takes, where to catch
  * it, and the next one. Built from scripts/journeys.mjs; answers "cork to macroom bus",
@@ -73,7 +74,6 @@ const description = fit(160,
   `${cap(daily(main))} ${vs} a day from ${A} to ${B} (${main.label}), first ${t(main.first)}, last ${t(main.last)}, about ${duration(typical)}.`,
   `Every ${v === 'departure' ? 'service' : v} from ${A} to ${B} with ${system.name}: times, journey length, where to catch it and the next one.`);
 
-const SITE = 'https://transit.shivrajsinh.in';
 const path = journeyUrl(system.key, j, pair).slice(1);
 const jsonLd = [{
   '@context': 'https://schema.org',

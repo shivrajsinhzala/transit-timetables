@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
+import { SITE_HOST } from '../src/lib/site.js';
 
 const INK = '#15171a';
 const AMBER = '#f2a516';
@@ -63,7 +64,7 @@ function card({ title, sub, rows }) {
     <text x="72" y="318" font-size="32" fill="#b9bec4">${esc(sub)}</text>
     <rect x="560" y="378" width="600" height="212" rx="18" fill="${BOARD}" stroke="#2a2e33" stroke-width="2"/>
     <g transform="translate(584 400)">${boardRows}</g>
-    <text x="72" y="560" font-size="26" fill="#8b9198">transit.shivrajsinh.in</text>`);
+    <text x="72" y="560" font-size="26" fill="#8b9198">${esc(SITE_HOST)}</text>`);
 }
 
 const { SYSTEM_INDEX: index, countries, getSystem, forget } = await import('../src/lib/data.js');

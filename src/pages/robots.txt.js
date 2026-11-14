@@ -1,4 +1,14 @@
-User-agent: *
+/**
+ * /robots.txt, generated so its Sitemap line and llms links follow SITE_URL (src/lib/site.js).
+ * The bot rules are unchanged from the old static public/robots.txt. Noindexed pages are not
+ * blocked here on purpose: Google has to crawl a page to see its noindex.
+ */
+import { SITE } from '../lib/site.js';
+import { isMain } from '../lib/data.js';
+
+export function GET() {
+  if (!isMain) return new Response('');
+  return new Response(`User-agent: *
 Content-Signal: search=yes, ai-input=yes, ai-train=no
 Allow: /
 
@@ -62,7 +72,9 @@ User-agent: AionBot
 Disallow: /
 
 # LLM manifests and specifications for AI search agents and RAG engines
-# https://transit.shivrajsinh.in/llms.txt
-# https://transit.shivrajsinh.in/llms-full.txt
+# ${SITE}/llms.txt
+# ${SITE}/llms-full.txt
 
-Sitemap: https://transit.shivrajsinh.in/sitemap-index.xml
+Sitemap: ${SITE}/sitemap-index.xml
+`, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+}

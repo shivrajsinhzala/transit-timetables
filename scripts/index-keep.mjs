@@ -20,9 +20,11 @@
  * re-run it monthly on the last month's export.
  */
 import fs from 'node:fs';
+import { SITE, OLD_HOSTS } from '../src/lib/site.js';
 
 const OUT = 'data/index-keep.txt';
-const SITE = 'https://transit.shivrajsinh.in/';
+// Exports from the old property (before the move) and the new one both count.
+const PREFIXES = [SITE, ...OLD_HOSTS.map((h) => `https://${h}`)].map((s) => `${s}/`);
 const MIN_IMPRESSIONS = 20;
 
 const keep = new Set(fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8').split('\n').filter((l) => l && !l.startsWith('#')) : []);
@@ -33,8 +35,9 @@ for (const file of process.argv.slice(2)) {
   const [ci, ii] = [col(/^clicks$/i), col(/^impressions$/i)];
   if (ci < 0 || ii < 0) throw new Error(`${file}: no Clicks/Impressions columns (header: ${head.join(',')})`);
   for (const r of rows) {
-    if (!r[0].startsWith(SITE)) continue;
-    const page = r[0].slice(SITE.length).replace(/^bc\//, 'ca/'); // /bc moved under /ca (Oct 2026)
+    const prefix = PREFIXES.find((p) => r[0].startsWith(p));
+    if (!prefix) continue;
+    const page = r[0].slice(prefix.length).replace(/^bc\//, 'ca/'); // /bc moved under /ca (Oct 2026)
     if (page.split('/').length < 3) continue; // country and system pages: always indexable
     const clicks = Number(r[ci]), impressions = Number(r[ii]);
     const route = !['stop', 'hub', 'from'].includes(page.split('/')[2]); // some route slugs have no "route-"

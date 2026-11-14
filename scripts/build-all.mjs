@@ -24,6 +24,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { startRelease, syncShard, finishRelease, compressPages, purgeCache } from './deploy-server.mjs';
 import { stampPages } from './lastmod.mjs';
+import { SITE_HOST } from '../src/lib/site.js';
 
 const args = process.argv.slice(2);
 const DEPLOY = args.includes('--deploy');
@@ -106,7 +107,7 @@ function writeRouterConfig(geoInMain) {
       run_worker_first: [...[...new Set(Object.keys(plan.systems).map((k) => k.split('/')[0]))].map((cc) => `/${cc}/*`), ...(geoInMain ? [] : ['/geo/*']), '/bc', '/bc/*', '/search.json'],
     },
     services: plan.shards.map((sh) => ({ binding: sh.toUpperCase(), service: `stopwatch-${sh}` })),
-    routes: [{ pattern: 'transit.shivrajsinh.in', custom_domain: true }],
+    routes: [{ pattern: SITE_HOST, custom_domain: true }],
   }, null, 2)}\n`);
 }
 
