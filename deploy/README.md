@@ -57,8 +57,8 @@ instead of Cloudflare Workers.
 
 ```bash
 npm run release:server     # build and upload the current data (the first upload sends everything)
-curl -sI -H 'Host: transit.shivrajsinh.in' http://SERVER_IP/ca/victoria       # 200
-curl -sI -H 'Host: transit.shivrajsinh.in' http://SERVER_IP/bc/victoria       # 301 to /ca/victoria
+curl -sI -H 'Host: stopwatchtimetables.com' http://SERVER_IP/ca/victoria       # 200
+curl -sI -H 'Host: stopwatchtimetables.com' http://SERVER_IP/bc/victoria       # 301 to /ca/victoria
 ```
 
 Each refresh after that sends only the files that changed. After Headway's published page list changes, run `node scripts/headway-migration.mjs` and reinstall `deploy/headway-moved.conf` plus `deploy/nginx.conf`; this keeps the exact redirects and Googlebot robots exceptions in step. After BusClock's published page list changes, run `node scripts/busclock-migration.mjs` and reinstall `deploy/busclock-moved.conf` plus `deploy/nginx.conf`; only install its redirects after BusClock's public HTTPS checks pass.
@@ -83,6 +83,24 @@ Each refresh after that sends only the files that changed. After Headway's publi
 
 The site moves over within a minute. The Workers can stay as they are for rollback; to roll
 back, remove the DNS record and add the custom domain to the Worker again.
+
+## Moving to stopwatchtimetables.com (Nov 2026)
+
+The site's address is `SITE_URL` (src/lib/site.js, default `https://stopwatchtimetables.com`);
+every canonical, sitemap, robots and llms line follows it, and `scripts/verify-build.mjs` fails a
+build that still names the old host. nginx is split so each host has its own certificate:
+
+- `stopwatch-site.conf`: the site itself (root, locations, headers), included by every host.
+- `nginx.conf`: the `SITE_URL` host, with `/etc/ssl/stopwatchtimetables.pem` and `.key`
+  (a Cloudflare Origin CA certificate from the new zone).
+- `stopwatch-hosts.conf`, `stopwatch-old-host.conf`: written by `npm run migration:nginx` from
+  `SITE_URL` and `MIGRATION_REDIRECTS`. `www.` always 301s to the bare host. With
+  `MIGRATION_REDIRECTS` off (default) `transit.shivrajsinh.in` serves the site as before, with its
+  existing certificate; with it on, every request there 301s to the same path and query on
+  `SITE_URL`, and its `/sw.js` is a last worker that clears caches and unregisters.
+
+After switching, `MIGRATION_REDIRECTS=on npm run verify:migration -- --urls data/index-keep.txt`
+checks every old URL. The launch steps are in the Phase 3 runbook.
 
 ## Rolling back a bad release
 

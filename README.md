@@ -1,9 +1,9 @@
 # Stopwatch Transit & Headway Timetables
 
-- **Stopwatch Transit**: [transit.shivrajsinh.in](https://transit.shivrajsinh.in)
+- **Stopwatch**: [stopwatchtimetables.com](https://stopwatchtimetables.com) (moving from transit.shivrajsinh.in; see deploy/README.md)
 - **Headway Timetables**: [headway.shivrajsinh.in](https://headway.shivrajsinh.in)
 
-Phone-friendly bus, tram, train and ferry timetables generated from open GTFS data: route pages, stop departure boards, and exchange hubs. Static Astro architecture served across Cloudflare Workers and self-hosted Nginx edges at [`transit.shivrajsinh.in`](https://transit.shivrajsinh.in) and [`headway.shivrajsinh.in`](https://headway.shivrajsinh.in).
+Phone-friendly bus, tram, train and ferry timetables generated from open GTFS data: route pages, stop departure boards, and exchange hubs. Static Astro architecture served by nginx behind Cloudflare at [`stopwatchtimetables.com`](https://stopwatchtimetables.com), the address set by `SITE_URL` (src/lib/site.js).
 
 What a rider gets that the operator PDFs and app-gated pages do not: the whole day on one screen
 with the next bus highlighted, live departure boards (from the schedule), search across every
