@@ -4,8 +4,14 @@
  * answer a short direct paragraph right under it, nothing collapsed. The FAQPage JSON-LD is built
  * from the same strings, so the markup can never claim anything the page does not show.
  */
-interface Props { items: [string, string][]; title?: string; id?: string }
-const { items, title, id = 'questions' } = Astro.props;
+import { indexable } from '../lib/indexing.js';
+/** ld: false for questions about the site rather than about this page's timetable (home, country). */
+interface Props { items: [string, string][]; title?: string; id?: string; ld?: boolean }
+const { items, title, id = 'questions', ld = true } = Astro.props;
+// FAQPage markup only on pages Google may index, where every answer is this page's own data: on
+// tens of thousands of noindex stop and town pages it would be the same template stamped out again.
+const pagePath = Astro.url.pathname.replace(/^\/+|\.html$/g, '').replace(/\/$/, '');
+const withLd = ld && indexable(pagePath);
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
@@ -20,5 +26,5 @@ const jsonLd = {
       <p class="answer">{a}</p>
     </div>
   ))}
-  <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  {withLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
 </section>

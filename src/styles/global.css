@@ -490,3 +490,9 @@ details.stops-detail > summary::-webkit-details-marker { display: none; }
   .btn-sm, .tabs button, .city, .search-trigger, .regions a, .jump a, .foot-countries a { min-height: 44px; }
   .hero-search .btn { min-height: 44px; }
 }
+
+/* Route page "Connections": the other routes at each interchange, as tappable badges under the stop. */
+.conn-routes { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin: -.2rem 1rem .8rem 2.9rem; }
+.list .conn-routes a { display: inline-flex; min-height: 32px; padding: 0; gap: 0; align-items: center; background: none; }
+.plain-list { padding-left: 1.2rem; margin: .6rem 0 1.2rem; }
+.plain-list li { margin: .35rem 0; color: var(--ink-2); }

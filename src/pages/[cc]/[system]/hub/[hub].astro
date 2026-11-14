@@ -59,7 +59,7 @@ const faq = [
 
 const fit = (max, ...c) => c.find((s) => s.length <= max) ?? c.at(-1);
 const title = fit(60, `${name}: Departures from All ${hub.stops.length} ${bays === 'platforms' ? 'Platforms' : 'Stops'} (${system.name})`, `${name}: Departures and ${bays === 'platforms' ? 'Platforms' : 'Stops'}`, `${name} Departures`);
-const description = fit(160, `Next ${vs} from every ${bays.slice(0, -1)} at ${name}, ${system.name}: ${allRoutes.length} routes, which ${bays.slice(0, -1)} each one leaves from, and the full ${word} for each.`, `Next ${vs} from every ${bays.slice(0, -1)} at ${name}, ${system.name}.`);
+const description = fit(155, `Next ${vs} from every ${bays.slice(0, -1)} at ${name}, ${system.name}: ${allRoutes.length} routes, which ${bays.slice(0, -1)} each one leaves from, and the full ${word} for each.`, `Next ${vs} from every ${bays.slice(0, -1)} at ${name}, ${system.name}.`);
 const path = `${base.slice(1)}/hub/${hub.slug}`;
 const jsonLd = [
   { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [

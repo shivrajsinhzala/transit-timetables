@@ -68,7 +68,7 @@ const title = fit(60, `${A} to ${B} ${Mode} Times and Timetable`, `${A} to ${B} 
 const weekendText = [saturday ? `Saturday ${saturday}` : 'no Saturday service', sunday ? `Sunday ${sunday}` : 'no Sunday service'].join(', ');
 // The operator is named unless it is one of the two towns (BC Transit's systems are named after theirs).
 const operator = [A, B].includes(system.name) ? '' : `, ${system.name}`;
-const description = fit(160,
+const description = fit(155,
   `${cap(daily(main))} ${vs} a day from ${A} to ${B} (${main.label}), first ${t(main.first)}, last ${t(main.last)}, about ${duration(typical)}. ${cap(weekendText)}. ${cap(routesText)}${operator}.`,
   `${cap(daily(main))} ${vs} a day from ${A} to ${B} (${main.label}), first ${t(main.first)}, last ${t(main.last)}, about ${duration(typical)}. ${cap(weekendText)}.`,
   `${cap(daily(main))} ${vs} a day from ${A} to ${B} (${main.label}), first ${t(main.first)}, last ${t(main.last)}, about ${duration(typical)}.`,

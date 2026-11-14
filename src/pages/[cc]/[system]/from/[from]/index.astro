@@ -48,7 +48,7 @@ const farthest = [...out].sort((a, b) => b.p.km - a.p.km)[0];
 
 const fit = (max, ...c) => c.find((s) => s.length <= max) ?? c.at(-1);
 const title = fit(60, `${Vs} from ${A}: ${out.length} Direct Destinations and Times`, `${Vs} from ${A}: Destinations and Times`, `${Vs} from ${A}`);
-const description = fit(160,
+const description = fit(155,
   `Every direct ${v === 'departure' ? 'service' : v} from ${A} with ${system.name}: ${out.length} ${out.length === 1 ? 'destination' : 'destinations'} including ${listText(top)}, with times, journey lengths and where to catch each one.`,
   `Every direct ${v === 'departure' ? 'service' : v} from ${A} with ${system.name}: ${out.length} ${out.length === 1 ? 'destination' : 'destinations'}, with times and journey lengths.`);
 

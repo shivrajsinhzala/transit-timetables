@@ -27,6 +27,7 @@ const what = said || mode === 'transit' ? system.name : `${system.name} ${mode}`
 const What = said || mode === 'transit' ? system.name : `${system.name} ${mode.split(' ').map(cap).join(' ')}`;
 const routeWord = /train|subway/.test(mode) ? 'line' : 'route';
 const title = fit(60,
+  `${What} ${Word}s and Routes | Stopwatch`,
   `${What} Routes, ${Word}s and Map (${n} ${cap(routeWord)}${n === 1 ? '' : 's'})`,
   `${What} Routes and ${Word}s (${n} ${cap(routeWord)}s)`,
   `${What} ${Word}s and Routes`,
@@ -51,7 +52,7 @@ const towns = journeyPlaces(system.key);
 const modes = [...new Set(system.routes.map((r) => modeName(r.type, system)))];
 const byMode = modes.length > 1 ? modes.map((m) => ({ m, n: system.routes.filter((r) => modeName(r.type, system) === m).length })) : null;
 const modeText = byMode ? byMode.map((b) => `${b.n} ${b.m} ${b.n === 1 ? routeWord : `${routeWord}s`}`).join(', ') : `${n} ${mode === 'transit' ? '' : `${mode} `}${routeWord}${n === 1 ? '' : 's'}`;
-const description = fit(160,
+const description = fit(155,
   `All ${n} ${what} ${routeWord}s with full ${word}s, a map and the next ${veh}. First ${veh} ${t(Math.min(...firsts))}, last ${t(Math.max(...lasts))} on weekdays.`,
   `All ${n} ${what} ${routeWord}s with full ${word}s, a map and the next ${veh}.`);
 const stopW = stopWord(system.routes.map((r) => r.type), system);

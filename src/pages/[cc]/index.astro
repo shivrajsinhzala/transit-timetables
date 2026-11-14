@@ -19,8 +19,18 @@ const stops = systems.reduce((a, s) => a + s.stops, 0);
 const builtOn = systems.map((s) => s.builtOn).sort().at(-1);
 // Colour stripes and the mode for each tile, read from the built systems (one file each).
 const modeCount = new Map();
+// Public holidays in the calendar data, with the systems that change their timetable for each.
+const holidayMap = new Map();
 const info = Object.fromEntries(systems.map((s) => {
   const sys = getSystem(s.key);
+  for (const e of sys.exceptions || []) {
+    if (!e.holiday || e.date < sys.builtOn) continue;
+    const k = `${e.date}|${e.holiday}`;
+    if (!holidayMap.has(k)) holidayMap.set(k, { date: e.date, name: e.holiday, systems: [], none: [] });
+    const h = holidayMap.get(k);
+    h.systems.push(s.name);
+    if (e.runs === 'none') h.none.push(s.name);
+  }
   for (const r of sys.routes) { const m = modeName(r.type, sys); modeCount.set(m, (modeCount.get(m) || 0) + 1); }
   return [s.key, { colors: sys.routes.map((r) => r.color).filter(Boolean).slice(0, 8), mode: sharedMode(sys.routes, sys) }];
 }));
@@ -46,9 +56,11 @@ const top = systems.slice(0, 4).map((s) => s.name);
 const W = cap(c.word);
 const titleCase = (x) => x.replace(/\b(?!and\b)[a-z]/g, (ch) => ch.toUpperCase());
 const title = fit(60, `${short} ${titleCase(modeShort)} ${W}s | Stopwatch`, `${short} ${titleCase(modes[0])} ${W}s | Stopwatch`);
-const description = fit(160,
+const description = fit(155,
   ...[3, 2, 1].map((n) => `${W}s for ${routes.toLocaleString('en')} ${modeList} routes from ${systems.length} transit systems in ${inName}, including ${andList(top.slice(0, n))}. Next departure first.`),
   `${W}s for ${routes.toLocaleString('en')} ${modeShort} routes from ${systems.length} transit systems in ${inName}, with the next departure first.`);
+const holidays = [...holidayMap.values()].sort((x, y) => x.date.localeCompare(y.date)).slice(0, 5);
+const listOf = (names) => (names.length > 4 ? `${names.slice(0, 3).join(', ')} and ${names.length - 3} more` : andList(names));
 const faq = [
   [`Which transit systems in ${inName} does Stopwatch cover?`, `${systems.length} systems with ${routes.toLocaleString('en')} routes and ${stops.toLocaleString('en')} stops, from ${top.join(', ')} to ${systems.at(-1).name}. Each one has its own page with every route, a map and the busiest stops.`],
   [`Where do the ${short} ${c.word}s come from?`, `From open ${c.word} data (GTFS) that the operators and transport authorities publish under open licences. Every page names its source and licence, and the data was last refreshed on ${dateFor(builtOn, c.cc)}.`],
@@ -87,7 +99,27 @@ const faq = [
       {i === 0 && sections.length > 2 && <Ad />}
     </>
   ))}
+  {holidays.length > 0 && (
+    <section>
+      <h2>Public holidays coming up</h2>
+      <ul class="list">
+        {holidays.map((h) => (
+          <li><div class="row"><Icon name="calendar-check" /><span>{h.name}, {dateFor(h.date, c.cc)}<span class="meta">{h.none.length === h.systems.length ? `No service on ${listOf(h.none)}` : `A different ${c.word} on ${listOf(h.systems)}${h.none.length ? `; no service on ${listOf(h.none)}` : ''}`}. Each route page says which ${c.word} it runs.</span></span></div></li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  <section>
+    <h2>How to read these {c.word}s</h2>
+    <ul class="plain-list">
+      <li>{c.h24 ? 'Times use the 24-hour clock: 17:05 is 5:05 in the afternoon.' : 'Times use the 12-hour clock, and pm times are in bold.'} Times after midnight belong to the evening before.</li>
+      <li>Each route shows the main stops the operator times; a dot means that trip does not stop there. The full list of stops is under each direction.</li>
+      <li>The next departure is worked out from the published {c.word} and your phone's clock. These are scheduled times, not live arrivals.</li>
+    </ul>
+  </section>
+
   <PopularRoutes title={`Popular routes in ${inName}`} keys={systems.slice(0, 4).map((s) => s.key)} per={5} />
-  <Faq items={faq} title={`${short} ${c.word} questions`} />
+  <Faq items={faq} title={`${short} ${c.word} questions`} ld={false} />
 </main>
 </Base>

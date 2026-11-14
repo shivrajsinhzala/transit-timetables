@@ -343,3 +343,44 @@ export function regionOf(s) {
   const c = COUNTRIES[s.cc];
   return { name: c.regions[s.region] || c.name, slug: s.region, group: s.group ? GROUPS[s.group] : null };
 }
+
+/**
+ * Where a route meets others: the major interchanges on it (stops Google may index, see
+ * scripts/indexed-stops.mjs) with the other routes that call there, most connections first.
+ * Route pages list them under "Connections", which links interchanges and routes both ways.
+ * Built once per system from the stop files, keeping only route slugs per stop code.
+ */
+export function routeConnections(key, route, n = 6) {
+  const byCode = memo(`conn:${key}`, () => {
+    const m = new Map();
+    for (const s of pageStops(key)) {
+      if (!isIndexedStop(key, s.code)) continue;
+      m.set(s.code, { code: s.code, name: s.name, routes: [...new Set(s.routes.map((r) => r.route))] });
+    }
+    return m;
+  });
+  const sys = getSystem(key);
+  const bySlug = new Map(sys.routes.map((r) => [r.slug, r]));
+  // Platforms and bays of one place ("Victoria Point Central, platform 1/2") are one interchange.
+  const station = (name) => place(plain(name)).replace(/,?\s*(platform|stand|stop|bay)\s*[\w-]+$/i, '').trim();
+  const groups = new Map();
+  for (const dir of route.directions) {
+    for (const st of dir.stops) {
+      const hit = byCode.get(st.code);
+      if (!hit) continue;
+      const k = station(hit.name);
+      const g = groups.get(k) || { name: k, code: hit.code, size: 0, slugs: new Set() };
+      const mine = hit.routes.filter((slug) => slug !== route.slug && bySlug.has(slug));
+      if (mine.length > g.size) { g.code = hit.code; g.size = mine.length; }
+      for (const slug of mine) g.slugs.add(slug);
+      groups.set(k, g);
+    }
+  }
+  // Most connections first; a roadside stop whose routes are all at a bigger interchange already listed adds nothing.
+  const out = [];
+  for (const g of [...groups.values()].filter((g) => g.slugs.size).sort((a, b) => b.slugs.size - a.slugs.size)) {
+    if (out.some((o) => [...g.slugs].every((x) => o.slugs.has(x)))) continue;
+    out.push(g);
+  }
+  return out.slice(0, n).map((g) => ({ code: g.code, name: g.name, routes: [...g.slugs].map((x) => bySlug.get(x)) }));
+}
