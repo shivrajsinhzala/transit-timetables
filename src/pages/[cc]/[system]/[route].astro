@@ -62,7 +62,7 @@ const shortName = name.replace(/\s+via\s.*$/i, '');
 // 2026): their titles say both, "Route 400 Bus Timetable: ...", while room allows.
 const auNum = system.cc === 'au' && num ? `Route ${num}` : '';
 const plainTitle = a2b
-  ? fit(60, ...(auNum ? [`${auNum} ${Word}: ${where} (${system.name})`, `${auNum} ${Word}: ${shortWhere} (${system.name})`] : []),
+  ? fit(60, ...(auNum ? [`${auNum} ${Word}: ${where} (${system.name})`, `${auNum} ${Word}: ${shortWhere} (${system.name})`, `${auNum} ${Word}: ${where}`, `${auNum} ${Word}: ${shortWhere}`] : []),
     `${num} ${Word}: ${where} (${system.name})`, `${num} ${Word}: ${shortWhere} (${system.name})`, `${num} ${Word}: ${where}`, `${num} ${Word}: ${shortWhere}`, `${num} ${Word} (${system.name})`)
   : fit(60, `${head} ${Word}${name ? `: ${name}` : ''}`,
     ...(num && name ? [`${num} ${Word}: ${name}`, `${num} ${Word}: ${shortName}`] : []),

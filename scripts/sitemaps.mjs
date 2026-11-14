@@ -35,6 +35,12 @@ for (const file of sources) {
   // The date the page's content last changed (scripts/lastmod.mjs), not the build date Astro gives.
   for (const m of xml.matchAll(/<url><loc>([^<]+)<\/loc>(?:<lastmod>([^<]+)<\/lastmod>)?/g)) entries.set(m[1], lastmodOf(m[1]) || '');
 }
+// Pages nginx marks "googlebot: noindex" because Headway or BusClock carry them
+// (deploy/*-moved.conf): listing them would contradict that header.
+for (const conf of ['deploy/headway-moved.conf', 'deploy/busclock-moved.conf']) {
+  if (!fs.existsSync(conf)) continue;
+  for (const m of fs.readFileSync(conf, 'utf8').matchAll(/^(\/\S*) "googlebot: noindex";$/gm)) entries.delete(`${SITE}${m[1]}`);
+}
 if (entries.size < 500) throw new Error(`only ${entries.size} URLs found in ${sources.length} sitemaps under ${dir}: is this a full build?`);
 
 // Fallback dates: a system's refresh date, a country's newest, the site's newest.
