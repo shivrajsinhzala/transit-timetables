@@ -29,22 +29,20 @@ echo "→ installing nginx and rsync, creating ${DEPLOY_PATH}"
   sudo mkdir -p ${DEPLOY_PATH}/releases && sudo chown -R \"\$(id -un)\" ${DEPLOY_PATH}"
 
 echo "→ installing the nginx site"
-conf=$(mktemp)
-sed "s#/var/www/stopwatch/current#${DEPLOY_PATH}/current#" deploy/nginx.conf > "$conf"
+node scripts/make-migration.mjs   # host blocks from SITE_URL and MIGRATION_REDIRECTS
+conf=deploy/nginx.conf
+site=$(mktemp)
+sed "s#/var/www/stopwatch/current#${DEPLOY_PATH}/current#" deploy/stopwatch-site.conf > "$site"
 scp -q "$conf" "$HOST":/tmp/stopwatch-nginx.conf
-scp -q deploy/stopwatch-security.conf "$HOST":/tmp/stopwatch-security.conf
+scp -q "$site" "$HOST":/tmp/stopwatch-site.conf
+scp -q deploy/stopwatch-security.conf deploy/stopwatch-hosts.conf deploy/stopwatch-old-host.conf deploy/stopwatch-moved.conf deploy/headway-moved.conf deploy/busclock-moved.conf "$HOST":/tmp/
 "${SSH[@]}" -t "$HOST" "set -e
   sudo mkdir -p /etc/nginx/snippets
-  sudo mv /tmp/stopwatch-security.conf /etc/nginx/snippets/stopwatch-security.conf
-  # Keep an HTTPS block added by hand (deploy/README.md step 4) when re-running.
-  if ! sudo grep -q 'listen 443' /etc/nginx/sites-available/stopwatch 2>/dev/null; then
-    sudo mv /tmp/stopwatch-nginx.conf /etc/nginx/sites-available/stopwatch
-  else
-    echo '  (sites-available/stopwatch has HTTPS set up; left as it is)'; rm -f /tmp/stopwatch-nginx.conf
-  fi
+  for f in stopwatch-site stopwatch-security stopwatch-hosts stopwatch-old-host stopwatch-moved headway-moved busclock-moved; do sudo mv /tmp/\$f.conf /etc/nginx/snippets/\$f.conf; done
+  sudo mv /tmp/stopwatch-nginx.conf /etc/nginx/sites-available/stopwatch
   sudo ln -sf /etc/nginx/sites-available/stopwatch /etc/nginx/sites-enabled/stopwatch
   sudo nginx -t && sudo systemctl reload nginx"
-rm -f "$conf"
+rm -f "$site"
 
 echo "→ writing deploy/server.env"
 printf 'DEPLOY_SSH=%s\nDEPLOY_PATH=%s\n' "$HOST" "$DEPLOY_PATH" > deploy/server.env
