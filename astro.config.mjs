@@ -3,7 +3,7 @@ import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import fs from 'node:fs';
 import { minorVariants } from './src/lib/variants.js';
-import { indexedPair } from './src/lib/journey.js';
+import { indexable } from './src/lib/indexing.js';
 
 import { SITE } from './src/lib/site.js';
 export { SITE };
@@ -12,15 +12,6 @@ export { SITE };
 // each gets its own output folder and its own folder for scripts, so the router can tell them apart.
 const SHARD = process.env.SHARD || 'all';
 const sharded = SHARD !== 'all';
-
-// Stop pages Google should index (scripts/indexed-stops.mjs); the others are noindex and left out
-// of the sitemaps. No file: every stop page is listed.
-const INDEXED = fs.existsSync('src/data/indexed-stops.json') ? JSON.parse(fs.readFileSync('src/data/indexed-stops.json', 'utf8')) : null;
-const indexedSets = INDEXED && Object.fromEntries(Object.entries(INDEXED).map(([k, v]) => [k, new Set(v)]));
-const listedStop = (page) => {
-  const m = /^https:\/\/[^/]+\/([a-z]{2}\/[^/]+)\/stop\/([^/]+)$/.exec(page);
-  return !m || !indexedSets || Boolean(indexedSets[m[1]]?.has(decodeURIComponent(m[2])));
-};
 
 // Minor route variants ("7S" next to "7") name their main route as canonical (src/lib/variants.js),
 // so they are left out too. Only the slugs are kept, not the system's timetables.
@@ -36,28 +27,9 @@ const listedRoute = (page) => {
   return !variantSlugs.get(key).has(m[3]);
 };
 
-// Town-to-town pages Google is asked not to index (src/lib/journey.js) leave the sitemaps too:
-// each town's "from" page, and pairs with THIN_WEEKLY or fewer departures a week.
-const thinPairs = new Map();
-const listedJourney = (page) => {
-  if (/\/from\/[^/]+$/.test(page)) return false;
-  const m = /^https:\/\/[^/]+\/([a-z]{2})\/([^/]+)\/from\/([^/]+)\/to\/([^/]+)$/.exec(page);
-  if (!m) return true;
-  const key = `${m[1]}/${m[2]}`;
-  if (!thinPairs.has(key)) {
-    const file = `src/data/journeys/${key}.json`;
-    const j = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null;
-    thinPairs.set(key, new Set(j ? j.pairs.filter((p) => !indexedPair(p)).map((p) => `${j.places[p.a].slug}/${j.places[p.b].slug}`) : []));
-  }
-  return !thinPairs.get(key).has(`${m[3]}/${m[4]}`);
-};
-
-// Deep pages (routes, stops, towns, town-to-town) are indexed for AI search and general engines:
-const listedDeep = (page) => {
-  const m = /^https:\/\/[^/]+\/([a-z]{2}\/[^/]+\/.+)$/.exec(page);
-  if (!m) return true;
-  return listedStop(page) && listedJourney(page);
-};
+// Indexable pages only (src/lib/indexing.js decides, the same rule as each page's robots meta).
+const pathOf = (page) => page.replace(/^https?:\/\/[^/]+\/?/, '');
+const listedPage = (page) => indexable(pathOf(page));
 
 export default defineConfig({
   site: SITE,
@@ -71,7 +43,7 @@ export default defineConfig({
   integrations: [sitemap({
     // Each shard lists only its own pages: every shard also builds the home and about pages
     // (Astro builds every static page), but they are served from main.
-    filter: (page) => !/\/(offline|404|embed)$/.test(page) && listedDeep(page) && listedRoute(page) && (!sharded || SHARD === 'main' || /^https:\/\/[^/]+\/[a-z]{2}\/[^/]+/.test(page)),
+    filter: (page) => !/\/(offline|404|embed)$/.test(page) && listedPage(page) && listedRoute(page) && (!sharded || SHARD === 'main' || /^https:\/\/[^/]+\/[a-z]{2}\/[^/]+/.test(page)),
     // The build date, replaced in scripts/sitemaps.mjs by the date each page's content last
     // changed (scripts/lastmod.mjs) wherever a build has recorded one.
     serialize(item) { item.lastmod = new Date().toISOString().slice(0, 10); return item; },

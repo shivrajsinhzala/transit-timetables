@@ -97,7 +97,7 @@ const faq = [
   ['Are these live times?', `No. They are the scheduled times from ${possessive(plain(system.attribution?.text || system.name))} published ${word}, refreshed ${dateFor(system.builtOn, system.cc)}. A ${v === 'departure' ? 'service' : v} can run early or late, and disruptions are not shown.`],
 ];
 ---
-<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} speakable={['.lede', '.faq .answer']} system={system} noindex={!indexedPair(pair)}>
+<Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} speakable={['.lede', '.faq .answer']} system={system}>
 <main class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a> › <a href={fromUrl(system.key, j, pair.a)}>{cap(vs)} from {A}</a> › {B}</nav>
 
