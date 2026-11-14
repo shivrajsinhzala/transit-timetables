@@ -37,6 +37,7 @@ if (!only) {
   run('node', ['--max-old-space-size=8192', 'scripts/shards.mjs']);
   run('node', ['--max-old-space-size=8192', 'scripts/search-index.mjs']);
   run('node', ['--max-old-space-size=8192', 'scripts/indexed-stops.mjs']);
+  run('node', ['--max-old-space-size=8192', 'scripts/generate-llms.mjs']); // public/llms-full.txt, on SITE_URL
 }
 const plan = JSON.parse(fs.readFileSync('src/data/shards.json', 'utf8'));
 // Main last: it carries the sitemap index for every shard, and the router binds to them all.
