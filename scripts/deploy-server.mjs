@@ -146,8 +146,8 @@ export function finishRelease(release) {
 /**
  * Drops Cloudflare's copies of the site's pages, so a release shows at once. nginx lets Cloudflare
  * keep HTML for a day (s-maxage, deploy/nginx.conf): after the 25 Oct 2026 release, pages cached
- * before it were still served an hour later. Only this site's hosts (SITE_URL's, and the old host's
- * redirect responses) are purged, not the other sites on the zone; if the plan refuses a purge by host, everything is purged. A failed purge
+ * before it were still served an hour later. Only this site's host (SITE_URL's) is purged, not the other
+ * sites on its zone, plus the old host in its own zone when CLOUDFLARE_OLD_ZONE_ID is set; if the plan refuses a purge by host, everything is purged. A failed purge
  * only warns: the release is live, and the old copies expire within a day anyway.
  * `node scripts/deploy-server.mjs purge` runs it on its own.
  */
@@ -159,8 +159,8 @@ export async function purgeCache() {
     console.log('cloudflare: no CLOUDFLARE_ZONE_ID/CLOUDFLARE_API_TOKEN in deploy/server.env, cached pages update within a day');
     return false;
   }
-  const purge = async (body) => {
-    const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zone}/purge_cache`, {
+  const purge = async (body, z = zone) => {
+    const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${z}/purge_cache`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -169,7 +169,14 @@ export async function purgeCache() {
     return { ok: res.ok && json.success, why: json.errors?.map((e) => `${e.code} ${e.message}`).join('; ') || `HTTP ${res.status}` };
   };
   try {
-    const hosts = [SITE_HOST, ...OLD_HOSTS];
+    // The old host is in another zone (shivrajsinh.in): purged only when its zone is given, so a
+    // switched redirect or a last service worker shows at once there too.
+    const oldZone = process.env.CLOUDFLARE_OLD_ZONE_ID || env.CLOUDFLARE_OLD_ZONE_ID;
+    if (oldZone) {
+      const o = await purge({ hosts: OLD_HOSTS }, oldZone);
+      console.log(o.ok ? `cloudflare: purged ${OLD_HOSTS.join(', ')}` : `cloudflare: old host purge failed (${o.why})`);
+    }
+    const hosts = [SITE_HOST];
     let r = await purge({ hosts });
     if (r.ok) { console.log(`cloudflare: purged ${hosts.join(', ')}`); return true; }
     // A wrong token or zone fails the same way for both: no point in the wider purge.
