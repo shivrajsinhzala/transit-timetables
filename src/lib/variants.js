@@ -23,3 +23,31 @@ export function minorVariants(routes) {
   }
   return out;
 }
+
+/**
+ * Routes the feed lists twice: same number, same days and the same end stops each way (Oxford Bus
+ * has two "8"s, Cardiff Bus two "30"s, with one stop's difference at most). Two indexable pages
+ * with one title and one timetable compete with each other, so the later one names the first as
+ * canonical and stays out of the sitemaps, as a minor variant does.
+ */
+export function duplicateRoutes(routes) {
+  const sig = (r) => [
+    String(r.short).toUpperCase(),
+    (r.days || []).map((d) => d.key).join(','),
+    (r.directions || []).map((d) => `${d.stops[0]?.name}>${d.stops.at(-1)?.name}`).sort().join('|'),
+  ].join('#');
+  const first = new Map();
+  const out = new Map();
+  for (const r of routes) {
+    if (!r.short) continue;
+    const k = sig(r);
+    if (first.has(k)) out.set(r.slug, first.get(k));
+    else first.set(k, r);
+  }
+  return out;
+}
+
+/** Every route whose page defers to another: minor variants and duplicates, slug -> the route it names as canonical. */
+export function deferredRoutes(routes) {
+  return new Map([...duplicateRoutes(routes), ...minorVariants(routes)]);
+}

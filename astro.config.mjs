@@ -2,7 +2,7 @@
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import fs from 'node:fs';
-import { minorVariants } from './src/lib/variants.js';
+import { deferredRoutes } from './src/lib/variants.js';
 import { indexable } from './src/lib/indexing.js';
 
 import { SITE } from './src/lib/site.js';
@@ -13,7 +13,7 @@ export { SITE };
 const SHARD = process.env.SHARD || 'all';
 const sharded = SHARD !== 'all';
 
-// Minor route variants ("7S" next to "7") name their main route as canonical (src/lib/variants.js),
+// Minor route variants ("7S" next to "7") and duplicated routes name their main route as canonical (src/lib/variants.js),
 // so they are left out too. Only the slugs are kept, not the system's timetables.
 const variantSlugs = new Map();
 const listedRoute = (page) => {
@@ -22,7 +22,7 @@ const listedRoute = (page) => {
   const key = `${m[1]}/${m[2]}`;
   if (!variantSlugs.has(key)) {
     const file = `src/data/systems/${key}.json`;
-    variantSlugs.set(key, fs.existsSync(file) ? new Set(minorVariants(JSON.parse(fs.readFileSync(file, 'utf8')).routes).keys()) : new Set());
+    variantSlugs.set(key, fs.existsSync(file) ? new Set(deferredRoutes(JSON.parse(fs.readFileSync(file, 'utf8')).routes).keys()) : new Set());
   }
   return !variantSlugs.get(key).has(m[3]);
 };
