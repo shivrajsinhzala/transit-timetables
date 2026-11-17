@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const DIST = process.argv[2] || 'dist';
-import { SITE, OLD_HOSTS } from '../src/lib/site.js';
+import { SITE, SITE_HOST, OLD_HOSTS } from '../src/lib/site.js';
 const files = [];
 const textFiles = [];
 (function walk(dir) {
@@ -23,8 +23,10 @@ const warnings = [];
 const titles = new Map(); // title -> first indexable page with it
 const counts = {}; // country -> { index, noindex }
 // The move to SITE_URL: no page, sitemap, robots, llms, manifest or script may still name an old host.
-const oldHost = new RegExp(OLD_HOSTS.map((h) => h.replace(/\./g, '\\.')).join('|'));
-for (const f of [...files, ...textFiles]) {
+// A build for the old host itself (SITE_URL=https://transit.shivrajsinh.in, until the move) names it everywhere.
+const banned = OLD_HOSTS.filter((h) => h !== SITE_HOST);
+const oldHost = banned.length ? new RegExp(banned.map((h) => h.replace(/\./g, '\\.')).join('|')) : null;
+if (oldHost) for (const f of [...files, ...textFiles]) {
   const m = oldHost.exec(fs.readFileSync(f, 'utf8'));
   if (m) problems.push(`${path.relative(DIST, f)}: still names ${m[0]}`);
 }
