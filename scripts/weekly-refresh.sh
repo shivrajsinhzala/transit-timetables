@@ -14,11 +14,9 @@ export PATH="$HOME/.local/share/fnm/aliases/default/bin:/opt/homebrew/bin:/usr/l
 mkdir -p data/logs
 LOG="data/logs/refresh-$(date +%Y-%m-%d).log"
 
-# The site still lives on transit.shivrajsinh.in: build for it until the move to
-# stopwatchtimetables.com is switched on. On 16 Nov 2026 this job built for the default
-# (src/lib/site.js) and the live pages named an address that did not answer. At the move,
-# delete this line or set SITE_URL in the plist.
-export SITE_URL="${SITE_URL:-https://transit.shivrajsinh.in}"
+# The site lives on stopwatchtimetables.com since 17 Nov 2026 (transit.shivrajsinh.in 301s there).
+# Pinned, so a change to the default in src/lib/site.js never moves the live site by surprise.
+export SITE_URL="${SITE_URL:-https://stopwatchtimetables.com}"
 
 notify() { osascript -e "display notification \"$2\" with title \"Stopwatch refresh\" subtitle \"$1\"" >/dev/null 2>&1 || true; }
 
