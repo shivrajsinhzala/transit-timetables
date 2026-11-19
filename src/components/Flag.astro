@@ -1,7 +1,7 @@
 ---
-/** A country's flag as a real SVG (flag-icons, MIT, in public/flags). Decorative unless alt is given. */
+/** A country's flag (six SVGs of 0.3-2 KB, loaded eagerly: most sit above the fold, in the header and hero) as a real SVG (flag-icons, MIT, in public/flags). Decorative unless alt is given. */
 interface Props { cc: string; w?: number; h?: number; class?: string; alt?: string }
 const { cc, w = 24, h = 16, class: cls = 'flag', alt = '' } = Astro.props;
 const file = cc === 'uk' ? 'gb' : cc;
 ---
-<img src={`/flags/${file}.svg`} alt={alt} width={w} height={h} class={cls} loading="lazy" decoding="async" />
+<img src={`/flags/${file}.svg`} alt={alt} width={w} height={h} class={cls} decoding="async" />

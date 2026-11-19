@@ -111,7 +111,10 @@ const FONTS = 'https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wg
   <script is:inline>try { var th = localStorage.getItem('stopwatch:theme'); if (th === 'light' || th === 'dark') document.documentElement.dataset.theme = th; } catch (e) {} document.documentElement.classList.add('js');</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href={FONTS} />
+  {/* Fonts never block the first paint: text shows at once in the fallback face, then swaps. */}
+  <link rel="preload" as="style" href={FONTS} />
+  <link rel="stylesheet" href={FONTS} media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href={FONTS} /></noscript>
   {adsOn && <link rel="preconnect" href="https://pagead2.googlesyndication.com" />}
   {adsOn && <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossorigin />}
   <meta property="og:type" content="website" />

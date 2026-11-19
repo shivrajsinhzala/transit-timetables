@@ -166,6 +166,9 @@ export function badgeBg(hex) {
   return h;
 }
 
+/** Near-white route colours need an edge to show up on white cards. */
+export const isLightBadge = (hex) => (luminance(badgeBg(hex)) ?? 0) > 0.8;
+
 /** Badge text: white or navy, whichever contrasts more with the (corrected) badge fill. */
 export function inkFor(bg) {
   const L = luminance(badgeBg(bg));

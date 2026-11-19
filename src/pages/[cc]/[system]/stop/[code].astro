@@ -103,6 +103,10 @@ const nightRoutes = stop.routes.map((r, i) => ({ r, i })).filter(({ r }) => isNi
 const firstOn = (r) => { const d = r.days[0]; const tt = (d && r.times[d.key]) || []; return tt.length ? { label: d.label, first: tt[0], last: tt.at(-1) } : null; };
 const uniqueRoutes = [...new Map(stop.routes.map((r) => [r.route, r])).values()];
 const nightNames = [...new Set(nightRoutes.map(({ r }) => labelOf(r)))];
+// The weekday span riders mean: daytime routes only (night routes would make it "3:54 am to 5:57 am").
+const dayTimes = dayRoutes.flatMap(({ r }) => { const d = routeOf(r.route)?.days.find((dd) => dd.days.includes(0)); return (d && r.times[d.key]) || []; }).sort((a, b) => a - b);
+const daySpan = dayTimes.length ? { first: dayTimes[0], last: dayTimes.at(-1) } : null;
+const tNext = (m) => `${t(m)}${m >= 1440 ? ' (next day)' : ''}`;
 
 ---
 <Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} speakable={['.lede', '.faq .answer']} system={system}>
@@ -217,7 +221,7 @@ const nightNames = [...new Set(nightRoutes.map(({ r }) => labelOf(r)))];
   <section class="sec twocol">
     <div class="reveal lede-box">
       <h2 style="font-size:24px;margin-bottom:10px">About this {stopW}</h2>
-      <p class="lede" style="font-size:16px">{name} is a {modeWord === 'transit' ? 'transit' : modeWord} {stopW} on the {system.name} network (stop {stop.code}), served by {linesText}.{mon ? ` On weekdays ${vs} run from ${t(mon.first)} to ${t(mon.last)}${mon.last >= 1440 ? ' (after midnight)' : ''}.` : ''}{hub ? ` It is one of ${hub.stops.length} stops at ${plain(hub.name)}.` : ''}</p>
+      <p class="lede" style="font-size:16px">{name} is a {modeWord === 'transit' ? 'transit' : modeWord} {stopW} on the {system.name} network (stop {stop.code}), served by {linesText}.{daySpan ? ` On weekdays the first ${v} leaves at ${t(daySpan.first)} and the last at ${tNext(daySpan.last)}${nightRoutes.length ? `, with night ${nightNames.length === 1 ? 'route' : 'routes'} ${nightNames.join(', ')} overnight` : ''}.` : ''}{hub ? ` It is one of ${hub.stops.length} stops at ${plain(hub.name)}.` : ''}</p>
       {near.length > 0 && <>
         <h2 style="font-size:24px;margin:24px 0 10px">Stops nearby</h2>
         <ul class="list near-list">

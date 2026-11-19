@@ -52,7 +52,7 @@ interface Props { name: string; label?: string; class?: string; size?: number }
 const { name, label, class: cls = '', size } = Astro.props;
 const body = ICONS[name];
 if (!body) throw new Error(`Icon "${name}" is not defined in Icon.astro`);
-const dims = size ? ` width="${size}" height="${size}"` : '';
+const dims = size ? ` width="${size}" height="${size}" style="width:${size}px;height:${size}px"` : '';
 const svg = `<svg class="icon ${cls}" viewBox="0 0 24 24"${dims} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${label ? `role="img" aria-label="${label}"` : 'aria-hidden="true"'}>${body}</svg>`;
 ---
 <Fragment set:html={svg} />

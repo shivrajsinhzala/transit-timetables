@@ -30,7 +30,7 @@ function ink(hex) {
 }
 function badgeEl(r, size = '') {
   const b = document.createElement('span');
-  b.className = `badge${size ? ` ${size}` : ''}`;
+  b.className = `badge${size ? ` ${size}` : ''}${lumOf(safeBg(r.color)) > 0.8 ? ' light' : ''}`;
   b.textContent = r.short || '•';
   b.style.background = safeBg(r.color);
   b.style.color = ink(r.color);
@@ -282,7 +282,7 @@ function renderBoard(board) {
   const list = board.querySelector('ol');
   const h24 = data.h24 ?? H24;
   renderClock(board.querySelector('[data-clock]'), t.min, h24);
-  const base = Number(board.dataset.rows || 5);
+  const base = Math.min(Number(board.dataset.rows || 5), merged && isPhone() ? 5 : 99);
   const max = board._more ? base * 2 : base;
   const btn = moreButton(board, () => renderBoard(board));
   list.classList.remove('static');
@@ -320,7 +320,8 @@ function renderRouteNext(panel) {
   const t = now(CFG.tz);
   const h24 = CFG.h24 ?? H24;
   renderClock(panel.querySelector('[data-clock]'), t.min, h24);
-  const base = Number(panel.dataset.rows || 5);
+  // Phones: three trips a direction keep the timetable within reach; "Show more" opens the rest.
+  const base = isPhone() ? 3 : Number(panel.dataset.rows || 5);
   panel.querySelectorAll('[data-nx-dir]').forEach((box) => {
     const sec = secs.find((s) => s.dataset.dir === box.dataset.nxDir);
     if (!sec) return;

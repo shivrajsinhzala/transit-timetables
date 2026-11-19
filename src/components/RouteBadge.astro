@@ -1,12 +1,12 @@
 ---
-import { badgeBg, inkFor } from '../lib/format.js';
+import { badgeBg, inkFor, isLightBadge } from '../lib/format.js';
 /**
  * A route number in the operator's own route colour (GTFS route_color), darkened if needed so
  * white or navy text reaches 4.5:1. The same route gets the same badge on every page.
  */
 interface Props { route: { short?: string; color?: string | null; textColor?: string | null }; size?: 'sm' | 'md' | 'lg'; lg?: boolean; label?: string }
 const { route, size, lg = false, label } = Astro.props;
-const cls = `badge${lg ? ' lg' : size ? ` ${size}` : ''}`;
+const cls = `badge${lg ? ' lg' : size ? ` ${size}` : ''}${isLightBadge(route.color) ? ' light' : ''}`;
 const style = `background:${badgeBg(route.color)};color:${inkFor(route.color)}`;
 ---
 <span class={cls} style={style} aria-hidden={label ? undefined : 'true'} aria-label={label}>{route.short || '•'}</span>
