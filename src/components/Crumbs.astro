@@ -1,0 +1,16 @@
+---
+import Flag from './Flag.astro';
+/** Breadcrumbs as an ordered list; the first item may carry its country's flag. The last is the current page. */
+interface Props { items: { name: string; href?: string }[]; cc?: string }
+const { items, cc } = Astro.props;
+---
+<nav class="crumbs" aria-label="Breadcrumb">
+  <ol>
+    {items.map((it, i) => (
+      <li aria-current={i === items.length - 1 ? 'page' : undefined}>
+        {i === 0 && cc && <Flag cc={cc} w={20} h={13} />}
+        {it.href && i < items.length - 1 ? <a href={it.href}>{it.name}</a> : it.name}
+      </li>
+    ))}
+  </ol>
+</nav>

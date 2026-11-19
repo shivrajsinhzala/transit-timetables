@@ -12,7 +12,7 @@ const sources = [...new Map(SYSTEM_INDEX.map((s) => META[s.key]?.attribution).fi
 const byCountry = all.map((c) => ({ ...c, sources: [...new Map(c.systems.map((s) => META[s.key]?.attribution).filter(Boolean).map((a) => [`${a.text}|${a.license}`, a])).values()] }));
 ---
 <Base title="About Stopwatch: Who Makes It and Where the Times Come From" description={`Stopwatch is an independent site that turns open transit data into readable timetables for ${SYSTEM_INDEX.length} systems in ${all.length} countries. Who builds it, the data sources and licences.`} path="about" pageType="AboutPage">
-<main class="wrap" style="max-width:760px">
+<main class="wrap prose" style="max-width:820px">
   <h1>About Stopwatch</h1>
   <p class="lede">Stopwatch is an independent website that turns official transit timetable data into pages that are quick to read on a phone: the whole day for a route on one screen, with the next departure first. It covers {routes.toLocaleString('en')} routes from {SYSTEM_INDEX.length} transit systems in {countryNames(all)}.</p>
   <h2>Why it exists</h2>
@@ -30,6 +30,8 @@ const byCountry = all.map((c) => ({ ...c, sources: [...new Map(c.systems.map((s)
   {sources.some((a) => /Open Government Licence v3/.test(a.license || '')) && <p class="small muted">Contains public sector information licensed under the Open Government Licence v3.0.</p>}
   <h3>Town names</h3>
   <p>The town-to-town pages (“Cork to Macroom bus”) name the town or suburb each stop is in using <a href="https://www.geonames.org/" rel="nofollow">GeoNames</a>, under <a href="https://creativecommons.org/licenses/by/4.0/" rel="nofollow license">CC BY 4.0</a>. They list only direct journeys, at the scheduled times of the stops they name.</p>
+  <h2 id="how-to-read">How to read a timetable</h2>
+  <p>Pick the direction you are travelling, then the day: weekdays, Saturday or Sunday. Each column of a route timetable is one of the main stops, each row is one trip, and a dash means that trip does not stop there. On a phone, "By stop" shows the times at one stop, hour by hour: the hour on the left, then the minutes past it. The next departure is highlighted in amber and past times fade back. Times after midnight belong to the evening before. The UK and Ireland use the 24-hour clock; Canada, the United States, Australia and New Zealand show am and pm.</p>
   <h2>What it is not</h2>
   <p>Stopwatch is independent. It is not run by, affiliated with or endorsed by any transit operator, transport authority or government. It shows scheduled times, not live vehicle positions. For fares, disruptions, cancellations and service alerts, use the operator’s own website or app.</p>
   <h2>How the times are checked</h2>

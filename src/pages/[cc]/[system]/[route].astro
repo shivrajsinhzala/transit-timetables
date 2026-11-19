@@ -6,9 +6,10 @@ import Ad from '../../../components/Ad.astro';
 import RouteBadge from '../../../components/RouteBadge.astro';
 import Faq from '../../../components/Faq.astro';
 import Source from '../../../components/Source.astro';
-import { shardSystems, linkedStopCodes, routeJourneys, routeEnds, pairDaily, mainRouteOf, routeConnections } from '../../../lib/data.js';
+import Crumbs from '../../../components/Crumbs.astro';
+import { shardSystems, pageStops, linkedStopCodes, routeJourneys, routeEnds, pairDaily, mainRouteOf, routeConnections } from '../../../lib/data.js';
 import { routeIntro } from '../../../lib/routecopy.js';
-import { clock, every, shortDate, routeLabel, runsText, place, plain, slugify, possessive, modeName, vehicle, plural, brandFor, cap, stopWord, inkFor } from '../../../lib/format.js';
+import { clock, every, shortDate, routeLabel, runsText, place, plain, slugify, possessive, modeName, vehicle, plural, brandFor, cap, stopWord, inkFor, badgeBg } from '../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../lib/page.js';
 import { duration } from '../../../lib/journey.js';
 
@@ -204,149 +205,232 @@ const faq = [
   [`Where does ${label} go?`, `${label} serves ${placesText}. The full list of ${stopW}s for each direction is below the ${word}s.`],
   [`Are these live ${v} times?`, `No. They are the published ${word} from ${possessive(plain(system.attribution?.text || system.name))} open data, refreshed ${dateFor(system.builtOn, system.cc)}. A ${v} can run early or late, and disruptions are not shown.`],
 ];
+
+// ---- redesign: the next-departures panel, the stop line and its connections ----
+const firstOf = (d) => place(plain(d.stops[0].name));
+const lastOf = (d) => place(plain(d.stops.at(-1).name));
+// Per direction, the main day's first and last trip and daytime frequency, read off its own
+// timetable: shown in the next-departures panel before (and without) the script.
+const dirSummary = route.directions.map((dir) => {
+  const rows = dir.schedules[main.key] || [];
+  const starts = rows.map((r) => r.find((v2) => v2 != null)).filter((v2) => v2 != null).sort((a, b) => a - b);
+  const day = starts.filter((m2) => m2 >= 420 && m2 <= 1140);
+  const gaps = day.slice(1).map((m2, i) => m2 - day[i]).filter((g) => g > 0).sort((a, b) => a - b);
+  return { first: starts[0], last: starts.at(-1), n: starts.length, gap: gaps.length >= 3 ? gaps[Math.floor(gaps.length / 2)] : null };
+});
+// Other routes at each stop (only stops with their own page), as tappable badges on the stop line.
+const routesAt = new Map(pageStops(system.key).filter((s) => stopPages.has(s.code)).map((s) => [s.code, [...new Set(s.routes.map((r) => r.route))]]));
+const bySlug = new Map(system.routes.map((r) => [r.slug, r]));
+const connAt = (code) => (routesAt.get(code) || []).filter((sl) => sl !== route.slug && bySlug.has(sl)).slice(0, 4).map((sl) => bySlug.get(sl));
+const modeIcon = /subway|metro/.test(m) ? 'subway' : /tram|streetcar/.test(m) ? 'tram' : /ferry/.test(m) ? 'ferry' : /train|rail/.test(m) ? 'rail' : 'bus';
+const ends2 = route.directions.length > 1 ? `${lastOf(route.directions[1])} ↔ ${lastOf(route.directions[0])}` : `${firstOf(route.directions[0])} ↔ ${lastOf(route.directions[0])}`;
+const fmtLegend = h24 ? 'Times use the 24-hour clock.' : 'Times in 12-hour format (am/pm).';
+
 ---
 <Base title={title} description={description} path={path} canonicalPath={mainRoute ? `${base.slice(1)}/${mainRoute.slug}` : undefined} jsonLd={jsonLd} og={system.key} speakable={['.lede', '.faq .answer']} system={system}>
 <main class="wrap">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a> › {label}</nav>
+  <Crumbs cc={system.cc} items={[{ name: x.c.name, href: `/${system.cc}` }, { name: system.name, href: base }, { name: label }]} />
 
-  <div class="page-head">
+  <section class="page-head in">
     <RouteBadge route={route} lg />
-    <div>
+    <div class="ph-main">
       <h1>{h1}</h1>
-      <p class="sub">{a2b ? <>{system.name} · </> : null}{cap(m)} {word} and {lineWord} map · {route.days.map((d) => d.label).join(', ')}</p>
+      <div class="meta-row">
+        <span><Icon name={modeIcon} />{cap(m)} {word}</span>
+        {!a2b && <span>{system.name}</span>}
+        {a2b && <span>{system.name}</span>}
+        <span>{ends2}</span>
+        <span class="muted"><Icon name="calendar-blank" />Refreshed {dateFor(system.builtOn, system.cc)}</span>
+      </div>
     </div>
-  </div>
-  {mainRoute && (
-    <div class="notice variant-of"><Icon name="info" /><div>
-      {same(mainRoute.short, route.short) ? <p><b>The same {word} as {mainLabel}.</b> {possessive(plain(system.attribution?.text || system.name))} data lists this route twice, with the same timetable.</p> : <p><b>Looking for {mainLabel}?</b> {label} is only {mainSummary.trips === 1 ? `one ${v}` : `${mainSummary.trips} ${vs}`} a day. {mainLabel} runs {mainDay.label}{mainSpan.first === mainSpan.last ? <>, once at {t(mainSpan.first)}</> : <> from {t(mainSpan.first)} to {t(mainSpan.last)}</>}{mainSpan.gap ? <>, {every(mainSpan.gap)}</> : null}.</p>}
-      <p style="margin-top:.6rem"><a class="btn btn-sm" href={`${base}/${mainRoute.slug}`}>{mainLabel} {word} <Icon name="arrow-right" /></a></p>
-    </div></div>
-  )}
-  <div class="actions">
-    <button class="btn btn-quiet btn-sm" type="button" data-fav={`route:${system.key}/${route.slug}`} data-name={`${system.name} ${label}`} data-sub={name}><Icon name="star" /><span data-fav-label>Save</span></button>
-    <button class="btn btn-quiet btn-sm" type="button" data-print><Icon name="printer" /> Print or PDF</button>
-    <button class="btn btn-quiet btn-sm" type="button" data-share><Icon name="share-network" /><span data-share-label>Share</span></button>
-  </div>
-
-  <div class="board near-top js-only" data-board data-rows="4" aria-label={`Next scheduled ${vs} on ${label}`}>
-    <div class="board-head"><strong>Next {vs}</strong><span class="board-clock" data-clock></span></div>
-    <ol><li class="empty">Loading the next {vs}…</li></ol>
-    <p class="board-foot">Scheduled times at the first {stopW} in each direction. <a class="board-link" href={`#${dirNames[0].anchor}`}>Full {word}</a></p>
-  </div>
-
-  <p class="lede" style="margin-top:1.2rem">
-    {system.name} {label}{name ? ` (${name})` : ''} is a {m} {lineWord} in {system.area}, serving {placesText}. {intro} Times from the operator's open data, refreshed {dateFor(system.builtOn, system.cc)}.
-  </p>
-
-  <h2 class="sr">{Word} summary</h2>
-  <div class="days">
-    {route.days.map((d) => { const s = route.summary[d.key]; return s && (
-      <div class="day"><h3>{d.label}</h3><dl><dt>First</dt><dd>{t(s.first)}</dd><dt>Last</dt><dd>{t(s.last)}</dd><dt>{cap(vs)}</dt><dd>{s.trips}</dd>{s.gap && <><dt>Daytime</dt><dd>{every(s.gap)}</dd></>}</dl></div>
-    ); })}
-    {missing.length > 0 && <div class="day"><h3>{missing.join(', ')}</h3><p class="muted" style="margin:0">No service</p></div>}
-  </div>
-
-  {(route.exceptions.length > 0 || system.changesOn) && (
-    <div class="notice"><Icon name="calendar-check" /><div>
-      {holidayList.length > 0 && <p><b>Public holidays</b></p>}
-      {holidayList.length > 0 && <ul>{holidayList.map((e) => <li>{shortDate(e.date)} ({e.holiday}): {runsText(e, route.days)}</li>)}</ul>}
-      {otherExceptions.length > 0 && <p><b>Also different:</b> {otherExceptions.slice(0, 8).map((e) => `${shortDate(e.date)} (${runsText(e, route.days)})`).join('; ')}.</p>}
-      {system.changesOn && <p><b>{Word} change:</b> {possessive(system.name)} {word} changes on {dateFor(system.changesOn, system.cc)}. The times below are for the current {word}.</p>}
-    </div></div>
-  )}
-
-  {route.directions.map((dir, di) => (
-    <>
-      <section class="direction" id={dirNames[di].anchor} data-section data-route={route.slug} data-from={place(plain(dir.columns[0].name))} data-short={route.short || ''} data-color={route.color || ''} data-text={inkFor(route.color)} data-to={dests[di]} data-at={`from ${place(plain(dir.stops[0].name))}`} data-url={`#${dirNames[di].anchor}`}>
-        <h2>{dirNames[di].heading}</h2>
-        <p class="muted small" style="margin:0">{dir.headsign ? <>Destination sign “{plain(dir.headsign)}” · </> : null}from {place(plain(dir.stops[0].name))} · {dir.stops.length} {stopW}s</p>
-        <div class="tabs" role="tablist" aria-label="Day of the week">
-          {route.days.filter((d) => dir.schedules[d.key]).map((d, i) => <button type="button" role="tab" data-day={d.key} aria-selected={i === 0 ? 'true' : 'false'}>{d.label}</button>)}
-        </div>
-        <p class="next-line" aria-live="polite"></p>
-        {route.days.filter((d) => dir.schedules[d.key]).map((d, i) => (
-          <div class={`panel${i === 0 ? ' on' : ''}`} data-day={d.key} role="tabpanel">
-            <h3>{d.label}</h3>
-            <p class="legend">Times at the main {stopW}s.{h24 ? ' 24-hour clock.' : <> <b>Bold is pm.</b></>} A dot means that trip does not stop there.</p>
-            <div class="tt-wrap">
-              <table class="tt">
-                <thead><tr>{dir.columns.map((c) => <th scope="col">{stopPages.has(c.code) ? <a href={stopHref(c.code)}>{plain(c.name)}</a> : plain(c.name)}</th>)}</tr></thead>
-                <tbody>
-                  {dir.schedules[d.key].map((row) => (
-                    <tr data-m={row[0] ?? ''}>{row.map((mm) => {
-                      if (mm == null) return <td class="no">·</td>;
-                      const c = clock(mm, h24);
-                      return <td class={c.pm ? 'pm' : undefined}>{c.text}</td>;
-                    })}</tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
-        <details class="stops-detail">
-          <summary class="btn btn-quiet btn-sm"><Icon name="path" /> All {dir.stops.length} {stopW}s in this direction</summary>
-          <ol class="diagram" style={`--route:${routeColor}`}>
-            {dir.stops.map((s) => { const tp = dir.columns.some((c) => c.code === s.code); return (
-              <li class={tp ? 'tp' : undefined}>{stopPages.has(s.code) ? <a href={stopHref(s.code)}>{plain(s.name)}</a> : plain(s.name)} <small>#{s.code}</small></li>
-            ); })}
-          </ol>
-        </details>
-      </section>
-      {di === 0 && <Ad slot="1697297769" />}
-    </>
-  ))}
-
-  <section>
-    <h2>{label} {lineWord} map</h2>
-    <div class="map" data-map={`/geo/${system.key}/${route.slug}.json`}>
-      <button class="map-open" type="button"><Icon name="map-trifold" />Show {label} on a map</button>
+    <div class="actions no-print">
+      <button class="btn btn-dark" type="button" data-fav={`route:${system.key}/${route.slug}`} data-name={`${system.name} ${label}`} data-sub={name}><Icon name="star" /><span data-fav-label>Save</span></button>
+      <button class="btn" type="button" data-share><Icon name="share-network" /><span data-share-label>Share</span></button>
+      <button class="btn" type="button" data-print><Icon name="printer" /> Print / PDF</button>
     </div>
   </section>
 
-  {connections.length > 0 && (
-    <section>
-      <h2>Connections on {label}</h2>
-      <p class="muted small">Interchanges on this {lineWord} and the other {system.name} {lineWord}s that call there.</p>
-      <ul class="list">
-        {connections.map((cn) => (
-          <li><a href={stopHref(cn.code)}><Icon name="map-pin" /><span>{plain(cn.name)}<span class="meta">{cn.routes.length} other {cn.routes.length === 1 ? lineWord : `${lineWord}s`}</span></span><Icon name="arrow-right" class="go" /></a>
-            <p class="conn-routes">{cn.routes.slice(0, 12).map((r) => <a href={`${base}/${r.slug}`} aria-label={`${system.name} ${plain(routeLabel(r))}`}><RouteBadge route={r} /></a>)}{cn.routes.length > 12 && <span class="muted small"> +{cn.routes.length - 12} more</span>}</p>
-          </li>
-        ))}
-      </ul>
-    </section>
+  {mainRoute && (
+    <div class="notice variant-of" style="margin:0 0 20px"><Icon name="info" /><div>
+      {same(mainRoute.short, route.short) ? <p><b>The same {word} as {mainLabel}.</b> {possessive(plain(system.attribution?.text || system.name))} data lists this route twice, with the same timetable.</p> : <p><b>Looking for {mainLabel}?</b> {label} is only {mainSummary.trips === 1 ? `one ${v}` : `${mainSummary.trips} ${vs}`} a day. {mainLabel} runs {mainDay.label}{mainSpan.first === mainSpan.last ? <>, once at {t(mainSpan.first)}</> : <> from {t(mainSpan.first)} to {t(mainSpan.last)}</>}{mainSpan.gap ? <>, {every(mainSpan.gap)}</> : null}.</p>}
+      <p><a class="btn btn-dark btn-sm" href={`${base}/${mainRoute.slug}`}>{mainLabel} {word} <Icon name="arrow-right" /></a></p>
+    </div></div>
   )}
 
+  <section class="nx in" aria-labelledby="next-h" data-nx data-rows="5" style="animation-delay:.1s">
+    <div class="nx-head">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px"><h2 id="next-h"><span class="dot"></span>Next {vs}</h2><span class="sub" data-nx-day>{main.label} · scheduled</span></div>
+      <span class="nx-now js-only">Now <span data-clock></span></span>
+    </div>
+    <div class="nx-dirs">
+      {route.directions.map((dir, di) => (
+        <div class="nx-dir" data-nx-dir={di}>
+          <div class="nx-dir-head"><h3><a href={`#${dirNames[di].anchor}`}>To {dests[di]}</a></h3><span>from {firstOf(dir)}</span></div>
+          <ol class="static">
+            {dirSummary[di].n ? <>
+              <li>{main.label}: first {v} <b>{t(dirSummary[di].first)}</b>, last <b>{t(dirSummary[di].last)}</b>.</li>
+              <li>{dirSummary[di].gap ? <>About <b>{every(dirSummary[di].gap)}</b> in the daytime, {dirSummary[di].n} {vs} in all.</> : <>{dirSummary[di].n} {dirSummary[di].n === 1 ? v : vs} in all.</>}</li>
+            </> : <li>No {vs} this way {main.label}.</li>}
+          </ol>
+          <button class="nx-more" type="button" hidden>Show more <Icon name="chevron-down" /></button>
+        </div>
+      ))}
+    </div>
+    <p class="nx-foot">Scheduled times at the first {stopW} in each direction, not live tracking. <a href={`#${dirNames[0].anchor}`}>Full {word}</a></p>
+  </section>
+
+  <div class="tt-zone">
+  <div class="controls js-only no-print" data-controls>
+    <div class="controls-in">
+      <div class="seg" role="group" aria-label="Day">
+        {route.days.map((d, i) => <button type="button" data-ctl-day={d.key} aria-pressed={i === 0 ? 'true' : 'false'}>{d.label}</button>)}
+      </div>
+      {route.directions.length > 1 && (
+        <div class="seg" role="group" aria-label="Direction">
+          {route.directions.map((_, di) => <button type="button" data-ctl-dir={di} aria-pressed={di === 0 ? 'true' : 'false'}>To {dests[di].length > 26 ? `${dests[di].slice(0, 24).trim()}…` : dests[di]}</button>)}
+        </div>
+      )}
+      <div class="gap"></div>
+      <div class="seg" role="group" aria-label="View">
+        <button type="button" data-ctl-view="grid" aria-pressed="true">Full grid</button>
+        <button type="button" data-ctl-view="stop" aria-pressed="false">By stop</button>
+      </div>
+    </div>
+  </div>
+
+  {route.directions.map((dir, di) => (
+    <section class="direction" id={dirNames[di].anchor} data-dir={di} data-section data-route={route.slug} data-from={place(plain(dir.columns[0].name))} data-short={route.short || ''} data-color={badgeBg(route.color)} data-text={inkFor(route.color)} data-to={dests[di]} data-at={`from ${place(plain(dir.stops[0].name))}`} data-url={`#${dirNames[di].anchor}`}>
+      <div class="dir-head">
+        <h2>{dirNames[di].heading}</h2>
+        <p>{dir.headsign ? <>Destination sign “{plain(dir.headsign)}” · </> : null}from {place(plain(dir.stops[0].name))} · {dir.stops.length} {stopW}s</p>
+      </div>
+      <p class="next-line" aria-live="polite"></p>
+      {route.days.filter((d) => dir.schedules[d.key]).map((d, i) => (
+        <div class={`panel${i === 0 ? ' on' : ''}`} data-day={d.key} role="region" aria-label={`${dirNames[di].heading}, ${d.label}`}>
+          <h3>{d.label}</h3>
+          <p class="legend">Times at the main {stopW}s. {fmtLegend} A dash means that trip does not stop there. The highlighted row is the next departure.</p>
+          <div class="tt-wrap">
+            <table class="tt">
+              <thead><tr>{dir.columns.map((c) => <th scope="col">{stopPages.has(c.code) ? <a href={stopHref(c.code)}>{plain(c.name)}</a> : plain(c.name)}</th>)}</tr></thead>
+              <tbody>
+                {dir.schedules[d.key].map((row) => (
+                  <tr data-m={row[0] ?? ''}>{row.map((mm) => {
+                    if (mm == null) return <td class="no">-</td>;
+                    const c = clock(mm, h24);
+                    return <td class={c.pm ? 'pm' : undefined}>{c.text}</td>;
+                  })}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+      <div class="bystop js-only" data-bystop hidden>
+        <div class="pick">
+          <label for={`pick-${di}`}>Your {stopW}</label>
+          <select id={`pick-${di}`}>{dir.columns.map((c, ci) => <option value={ci}>{plain(c.name)}</option>)}</select>
+          <p>Each row is an hour; the numbers are the minutes past the hour when a {v} leaves.</p>
+        </div>
+        <div class="hgrid"><table class="hours"><tbody></tbody></table></div>
+      </div>
+    </section>
+  ))}
+  </div>
+
+  <section class="sec reveal" aria-labelledby="sum-h" style="padding-top:48px">
+    <h2 id="sum-h" style="font-size:28px;margin-bottom:14px">Service at a glance</h2>
+    <div class="glance">
+      {route.days.map((d) => { const s = route.summary[d.key]; return s && (
+        <div><h3>{d.label}</h3><dl>
+          <div><dt>First</dt><dd>{t(s.first)}</dd></div>
+          <div><dt>Last</dt><dd>{t(s.last)}{s.last >= 1440 ? ' (next day)' : ''}</dd></div>
+          <div><dt>{cap(vs)}</dt><dd>{s.trips}</dd></div>
+          <div><dt>Daytime</dt><dd>{s.gap ? every(s.gap) : 'Varies'}</dd></div>
+        </dl></div>
+      ); })}
+      {missing.length > 0 && <div><h3>{missing.join(', ')}</h3><p class="none">No service</p></div>}
+    </div>
+  </section>
+
+  {(route.exceptions.length > 0 || system.changesOn) && (
+    <aside class="notice reveal" aria-label="Timetable changes"><Icon name="calendar-check" /><div>
+      {holidayList.length > 0 && <p><b>Public holidays</b></p>}
+      {holidayList.length > 0 && <ul>{holidayList.map((e) => <li>{shortDate(e.date)} ({e.holiday}): {runsText(e, route.days)}</li>)}</ul>}
+      {otherExceptions.length > 0 && <p><b>Also different:</b> {otherExceptions.slice(0, 8).map((e) => `${shortDate(e.date)} (${runsText(e, route.days)})`).join('; ')}.</p>}
+      {system.changesOn && <p><b>New {word} from {dateFor(system.changesOn, system.cc)}.</b> {possessive(system.name)} {word} changes that day. The times above are for the current {word}.</p>}
+    </div></aside>
+  )}
+
+  <Ad slot="1697297769" />
+
+  <section class="sec stops-wrap" aria-labelledby="stops-h">
+    <div class="col-a reveal">
+      <h2 id="stops-h" style="font-size:28px;margin-bottom:6px">{cap(stopW)}s and connections</h2>
+      <p class="muted small" style="margin:0 0 20px">Every {stopW} with its own departures page is linked. Badges are other {system.name} {lineWord}s that call there.</p>
+      {route.directions.map((dir, di) => (
+        <div class="dir-stops" data-dir-stops={di}>
+          <h3 style="margin:0 0 12px;font-size:18px;text-transform:uppercase">{firstOf(dir)} to {lastOf(dir)}</h3>
+          <ol class="stopline" style={`--route:${badgeBg(route.color)}`}>
+            {dir.stops.map((s) => { const tp = dir.columns.some((c) => c.code === s.code); const cn = connAt(s.code); return (
+              <li class={tp ? 'tp' : undefined}><span class="dot"></span><span class="row">
+                {stopPages.has(s.code) ? <a class="nm" href={stopHref(s.code)}>{plain(s.name)}</a> : <span class="nm">{plain(s.name)}</span>}
+                <small>#{s.code}</small>
+                {cn.length > 0 && <span class="cn">{cn.map((r) => <a href={`${base}/${r.slug}`} aria-label={`${system.name} ${plain(routeLabel(r))}`}><RouteBadge route={r} /></a>)}</span>}
+              </span></li>
+            ); })}
+          </ol>
+        </div>
+      ))}
+    </div>
+    <div class="col-b reveal">
+      <div class="mapcard">
+        <div class="map" data-map={`/geo/${system.key}/${route.slug}.json`}>
+          <button class="map-open" type="button"><Icon name="map-trifold" />Show {label} on a map</button>
+        </div>
+        <div class="cap"><span>{label} {lineWord} map</span><span>OpenStreetMap</span></div>
+      </div>
+      <div class="about-box">
+        <h2>About {label}</h2>
+        <p class="lede" style="font-size:15px">{system.name} {label}{name ? ` (${name})` : ''} is a {m} {lineWord} in {system.area}, serving {placesText}. {intro} Times from the operator's open data, refreshed {dateFor(system.builtOn, system.cc)}.</p>
+      </div>
+      {connections.length > 0 && (
+        <div class="about-box">
+          <h2>Main interchanges</h2>
+          <ul class="list" style="border-top:0">
+            {connections.map((cn) => (
+              <li><a href={stopHref(cn.code)}><span>{plain(cn.name)}<span class="meta">{cn.routes.length} other {cn.routes.length === 1 ? lineWord : `${lineWord}s`}</span></span><Icon name="arrow-right" class="go-i" /></a></li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  </section>
+
   {journeys.length > 0 && (
-    <section>
-      <h2>Town to town on {label}</h2>
+    <section class="sec reveal" aria-labelledby="tt-towns">
+      <h2 id="tt-towns" style="font-size:28px;margin-bottom:14px">Town to town on {label}</h2>
       <div class="list-cols">
         {[journeys.slice(0, Math.ceil(journeys.length / 2)), journeys.slice(Math.ceil(journeys.length / 2))].map((col) => col.length > 0 && (
           <ul class="list">
-            {col.map((jy) => <li><a href={jy.url}><Icon name="path" /><span>{jy.from.name} to {jy.to.name}<span class="meta">{pairDaily(jy.p)} a day{jy.p.routes.length > 1 ? `, ${jy.p.routes.length} routes` : ''} · about {duration(medianTime(jy.p))}</span></span><Icon name="arrow-right" class="go" /></a></li>)}
+            {col.map((jy) => <li><a href={jy.url}><span class="i-tile"><Icon name="path" /></span><span>{jy.from.name} to {jy.to.name}<span class="meta">{pairDaily(jy.p)} a day{jy.p.routes.length > 1 ? `, ${jy.p.routes.length} routes` : ''} · about {duration(medianTime(jy.p))}</span></span><Icon name="arrow-right" class="go-i" /></a></li>)}
           </ul>
         ))}
       </div>
     </section>
   )}
 
-  <Faq items={faq} title={`Questions about ${system.name} ${label}`} />
+  <Faq items={faq} title={`${label} questions`} />
   <Source system={system} extra="These are scheduled times; disruptions and service alerts are published by the operator." />
 
   <Ad slot="9765370376" />
 
   {others.length > 0 && (
-    <section>
-      <h2>Other {system.name} {lineWord}s</h2>
-      <div class="list-cols">
-        {[others.slice(0, Math.ceil(others.length / 2)), others.slice(Math.ceil(others.length / 2))].map((col) => col.length > 0 && (
-          <ul class="list">
-            {col.map((r) => <li><a href={`${base}/${r.slug}`}><RouteBadge route={r} /><span>{plain(r.label || r.name || routeLabel(r))}<span class="meta">{r.days.map((d) => d.label).join(', ')}</span></span><Icon name="arrow-right" class="go" /></a></li>)}
-          </ul>
-        ))}
-      </div>
-      {others.length < system.routes.length - 1 && <p><a class="btn btn-quiet btn-sm" href={base}>All {system.routes.length} {system.name} {lineWord}s <Icon name="arrow-right" /></a></p>}
+    <section class="sec reveal" aria-labelledby="other-h">
+      <h2 id="other-h" style="font-size:28px;margin-bottom:16px">Other {system.name} {lineWord}s</h2>
+      <ul class="rgrid auto">
+        {others.map((r) => <li><a class="rcard card" href={`${base}/${r.slug}`}><RouteBadge route={r} size="md" /><span class="t">{plain(r.label || r.name || routeLabel(r))}<small>{r.days.map((d) => d.label).join(', ')}</small></span></a></li>)}
+      </ul>
+      {others.length < system.routes.length - 1 && <p style="margin-top:16px"><a class="btn btn-dark" href={base}>All {system.routes.length} {system.name} {lineWord}s <Icon name="arrow-right" /></a></p>}
     </section>
   )}
 </main>

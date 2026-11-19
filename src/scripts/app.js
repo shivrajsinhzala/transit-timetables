@@ -6,131 +6,343 @@
 
 import { now, dayKey, clockText, waitText, upcoming as soon } from './clock.js';
 
-/** White or graphite text, whichever reads better on a route colour (mirrors inkFor in format.js). */
-function ink(hex) {
+/** Route badge colours: the route colour darkened until white or navy text reads at 4.5:1 (mirrors badgeBg/inkFor in format.js). */
+const lumOf = (hex) => {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
-  if (!m) return '#ffffff';
+  if (!m) return null;
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return 1.05 / (L + 0.05) >= (L + 0.05) / 0.0535 ? '#ffffff' : '#0b0c0d';
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const NAVY_L = 0.0164;
+function safeBg(hex) {
+  if (lumOf(hex) == null) return '#14233B';
+  let h = `#${String(hex).replace('#', '')}`;
+  for (let k = 0; k < 12; k++) {
+    const L = lumOf(h);
+    if (1.05 / (L + 0.05) >= 4.5 || (L + 0.05) / (NAVY_L + 0.05) >= 4.5) break;
+    h = '#' + [1, 3, 5].map((i) => Math.round(parseInt(h.slice(i, i + 2), 16) * 0.88).toString(16).padStart(2, '0')).join('');
+  }
+  return h;
 }
+function ink(hex) {
+  const L = lumOf(safeBg(hex));
+  return 1.05 / (L + 0.05) >= (L + 0.05) / (NAVY_L + 0.05) ? '#FFFFFF' : '#14233B';
+}
+function badgeEl(r, size = '') {
+  const b = document.createElement('span');
+  b.className = `badge${size ? ` ${size}` : ''}`;
+  b.textContent = r.short || '•';
+  b.style.background = safeBg(r.color);
+  b.style.color = ink(r.color);
+  return b;
+}
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
-/** 24-hour clocks in the UK and Ireland (the page says so with data-h24), 12-hour elsewhere. */
+/** 24-hour clocks where the page says so (data-h24), 12-hour elsewhere. */
 const H24 = document.documentElement.hasAttribute('data-h24');
 const fmt = (m, h24 = H24) => clockText(m, h24);
 const ampm = (m, h24 = H24) => (h24 ? '' : ((m % 1440) + 1440) % 1440 >= 720 ? 'pm' : 'am');
 const tm = (m, h24 = H24) => `${fmt(m, h24)} ${ampm(m, h24)}`.trim();
+/** Countdown: "N min" (at least 1), "Due" only in the last half minute. */
+const inText = (w, secs = 60) => (w <= 0 && secs < 30 ? 'Due' : w < 60 ? `${Math.max(1, w)} min` : `${Math.floor(w / 60)} h ${w % 60 ? `${w % 60} min` : ''}`.trim());
 
 const cfgEl = document.getElementById('cfg');
 const CFG = cfgEl ? JSON.parse(cfgEl.textContent) : null;
+const isPhone = () => matchMedia('(max-width: 640px)').matches;
 
-/* ---------- tabs + next bus (route, stop and hub pages) ---------- */
+/* ---------- day tabs, next departure, past and next marks (route, stop, hub, journey pages) ---------- */
+function markHours(panel, t) {
+  const spans = [...panel.querySelectorAll('span[data-m]')];
+  let next = null;
+  spans.forEach((s) => {
+    const m = Number(s.dataset.m);
+    s.classList.toggle('past', m < t.min);
+    s.classList.remove('next');
+    if (next == null && m >= t.min) next = s;
+  });
+  if (next) next.classList.add('next');
+  panel.querySelectorAll('tr[data-h]').forEach((tr) => {
+    const h = Number(tr.dataset.h);
+    tr.classList.toggle('now', h === Math.floor(t.min / 60));
+    tr.classList.toggle('gone', h < Math.floor(t.min / 60));
+  });
+  return next;
+}
+
 function setupSections() {
   if (!CFG) return;
   const t = now(CFG.tz);
   document.querySelectorAll('[data-section]').forEach((sec) => {
     const route = CFG.routes[sec.dataset.route];
     const tabs = [...sec.querySelectorAll('[role=tab]')];
-    const show = (key) => {
+    sec._show = (key) => {
+      if (!sec.querySelector(`.panel[data-day="${key}"]`)) return false;
       tabs.forEach((b) => b.setAttribute('aria-selected', String(b.dataset.day === key)));
       sec.querySelectorAll('.panel').forEach((p) => p.classList.toggle('on', p.dataset.day === key));
+      sec._day = key;
+      if (sec._byStop) sec._byStop();
+      return true;
     };
-    tabs.forEach((b) => b.addEventListener('click', () => show(b.dataset.day)));
+    tabs.forEach((b) => b.addEventListener('click', () => sec._show(b.dataset.day)));
     if (!route) return;
     const key = dayKey(route, t.iso, t.wd);
+    sec._today = key;
     const line = sec.querySelector('.next-line');
+    const chip = sec.querySelector('[data-nextchip]');
     const panel = key && sec.querySelector(`.panel[data-day="${key}"]`);
     if (!panel) {
       const ex = (route.exceptions || []).find((e) => e.date === t.iso);
       if (line) line.textContent = ex && ex.runs === 'special' ? 'Today runs a special timetable. Check the operator before you travel.' : 'No service here today.';
+      if (chip) chip.textContent = 'Not today';
+      sec._next = Infinity;
       return;
     }
-    show(key);
+    sec._show(key);
     // A journey page's weekday tab can hold a departure that runs on some weekdays only (data-w).
-    const runsToday = (el) => !el.dataset.w || el.dataset.w.split(',').includes(String(t.wd));
-    const marks = [...panel.querySelectorAll('[data-m]')].filter((el) => el.dataset.m !== '' && runsToday(el));
-    const next = marks.find((el) => Number(el.dataset.m) >= t.min);
+    const runsToday = (e) => !e.dataset.w || e.dataset.w.split(',').includes(String(t.wd));
+    const rows = [...panel.querySelectorAll('tr[data-m]')].filter((e) => e.dataset.m !== '' && runsToday(e));
+    let next = null;
+    if (rows.length) {
+      rows.forEach((r) => { const m = Number(r.dataset.m); r.classList.toggle('past', m < t.min); if (!next && m >= t.min) next = r; });
+      if (next) {
+        next.classList.add('next');
+        // Scroll the timetable box (not the page) so the next trip is the third row down.
+        const box = next.closest('.tt-wrap');
+        if (box) requestAnimationFrame(() => { box.scrollTop = Math.max(0, next.offsetTop - box.querySelector('thead').offsetHeight - next.offsetHeight * 2); });
+      }
+    } else {
+      next = markHours(panel, t);
+      // Stop pages: each route's hour grid opens at the current hour, not at the first bus.
+      const row = next?.closest('tr');
+      if (row && panel.scrollHeight > panel.clientHeight + 8) requestAnimationFrame(() => { panel.scrollTop += row.getBoundingClientRect().top - panel.getBoundingClientRect().top - 4; });
+    }
+    sec._next = next ? Number(next.dataset.m) - t.min : Infinity;
+    if (chip) chip.textContent = next ? (sec._next < 60 ? `in ${Math.max(1, sec._next)} min` : tm(Number(next.dataset.m), CFG.h24 ?? H24)) : 'Done today';
     if (!line) return;
     if (!next) { line.textContent = 'No more departures today.'; return; }
-    next.classList.add('next');
     const b = document.createElement('b');
     const m = Number(next.dataset.m);
     b.textContent = tm(m, CFG.h24 ?? H24);
     line.replaceChildren(`Next scheduled departure${sec.dataset.from ? ` from ${sec.dataset.from}` : ''}: `, b, ` (${waitText(m - t.min)})`);
   });
+  // Stop pages: the route leaving soonest comes first.
+  document.querySelectorAll('[data-sortable]').forEach((box) => {
+    [...box.children].sort((a, b) => (a._next ?? Infinity) - (b._next ?? Infinity)).forEach((c) => box.append(c));
+  });
 }
 
-/* ---------- departure boards ---------- */
+/* ---------- route pages: day, direction and view controls; the by-stop hour grid ---------- */
+function parseCell(td, h24) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(td.textContent.trim());
+  if (!m) return null;
+  let h = Number(m[1]);
+  if (!h24) { h %= 12; if (td.classList.contains('pm')) h += 12; }
+  return h * 60 + Number(m[2]);
+}
+function setupRouteControls() {
+  const ctl = document.querySelector('[data-controls]');
+  if (!ctl || !CFG) return;
+  const h24 = CFG.h24 ?? H24;
+  const secs = [...document.querySelectorAll('section.direction[data-section]')];
+  const press = (attr, val) => ctl.querySelectorAll(`[${attr}]`).forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute(attr) === String(val))));
+  let view = isPhone() ? 'stop' : 'grid';
+
+  secs.forEach((sec) => {
+    const box = sec.querySelector('[data-bystop]');
+    const sel = box?.querySelector('select');
+    if (!box || !sel) return;
+    sec._byStop = () => {
+      if (view !== 'stop') return;
+      const panel = sec.querySelector('.panel.on');
+      if (!panel) return;
+      const ci = Number(sel.value);
+      const times = [];
+      let prev = -1, add = 0;
+      panel.querySelectorAll('tbody tr').forEach((tr) => {
+        const td = tr.children[ci];
+        if (!td || td.classList.contains('no')) return;
+        let m = parseCell(td, h24);
+        if (m == null) return;
+        m += add;
+        if (prev >= 0 && m < prev - 720) { add += 1440; m += 1440; }
+        prev = m;
+        times.push(m);
+      });
+      times.sort((a, b) => a - b);
+      const body = box.querySelector('tbody');
+      const groups = new Map();
+      times.forEach((m) => { const h = Math.floor(m / 60); if (!groups.has(h)) groups.set(h, []); groups.get(h).push(m); });
+      body.replaceChildren(...[...groups].map(([h, ms]) => {
+        const tr = el('tr'); tr.dataset.h = h;
+        const hh = h % 24;
+        tr.append(el('th', '', h24 ? `${String(hh).padStart(2, '0')}${h >= 24 ? '+' : ''}` : `${hh % 12 || 12} ${hh < 12 ? 'am' : 'pm'}${h >= 24 ? '+' : ''}`));
+        const td = el('td');
+        ms.forEach((m) => { const s = el('span', '', String(m % 60).padStart(2, '0')); s.dataset.m = m; td.append(s); });
+        tr.append(td);
+        return tr;
+      }));
+      if (sec._day && sec._day === sec._today) {
+        const t = now(CFG.tz);
+        const nx = markHours(box, t);
+        const grid = box.querySelector('.hgrid');
+        const row = nx?.closest('tr');
+        if (row && grid) requestAnimationFrame(() => { grid.scrollTop = Math.max(0, row.offsetTop - 8); });
+      }
+    };
+    sel.addEventListener('change', () => sec._byStop());
+  });
+
+  const setView = (v) => {
+    view = v;
+    press('data-ctl-view', v);
+    secs.forEach((sec) => {
+      const box = sec.querySelector('[data-bystop]');
+      if (!box) return;
+      box.hidden = v !== 'stop';
+      sec.querySelectorAll('.panel').forEach((p) => { p.style.display = v === 'stop' ? 'none' : ''; });
+      sec.querySelector('.next-line').hidden = v === 'stop';
+      if (v === 'stop') sec._byStop();
+    });
+  };
+  const setDir = (di) => {
+    press('data-ctl-dir', di);
+    secs.forEach((sec) => { sec.hidden = sec.dataset.dir !== String(di); });
+    document.querySelectorAll('[data-dir-stops]').forEach((d) => { d.hidden = d.dataset.dirStops !== String(di); });
+  };
+  const setDay = (key) => {
+    press('data-ctl-day', key);
+    secs.forEach((sec) => sec._show && sec._show(key));
+  };
+  ctl.querySelectorAll('[data-ctl-day]').forEach((b) => b.addEventListener('click', () => setDay(b.dataset.ctlDay)));
+  ctl.querySelectorAll('[data-ctl-dir]').forEach((b) => b.addEventListener('click', () => setDir(b.dataset.ctlDir)));
+  ctl.querySelectorAll('[data-ctl-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.ctlView)));
+  // Start on today's timetable, the first direction, and the view that suits the screen.
+  const today = secs.map((s) => s._today).find(Boolean);
+  if (today) press('data-ctl-day', today);
+  if (ctl.querySelector('[data-ctl-dir]')) setDir(0);
+  setView(view);
+  // A link to a direction (#to-...) opens that direction.
+  const hashDir = () => { const s = secs.find((x) => `#${x.id}` === location.hash); if (s) setDir(s.dataset.dir); };
+  hashDir();
+  addEventListener('hashchange', hashDir);
+  document.querySelectorAll('.nx-dir-head a').forEach((a) => a.addEventListener('click', () => setTimeout(hashDir)));
+}
+
+/* ---------- next departures ---------- */
 /**
- * Rows come from embedded JSON (home page) or are read off the hour grids on the page
- * (stop and hub pages), so a board never shows anything the timetable below it does not.
+ * Rows come from embedded JSON (home page) or are read off the timetables on the page (route,
+ * stop and hub pages), so a board never shows anything the timetable below it does not.
  */
+function sectionRows(secs) {
+  const { wd } = now(CFG.tz);
+  return secs.flatMap((sec) => {
+    const route = CFG.routes[sec.dataset.route];
+    // A journey table mixes routes: each row names its route (data-r) in the section's data-badges.
+    const badges = sec.dataset.badges ? JSON.parse(sec.dataset.badges) : null;
+    const groups = new Map();
+    sec.querySelectorAll('.panel').forEach((p) => p.querySelectorAll('[data-m]').forEach((e) => {
+      // A trip starting past the first column has no time there; a weekdays-only one (data-w) may not run today.
+      if (e.dataset.m === '' || (e.dataset.w && !e.dataset.w.split(',').includes(String(wd)))) return;
+      const g = badges ? Number(e.dataset.r) : 0;
+      if (!groups.has(g)) groups.set(g, {});
+      (groups.get(g)[p.dataset.day] ??= []).push(Number(e.dataset.m));
+    }));
+    return [...groups].map(([g, times]) => ({ ...route, short: sec.dataset.short, color: sec.dataset.color, ...(badges ? badges[g] : {}), to: sec.dataset.to, at: sec.dataset.at, url: sec.dataset.url, times }));
+  });
+}
 function boardRows(board) {
   if (board._data) return board._data;
   const src = board.querySelector('script[type="application/json"]');
   if (src) return JSON.parse(src.textContent);
   if (!CFG) return null;
-  const { wd } = now(CFG.tz);
-  return {
-    tz: CFG.tz,
-    h24: CFG.h24,
-    rows: [...document.querySelectorAll('[data-section]')].flatMap((sec) => {
-      const route = CFG.routes[sec.dataset.route];
-      // A journey table mixes routes: each row names its route (data-r) in the section's data-badges.
-      const badges = sec.dataset.badges ? JSON.parse(sec.dataset.badges) : null;
-      const groups = new Map();
-      sec.querySelectorAll('.panel').forEach((p) => p.querySelectorAll('[data-m]').forEach((el) => {
-        // A trip starting past the first column has no time there; a weekdays-only one (data-w) may not run today.
-        if (el.dataset.m === '' || (el.dataset.w && !el.dataset.w.split(',').includes(String(wd)))) return;
-        const g = badges ? Number(el.dataset.r) : 0;
-        if (!groups.has(g)) groups.set(g, {});
-        (groups.get(g)[p.dataset.day] ??= []).push(Number(el.dataset.m));
-      }));
-      return [...groups].map(([g, times]) => ({ ...route, short: sec.dataset.short, color: sec.dataset.color, text: sec.dataset.text, ...(badges ? badges[g] : {}), to: sec.dataset.to, at: sec.dataset.at, url: sec.dataset.url, times }));
-    }),
-  };
+  return { tz: CFG.tz, h24: CFG.h24, rows: sectionRows([...document.querySelectorAll('[data-section]')]) };
+}
+
+function renderClock(box, min, h24) {
+  if (!box) return;
+  const text = tm(min, h24);
+  if (!box.classList.contains('led-clock')) { box.textContent = text; return; }
+  box.setAttribute('aria-label', `Current time ${text}`);
+  box.replaceChildren(...text.split('').map((ch) => el('span', ch === ':' || ch === ' ' ? 'sep' : '', ch)));
+}
+
+function moreButton(box, onToggle) {
+  const btn = box.querySelector(':scope > .nx-more');
+  if (!btn || btn._wired) return btn;
+  btn._wired = true;
+  btn.addEventListener('click', () => { box._more = !box._more; onToggle(); });
+  return btn;
 }
 
 function renderBoard(board) {
   const data = boardRows(board);
   if (!data) return;
-  const { t, list: upcoming } = soon(data.rows, data.tz);
+  const merged = board.hasAttribute('data-merged');
+  const { t, list: upcoming } = soon(data.rows, data.tz, merged ? 720 : 180);
   const list = board.querySelector('ol');
-  const clock = board.querySelector('[data-clock]');
   const h24 = data.h24 ?? H24;
-  if (clock) clock.textContent = tm(t.min, h24);
-  const max = Number(board.dataset.rows || 5);
+  renderClock(board.querySelector('[data-clock]'), t.min, h24);
+  const base = Number(board.dataset.rows || 5);
+  const max = board._more ? base * 2 : base;
+  const btn = moreButton(board, () => renderBoard(board));
+  list.classList.remove('static');
   if (!upcoming.length) {
-    list.innerHTML = '';
-    const li = document.createElement('li');
-    li.className = 'empty';
-    li.textContent = 'No scheduled departures in the next three hours.';
-    list.append(li);
+    list.replaceChildren(el('li', 'empty', merged ? 'No more scheduled departures today. The timetables below show tomorrow’s times.' : 'No scheduled departures in the next three hours.'));
+    if (btn) btn.hidden = true;
     return;
   }
   list.replaceChildren(...upcoming.slice(0, max).map(({ r, m, w }, i) => {
-    const li = document.createElement('li');
+    const li = el('li');
     li.style.setProperty('--i', i);
-    const badge = document.createElement('span');
-    badge.className = 'badge';
-    badge.textContent = r.short || '•';
-    if (r.color) { badge.style.background = r.color; badge.style.color = r.text || '#fff'; }
-    const to = document.createElement(r.url ? 'a' : 'span');
-    to.className = 'to';
-    if (r.url) { to.href = r.url; to.style.textDecoration = 'none'; }
-    const dest = document.createElement('span');
-    dest.className = 'dest';
-    dest.textContent = `To ${r.to}`;
-    to.append(dest);
-    if (r.at) { const s = document.createElement('small'); s.textContent = r.at; to.append(s); }
-    const time = document.createElement('time');
-    time.textContent = fmt(m, h24);
-    const s = document.createElement('small');
-    s.textContent = waitText(w);
-    time.append(s);
-    li.append(badge, to, time);
+    if (merged) {
+      const note = el(r.url ? 'a' : 'span', 'note');
+      if (r.url) note.href = r.url;
+      note.append(el('b', '', `To ${r.to}`));
+      if (r.at) note.append(r.at);
+      li.append(badgeEl(r), note, el('span', 'in-chip', inText(w)), el('span', 'tm', tm(m, h24)));
+    } else {
+      const to = el(r.url ? 'a' : 'span', 'to');
+      if (r.url) to.href = r.url;
+      to.append(el('span', 'dest', `To ${r.to}`));
+      if (r.at) to.append(el('small', '', r.at));
+      const when = el('span', 'when');
+      when.append(el('span', `due${i === 0 ? ' now' : ''}`, inText(w)), el('small', '', tm(m, h24)));
+      li.append(badgeEl(r, 'md'), to, when);
+    }
     return li;
   }));
+  if (btn) { btn.hidden = upcoming.length <= base; btn.firstChild.textContent = board._more ? 'Show fewer ' : 'Show more '; }
+}
+
+/** Route pages: the next trips in each direction, from that direction's own timetable. */
+function renderRouteNext(panel) {
+  const secs = [...document.querySelectorAll('section.direction[data-section]')];
+  const t = now(CFG.tz);
+  const h24 = CFG.h24 ?? H24;
+  renderClock(panel.querySelector('[data-clock]'), t.min, h24);
+  const base = Number(panel.dataset.rows || 5);
+  panel.querySelectorAll('[data-nx-dir]').forEach((box) => {
+    const sec = secs.find((s) => s.dataset.dir === box.dataset.nxDir);
+    if (!sec) return;
+    const { list } = soon(sectionRows([sec]), CFG.tz, 720);
+    const ol = box.querySelector('ol');
+    const btn = moreButton(box, () => renderRouteNext(panel));
+    if (!list.length) {
+      ol.classList.remove('static');
+      ol.replaceChildren(el('li', '', 'No more departures this way today.'));
+      if (btn) btn.hidden = true;
+      return;
+    }
+    const max = box._more ? base * 2 : base;
+    ol.classList.remove('static');
+    ol.replaceChildren(...list.slice(0, max).map(({ m, w }, i) => {
+      const li = el('li');
+      li.style.setProperty('--i', i);
+      li.append(el('span', 'in-chip', w < 1 ? 'Due' : `in ${inText(w)}`), el('span', 'note', ''), el('span', 'tm', tm(m, h24)));
+      return li;
+    }));
+    if (btn) { btn.hidden = list.length <= base; btn.firstChild.textContent = box._more ? 'Show fewer ' : 'Show more '; }
+  });
 }
 
 /**
@@ -142,28 +354,32 @@ function setupCityBoard(board) {
   let zone = '';
   try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { /* old browser */ }
   const match = (o) => o.tz.some((z) => (z.endsWith('/') ? zone.startsWith(z) : zone === z));
-  const chips = [...document.querySelectorAll('[data-city]')];
-  const show = async (o) => {
+  const chips = [...board.querySelectorAll('[data-city]')];
+  const show = async (o, picked) => {
     chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.city === o.key)));
     try {
       const data = await fetch(o.src).then((r) => r.json());
       board._data = data;
       const name = board.querySelector('[data-board-name]');
-      if (name) { name.textContent = `${o.city}: ${data.name}`; name.href = data.url; }
-      const foot = board.querySelector('[data-board-foot]');
-      if (foot) foot.textContent = `Scheduled departures from ${data.system}, from the published timetable. Times are local to ${o.city}.`;
+      if (name) { name.textContent = o.city; name.href = data.url; }
+      const hint = board.querySelector('[data-board-hint]');
+      if (hint) hint.textContent = picked ? `${data.name}, ${data.system}` : `${data.name}, ${data.system} · picked from your time zone`;
       renderBoard(board);
     } catch { /* offline: keep what is shown */ }
   };
-  chips.forEach((c) => c.addEventListener('click', () => show(options.find((o) => o.key === c.dataset.city))));
-  show(options.find(match) || options[0]);
+  chips.forEach((c) => c.addEventListener('click', () => show(options.find((o) => o.key === c.dataset.city), true)));
+  const local = options.find(match);
+  show(local || options[0], !local);
 }
 
 function setupBoards() {
-  const boards = document.querySelectorAll('[data-board]');
-  if (!boards.length) return;
+  const boards = [...document.querySelectorAll('[data-board]')];
+  const routeNext = CFG && document.querySelector('[data-nx]');
   boards.forEach((b) => { if (b.dataset.boards) setupCityBoard(b); });
-  const tick = () => boards.forEach((b) => { if (!b.dataset.boards || b._data) renderBoard(b); });
+  const tick = () => {
+    boards.forEach((b) => { if (!b.dataset.boards || b._data) renderBoard(b); });
+    if (routeNext) renderRouteNext(routeNext);
+  };
   tick();
   setInterval(tick, 30_000);
 }
@@ -192,27 +408,101 @@ function setupFavs() {
       sync();
     });
   });
+  document.querySelectorAll('[data-saved-count]').forEach((e) => { if (favs.length) e.textContent = `${favs.length} on this phone`; });
   document.querySelectorAll('[data-saved]').forEach((box) => {
     const scope = box.dataset.saved;
     const items = favs.filter((f) => !scope || f.url.startsWith(scope));
     if (!items.length) return;
     const ul = box.querySelector('ul');
-    ul.replaceChildren(...items.slice(0, 8).map((f) => {
-      const li = document.createElement('li');
-      const a = document.createElement('a');
+    ul.replaceChildren(...items.slice(0, 12).map((f) => {
+      const li = el('li');
+      const a = el('a');
       a.href = f.url;
-      const span = document.createElement('span');
-      span.textContent = f.name;
-      const meta = document.createElement('span');
-      meta.className = 'meta';
-      meta.textContent = f.sub || '';
-      span.append(meta);
+      a.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.6l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z" fill="#F5B700" stroke="#F5B700" stroke-width="2" stroke-linejoin="round"/></svg>';
+      const span = el('span', '', f.name);
+      span.append(el('span', 'meta', f.sub || ''));
       a.append(span);
       li.append(a);
       return li;
     }));
+    ul.hidden = false;
     box.hidden = false;
+    const empty = box.querySelector('[data-saved-empty]');
+    if (empty) {
+      empty.hidden = true;
+      const h = el('h2', '', 'Your saved stops');
+      h.style.cssText = 'font-size:28px;margin:0 0 14px';
+      box.prepend(h);
+    }
   });
+}
+
+/* ---------- theme, menu, offline ---------- */
+function setupChrome() {
+  const root = document.documentElement;
+  const KEY = 'stopwatch:theme';
+  const sys = () => (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const current = () => root.dataset.theme || 'auto';
+  const sync = () => document.querySelectorAll('[data-theme-set]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.themeSet === current())));
+  const set = (mode) => {
+    if (mode === 'auto') { delete root.dataset.theme; try { localStorage.removeItem(KEY); } catch { /* private */ } } else { root.dataset.theme = mode; try { localStorage.setItem(KEY, mode); } catch { /* private */ } }
+    sync();
+  };
+  document.querySelectorAll('[data-theme-toggle]').forEach((b) => b.addEventListener('click', () => set((root.dataset.theme || sys()) === 'dark' ? 'light' : 'dark')));
+  document.querySelectorAll('[data-theme-set]').forEach((b) => b.addEventListener('click', () => set(b.dataset.themeSet)));
+  sync();
+
+  const menu = document.getElementById('menu');
+  if (menu) {
+    document.querySelectorAll('[data-menu-open]').forEach((b) => b.addEventListener('click', () => menu.showModal()));
+    menu.querySelector('[data-menu-close]')?.addEventListener('click', () => menu.close());
+    menu.addEventListener('click', (e) => { if (e.target === menu || e.target.closest('a, [data-search-open], [data-near-me]')) menu.close(); });
+  }
+
+  const offline = () => root.classList.toggle('is-offline', !navigator.onLine);
+  addEventListener('online', offline);
+  addEventListener('offline', offline);
+  offline();
+}
+
+/* ---------- system pages: route finder; country pages: region filter ---------- */
+function setupFinder() {
+  const box = document.querySelector('[data-finder]');
+  if (!box) return;
+  const q = box.querySelector('[data-finder-q]');
+  const items = [...box.querySelectorAll('li[data-q]')];
+  const count = box.querySelector('[data-finder-count]');
+  const none = box.querySelector('[data-finder-none]');
+  const freq = box.querySelector('[data-finder-freq]');
+  let mode = '';
+  const apply = () => {
+    const text = (q?.value || '').trim().toLowerCase();
+    const onlyFreq = freq?.getAttribute('aria-checked') === 'true';
+    let n = 0;
+    items.forEach((li) => {
+      const ok = (!text || li.dataset.q.includes(text)) && (!mode || li.dataset.mode === mode) && (!onlyFreq || li.hasAttribute('data-freq'));
+      li.hidden = !ok;
+      if (ok) n++;
+    });
+    box.querySelectorAll('.sub-h').forEach((h) => { const ul = h.nextElementSibling; h.hidden = ul && ![...ul.children].some((li) => !li.hidden); });
+    if (count) count.textContent = n;
+    if (none) none.hidden = n > 0;
+  };
+  q?.addEventListener('input', apply);
+  box.querySelectorAll('[data-finder-mode]').forEach((b) => b.addEventListener('click', () => {
+    mode = b.dataset.finderMode;
+    box.querySelectorAll('[data-finder-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    apply();
+  }));
+  freq?.addEventListener('click', () => { freq.setAttribute('aria-checked', String(freq.getAttribute('aria-checked') !== 'true')); apply(); });
+}
+function setupRegions() {
+  const tabs = [...document.querySelectorAll('[data-region]')];
+  if (!tabs.length) return;
+  tabs.forEach((b) => b.addEventListener('click', () => {
+    tabs.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    document.querySelectorAll('[data-region-box]').forEach((r) => { r.hidden = Boolean(b.dataset.region) && r.dataset.regionBox !== b.dataset.region; });
+  }));
 }
 
 /* ---------- search + near me ---------- */
@@ -281,13 +571,8 @@ function renderResults(items, empty) {
     a.setAttribute('aria-selected', String(i === 0));
     const kind = document.createElement('span');
     kind.className = 'kind';
-    if (type === 1) {
-      const b = document.createElement('span');
-      b.className = 'badge';
-      b.textContent = short || '•';
-      if (color) { b.style.background = color; b.style.color = ink(color); }
-      kind.append(b);
-    } else kind.textContent = KIND[type];
+    if (type === 1) kind.append(badgeEl({ short, color }));
+    else kind.textContent = KIND[type];
     const text = document.createElement('span');
     text.textContent = name;
     const small = document.createElement('small');
@@ -575,9 +860,13 @@ function setupOffline() {
   }
 }
 
+setupChrome();
 setupSections();
+setupRouteControls();
 setupBoards();
 setupFavs();
+setupFinder();
+setupRegions();
 setupSearch();
 setupMaps();
 setupActions();

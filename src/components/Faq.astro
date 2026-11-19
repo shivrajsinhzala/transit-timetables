@@ -1,13 +1,15 @@
 ---
 /**
- * Questions and answers, written for answer engines: each question is a real heading (H3), each
- * answer a short direct paragraph right under it, nothing collapsed. The FAQPage JSON-LD is built
- * from the same strings, so the markup can never claim anything the page does not show.
+ * Questions and answers: each question a real heading (H3) inside a <details> row, the answer a
+ * short direct paragraph in the HTML (collapsed rows are still read by search and answer
+ * engines). The FAQPage JSON-LD is built from the same strings, so the markup can never claim
+ * anything the page does not show.
  */
 import { indexable } from '../lib/indexing.js';
+import Icon from './Icon.astro';
 /** ld: false for questions about the site rather than about this page's timetable (home, country). */
-interface Props { items: [string, string][]; title?: string; id?: string; ld?: boolean }
-const { items, title, id = 'questions', ld = true } = Astro.props;
+interface Props { items: [string, string][]; title?: string; id?: string; ld?: boolean; open?: number }
+const { items, title, id = 'questions', ld = true, open = 1 } = Astro.props;
 // FAQPage markup only on pages Google may index, where every answer is this page's own data: on
 // tens of thousands of noindex stop and town pages it would be the same template stamped out again.
 const pagePath = Astro.url.pathname.replace(/^\/+|\.html$/g, '').replace(/\/$/, '');
@@ -18,13 +20,15 @@ const jsonLd = {
   mainEntity: items.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
 };
 ---
-<section class="faq" id={id}>
+<section class="faq sec reveal" id={id}>
   {title && <h2>{title}</h2>}
-  {items.map(([q, a]) => (
-    <div class="qa">
-      <h3>{q}</h3>
-      <p class="answer">{a}</p>
-    </div>
-  ))}
+  <div class="faq-list">
+    {items.map(([q, a], i) => (
+      <details open={i < open ? true : undefined}>
+        <summary><h3>{q}</h3><span class="fq-i"><Icon name="plus" /></span></summary>
+        <p class="answer">{a}</p>
+      </details>
+    ))}
+  </div>
   {withLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
 </section>

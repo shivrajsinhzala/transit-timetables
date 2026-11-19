@@ -150,18 +150,27 @@ function luminance(hex) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+const NAVY_L = 0.0164; // relative luminance of the brand navy #14233B
+const contrastOk = (L) => 1.05 / (L + 0.05) >= 4.5 || (L + 0.05) / (NAVY_L + 0.05) >= 4.5;
+
 /**
- * Text colour for a route badge: white or graphite, whichever reads better on the operator's
- * route colour. Feeds pair yellow routes with white text (1.9:1); this picks 4.5:1 or better.
+ * A route badge's fill: the operator's GTFS route colour, darkened in 12% steps until white or
+ * navy text reaches 4.5:1 on it (a few mid-tones reach neither). No colour: transit navy.
  */
+export function badgeBg(hex) {
+  if (luminance(hex) == null) return '#14233B';
+  let h = `#${String(hex).replace('#', '')}`.toUpperCase();
+  for (let k = 0; k < 12 && !contrastOk(luminance(h)); k++) {
+    h = '#' + [1, 3, 5].map((i) => Math.round(parseInt(h.slice(i, i + 2), 16) * 0.88).toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+  return h;
+}
+
+/** Badge text: white or navy, whichever contrasts more with the (corrected) badge fill. */
 export function inkFor(bg) {
-  const L = luminance(bg);
-  if (L == null) return '#ffffff';
-  // Near-black rather than the page graphite: on mid-tones (#B06E0E, #ED1D8F, #8177B7) graphite
-  // reached only 4.3-4.5:1, near-black clears 4.8:1.
-  const onWhite = 1.05 / (L + 0.05);
-  const onInk = (L + 0.05) / (0.0035 + 0.05);
-  return onWhite >= onInk ? '#ffffff' : '#0b0c0d';
+  const L = luminance(badgeBg(bg));
+  if (L == null) return '#FFFFFF';
+  return 1.05 / (L + 0.05) >= (L + 0.05) / (NAVY_L + 0.05) ? '#FFFFFF' : '#14233B';
 }
 
 /** "Kelowna" -> "Kelowna’s", "Smithers" -> "Smithers’" */

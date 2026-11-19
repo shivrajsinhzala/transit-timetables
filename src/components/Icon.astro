@@ -1,58 +1,58 @@
 ---
 /**
- * Phosphor icons (bold), inlined at build time so there is no icon font or extra request.
- * Only the glyphs the site uses are imported; add one here before using a new name.
+ * Stopwatch line icons: a 24px grid, 2px round strokes in currentColor, inlined at build time.
+ * Never filled, except the saved star (when on) and small amber accent dots. Add a glyph here
+ * before using a new name.
  */
-import i0 from '@phosphor-icons/core/assets/bold/star-bold.svg?raw';
-import i1 from '@phosphor-icons/core/assets/bold/map-trifold-bold.svg?raw';
-import i2 from '@phosphor-icons/core/assets/bold/printer-bold.svg?raw';
-import i3 from '@phosphor-icons/core/assets/bold/magnifying-glass-bold.svg?raw';
-import i4 from '@phosphor-icons/core/assets/bold/navigation-arrow-bold.svg?raw';
-import i5 from '@phosphor-icons/core/assets/bold/clock-bold.svg?raw';
-import i6 from '@phosphor-icons/core/assets/bold/bus-bold.svg?raw';
-import i7 from '@phosphor-icons/core/assets/bold/calendar-blank-bold.svg?raw';
-import i8 from '@phosphor-icons/core/assets/bold/wifi-slash-bold.svg?raw';
-import i9 from '@phosphor-icons/core/assets/bold/arrow-right-bold.svg?raw';
-import i10 from '@phosphor-icons/core/assets/bold/map-pin-bold.svg?raw';
-import i11 from '@phosphor-icons/core/assets/bold/share-network-bold.svg?raw';
-import i12 from '@phosphor-icons/core/assets/bold/warning-bold.svg?raw';
-import i13 from '@phosphor-icons/core/assets/bold/info-bold.svg?raw';
-import i14 from '@phosphor-icons/core/assets/bold/x-bold.svg?raw';
-import i15 from '@phosphor-icons/core/assets/bold/list-numbers-bold.svg?raw';
-import i16 from '@phosphor-icons/core/assets/bold/calendar-check-bold.svg?raw';
-import i17 from '@phosphor-icons/core/assets/bold/device-mobile-bold.svg?raw';
-import i18 from '@phosphor-icons/core/assets/bold/path-bold.svg?raw';
-import i19 from '@phosphor-icons/core/assets/bold/arrows-left-right-bold.svg?raw';
-
+const A = '#F5B700';
 const ICONS: Record<string, string> = {
-  'star': i0,
-  'map-trifold': i1,
-  'printer': i2,
-  'magnifying-glass': i3,
-  'navigation-arrow': i4,
-  'clock': i5,
-  'bus': i6,
-  'calendar-blank': i7,
-  'wifi-slash': i8,
-  'arrow-right': i9,
-  'map-pin': i10,
-  'share-network': i11,
-  'warning': i12,
-  'info': i13,
-  'x': i14,
-  'list-numbers': i15,
-  'calendar-check': i16,
-  'device-mobile': i17,
-  'path': i18,
-  'arrows-left-right': i19,
+  'magnifying-glass': `<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/><circle cx="10.5" cy="10.5" r="2" fill="${A}" stroke="none"/>`,
+  'navigation-arrow': `<circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/>`,
+  'crosshair-amber': `<circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="2.6" fill="${A}" stroke="none"/>`,
+  'star': `<path class="star" d="M12 3.2l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.6l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z" stroke-linejoin="round"/>`,
+  'star-on': `<path d="M12 3.2l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.6l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z" fill="${A}" stroke-linejoin="round"/>`,
+  'star-plus': `<path d="M12 3.2l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.6l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z" stroke-linejoin="round"/><path d="M12 8.5v5M9.5 11h5"/>`,
+  'arrow-right': `<path d="M5 12h14M13 6l6 6-6 6"/>`,
+  'arrows-left-right': `<path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/>`,
+  'chevron-right': `<path d="M9 5l7 7-7 7"/>`,
+  'chevron-down': `<path d="M5 9l7 7 7-7"/>`,
+  'chevron-left': `<path d="M15 5l-7 7 7 7"/>`,
+  'x': `<path d="M6 6l12 12M18 6L6 18"/>`,
+  'plus': `<path d="M12 5v14M5 12h14"/>`,
+  'menu': `<path d="M4 7h16M4 12h16M4 17h10"/>`,
+  'moon': `<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/><circle cx="17" cy="6" r="1.4" fill="${A}" stroke="none"/>`,
+  'sun': `<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/><circle cx="12" cy="12" r="1.4" fill="${A}" stroke="none"/>`,
+  'bus': `<rect x="4" y="3" width="16" height="15" rx="3.5"/><path d="M4 10.5h16M12 3v7.5M7.5 21v-3M16.5 21v-3"/><circle cx="8" cy="14.3" r="1.3" fill="${A}" stroke="none"/><circle cx="16" cy="14.3" r="1.3" fill="${A}" stroke="none"/>`,
+  'tram': `<path d="M8.5 2h7M12 2v3.5"/><rect x="5" y="5.5" width="14" height="12.5" rx="3"/><path d="M5 11h14M8 22l1.6-4M16 22l-1.6-4"/><circle cx="8.6" cy="14.6" r="1.2" fill="${A}" stroke="none"/><circle cx="15.4" cy="14.6" r="1.2" fill="${A}" stroke="none"/>`,
+  'subway': `<path d="M6 15.5V8.5a6 6 0 0 1 12 0v7a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 6 15.5z"/><path d="M6 11h12M8.5 22l1.8-4M15.5 22l-1.8-4"/><circle cx="9" cy="14.6" r="1.2" fill="${A}" stroke="none"/><circle cx="15" cy="14.6" r="1.2" fill="${A}" stroke="none"/>`,
+  'rail': `<path d="M4 17V9.5L9.5 4H18a2 2 0 0 1 2 2v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 11h16M7 22l1.8-4M17 22l-1.8-4M2 4h4"/><circle cx="16" cy="14.5" r="1.2" fill="${A}" stroke="none"/>`,
+  'ferry': `<path d="M3 13.5h18l-2.6 4.5H5.6z"/><path d="M7 13.5V9h10v4.5M12 9V4.5l4 2"/><path d="M2 21.5c1.7 0 1.7-1 3.3-1s1.7 1 3.4 1 1.6-1 3.3-1 1.7 1 3.4 1 1.6-1 3.3-1 1.6 1 3.3 1" stroke="${A}"/>`,
+  'map-pin': `<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3" fill="${A}" stroke="none"/>`,
+  'stop-post': `<path d="M12 22V10"/><rect x="6" y="2.5" width="12" height="8" rx="2"/><path d="M9 6.5h6"/><path d="M8.5 22h7"/><circle cx="12" cy="6.5" r="1" fill="${A}" stroke="none"/>`,
+  'map-trifold': `<path d="M9 4L3.5 6v14L9 18l6 2 5.5-2V4L15 6z"/><path d="M9 4v14M15 6v14"/>`,
+  'printer': `<path d="M7 8V3.5h10V8M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v6.5H7z"/><circle cx="17.5" cy="11" r="1" fill="${A}" stroke="none"/>`,
+  'share-network': `<circle cx="17.5" cy="5.5" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/><path d="M8.7 10.8l6.6-4M8.7 13.2l6.6 4"/>`,
+  'copy': `<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>`,
+  'calendar-check': `<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8.8 15l2.2 2.2 4.2-4.4" stroke="${A}"/>`,
+  'calendar-blank': `<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>`,
+  'clock': `<circle cx="12" cy="13.5" r="7.5"/><path d="M10 2.5h4M12 2.5v3.5M12 13.5l3-3"/><circle cx="12" cy="13.5" r="1.6" fill="${A}" stroke="none"/>`,
+  'wifi-slash': `<path d="M7 18h10.5a4 4 0 0 0 .9-7.9 6.5 6.5 0 0 0-11.6-2.4A4.6 4.6 0 0 0 7 18z"/><path d="M4 4l16 16" stroke="${A}"/>`,
+  'warning': `<path d="M12 3.5l9.5 16.5h-19z" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.2v.3"/>`,
+  'info': `<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>`,
+  'path': `<circle cx="6" cy="5.5" r="2.5"/><circle cx="18" cy="18.5" r="2.5" fill="${A}" stroke="${A}"/><path d="M6 8v3a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v-.5"/>`,
+  'list-numbers': `<path d="M10 6h10M10 12h10M10 18h10M4 5l1.5-1v5M4 14.5a1.5 1.5 0 1 1 2.6 1L4 18.5h3"/>`,
+  'device-mobile': `<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M10.5 18.5h3"/>`,
+  'shield': `<path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6z"/><path d="M8.8 12l2.2 2.2 4.2-4.4" stroke="${A}"/>`,
+  'database': `<ellipse cx="12" cy="6" rx="7.5" ry="3"/><path d="M4.5 6v12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3"/><circle cx="17" cy="17.5" r="1.3" fill="${A}" stroke="none"/>`,
+  'code': `<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 4.5l-3 15"/>`,
+  'external': `<path d="M14 4h6v6M20 4l-9 9M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/>`,
 };
 
-interface Props { name: string; label?: string; class?: string }
-const { name, label, class: cls = '' } = Astro.props;
-const raw = ICONS[name];
-if (!raw) throw new Error(`Icon "${name}" is not imported in Icon.astro`);
-const svg = raw
-  .replace('<svg ', `<svg class="icon ${cls}" ${label ? `role="img" aria-label="${label}"` : 'aria-hidden="true"'} fill="currentColor" `)
-  .replace(/ width="[^"]*"| height="[^"]*"/g, '');
+interface Props { name: string; label?: string; class?: string; size?: number }
+const { name, label, class: cls = '', size } = Astro.props;
+const body = ICONS[name];
+if (!body) throw new Error(`Icon "${name}" is not defined in Icon.astro`);
+const dims = size ? ` width="${size}" height="${size}"` : '';
+const svg = `<svg class="icon ${cls}" viewBox="0 0 24 24"${dims} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${label ? `role="img" aria-label="${label}"` : 'aria-hidden="true"'}>${body}</svg>`;
 ---
 <Fragment set:html={svg} />

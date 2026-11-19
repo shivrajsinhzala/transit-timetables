@@ -6,8 +6,9 @@ import Ad from '../../../../components/Ad.astro';
 import RouteBadge from '../../../../components/RouteBadge.astro';
 import Faq from '../../../../components/Faq.astro';
 import Source from '../../../../components/Source.astro';
+import Crumbs from '../../../../components/Crumbs.astro';
 import { stopSystems, pageStops, stopInShard, hubOf, nearby, isIndexedStop } from '../../../../lib/data.js';
-import { byHour, place, plain, inkFor, possessive, routeLabel, modeName, vehicle, plural, cap, stopWord, sharedVehicle, toward } from '../../../../lib/format.js';
+import { byHour, place, plain, inkFor, badgeBg, possessive, routeLabel, modeName, vehicle, plural, cap, stopWord, sharedVehicle, toward } from '../../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../../lib/page.js';
 
 export function getStaticPaths() {
@@ -93,81 +94,150 @@ const jsonLd = [
   },
 ];
 const cfg = { tz: system.timezone, h24, routes: Object.fromEntries(stop.routes.map((r) => { const route = routeOf(r.route); return [`${r.route}|${r.headsign}`, { days: route?.days.map(({ key, days }) => ({ key, days })) || [], exceptions: route?.exceptions.map(({ date, runs }) => ({ date, runs })) || [] }]; })) };
+
+// ---- redesign ----
+// Night-only routes (every time between 11 pm and 5:30 am) fold into one row under the daytime ones.
+const isNight = (r) => { const all2 = Object.values(r.times).flat(); return all2.length > 0 && all2.every((mm) => { const d = mm % 1440; return d >= 1380 || d < 330; }); };
+const dayRoutes = stop.routes.map((r, i) => ({ r, i })).filter(({ r }) => !isNight(r));
+const nightRoutes = stop.routes.map((r, i) => ({ r, i })).filter(({ r }) => isNight(r));
+const firstOn = (r) => { const d = r.days[0]; const tt = (d && r.times[d.key]) || []; return tt.length ? { label: d.label, first: tt[0], last: tt.at(-1) } : null; };
+const uniqueRoutes = [...new Map(stop.routes.map((r) => [r.route, r])).values()];
+const nightNames = [...new Set(nightRoutes.map(({ r }) => labelOf(r)))];
+
 ---
 <Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} speakable={['.lede', '.faq .answer']} system={system}>
 <main class="wrap">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a>{hub && <> › <a href={`${base}/hub/${hub.slug}`}>{plain(hub.name)}</a></>} › Stop {stop.code}</nav>
-  <div class="page-head">
-    <Icon name="map-pin" class="lg" />
-    <div>
-      <h1>{name}</h1>
-      <p class="sub">Stop {stop.code} · {system.name} · {routeNums.length > 1 ? 'Routes' : 'Route'} {routeNums.length > 12 ? `${routeNums.slice(0, 12).join(', ')} and ${routeNums.length - 12} more` : routeList}</p>
+  <Crumbs cc={system.cc} items={[{ name: x.c.name, href: `/${system.cc}` }, { name: system.name, href: base }, ...(hub ? [{ name: plain(hub.name), href: `${base}/hub/${hub.slug}` }] : []), { name: `Stop ${stop.code}` }]} />
+
+  <section class="page-head in" style="align-items:flex-end">
+    <div class="ph-main" style="flex:1 1 520px;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span class="stop-icon"><Icon name="stop-post" /></span><span class="code-chip">Stop code {stop.code}</span></div>
+      <h1>{name} departures</h1>
+      <p style="margin:0;font-size:16px">{system.name} · served by {routeNums.length} {routeNums.length === 1 ? 'route' : 'routes'}{nightNames.length ? `, including ${nightNames.length} night ${nightNames.length === 1 ? 'route' : 'routes'}` : ''}</p>
+      <div class="badges">{uniqueRoutes.slice(0, 24).map((r) => <a href={`${base}/${r.route}`} aria-label={`${labelOf(r)} ${word}`}><RouteBadge route={{ short: r.short, color: r.color }} size="md" /></a>)}</div>
     </div>
-  </div>
-  <div class="actions">
-    <button class="btn btn-quiet btn-sm" type="button" data-fav={`stop:${system.key}/${stop.code}`} data-name={name} data-sub={`${system.name} · ${stop.code}`}><Icon name="star" /><span data-fav-label>Save</span></button>
-    <button class="btn btn-quiet btn-sm" type="button" data-share><Icon name="share-network" /><span data-share-label>Share</span></button>
-    {stop.lat && <a class="btn btn-quiet btn-sm" href={`https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lon}`} rel="nofollow"><Icon name="map-trifold" /> Directions</a>}
-    {hub && <a class="btn btn-quiet btn-sm" href={`${base}/hub/${hub.slug}`}><Icon name="bus" /> All of {plain(hub.name)}</a>}
-  </div>
+    <div class="actions no-print">
+      <button class="btn btn-dark" type="button" data-fav={`stop:${system.key}/${stop.code}`} data-name={name} data-sub={`${system.name} · ${stop.code}`}><Icon name="star" /><span data-fav-label>Save</span></button>
+      <button class="btn" type="button" data-share><Icon name="share-network" /><span data-share-label>Share</span></button>
+      {stop.lat && <a class="btn" href={`https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lon}`} rel="nofollow"><Icon name="map-trifold" /> Directions</a>}
+      {hub && <a class="btn" href={`${base}/hub/${hub.slug}`}><Icon name="bus" /> All of {plain(hub.name)}</a>}
+    </div>
+  </section>
 
-  <div class="board near-top" data-board data-rows="6" aria-label={`Next scheduled ${vs} at ${name}`}>
-    <div class="board-head"><strong>Next {vs} here</strong><span class="board-clock" data-clock></span></div>
-    <ol><li class="empty">Loading the next {vs}…</li></ol>
-    <p class="board-foot">Scheduled times. The first {v} of the day leaves at {t(firstAll)}.</p>
-  </div>
+  <section class="nx in" aria-labelledby="nx-h" data-board data-rows="8" data-merged style="animation-delay:.1s">
+    <div class="nx-head">
+      <h2 id="nx-h"><span class="dot"></span>Next from this {stopW}</h2>
+      <span class="nx-now js-only">Now <span data-clock></span></span>
+    </div>
+    <ol class="merged">
+      {stop.routes.slice(0, 8).map((r) => { const f = firstOn(r); return (
+        <li>
+          <RouteBadge route={{ short: r.short, color: r.color }} />
+          <span class="note"><b>To {toward(r.headsign)}</b>{f ? `${f.label}: first ${t(f.first)}, last ${t(f.last)}` : ''}</span>
+        </li>
+      ); })}
+    </ol>
+    <button class="nx-more" type="button" hidden>Show more <Icon name="chevron-down" /></button>
+    <p class="nx-foot">All routes merged and sorted by time · scheduled, not live. The first {v} of the day leaves at {t(firstAll)}.</p>
+  </section>
 
-  <p class="lede" style="margin-top:1.2rem">{name} is a {modeWord === 'transit' ? 'transit' : modeWord} {stopW} on the {system.name} network (stop {stop.code}), served by {linesText}.{mon ? ` On weekdays ${vs} run from ${t(mon.first)} to ${t(mon.last)}.` : ''}{hub ? ` It is one of ${hub.stops.length} stops at ${plain(hub.name)}.` : ''}</p>
-
-  {/* No ad between the stop's action buttons, its next-departures board and the first timetable:
-      the first ad comes after one whole timetable, away from anything a rider taps. */}
-  {stop.routes.map((r, ri) => { const key = `${r.route}|${r.headsign}`; const route = routeOf(r.route); return (<>
-    <section class="direction stop-route" data-section data-route={key} data-short={r.short || ''} data-color={r.color || ''} data-text={inkFor(r.color)} data-to={toward(r.headsign)} data-url={`${base}/${r.route}`}>
-      <h2><a href={`${base}/${r.route}`} style="text-decoration:none" aria-label={`${labelOf(r)} ${word}`}><RouteBadge route={{ short: r.short, color: r.color, textColor: route?.textColor, type: route?.type }} /></a> {labelOf(r)} <span class="muted">to {toward(r.headsign)}</span></h2>
-      <div class="tabs" role="tablist" aria-label="Day of the week">
-        {r.days.filter((d) => r.times[d.key]).map((d, i) => <button type="button" role="tab" data-day={d.key} aria-selected={i === 0 ? 'true' : 'false'}>{d.label}</button>)}
-      </div>
-      <p class="next-line" aria-live="polite"></p>
-      {r.days.filter((d) => r.times[d.key]).map((d, i) => (
-        <div class={`panel${i === 0 ? ' on' : ''}`} data-day={d.key} role="tabpanel">
-          <h3>{d.label}, {r.times[d.key].length} {r.times[d.key].length === 1 ? (route ? vehicle(route.type, system) : 'departure') : (route ? plural(vehicle(route.type, system)) : 'departures')}</h3>
-          <table class="hours">
-            <tbody>
-              {byHour(r.times[d.key], h24).map((h) => (
-                <tr><th class={h.pm ? 'pm' : undefined}>{h.label}{!h24 && <span class="sr">{h.pm ? ' pm' : ' am'}</span>}</th><td>{h.mins.map((mm) => <span data-m={mm.m}>{mm.text}</span>)}</td></tr>
+  <section class="sec" aria-labelledby="by-h" style="padding-top:48px">
+    <div class="sec-head reveal">
+      <h2 id="by-h" style="font-size:clamp(26px,2.6vw,32px)">Timetables by route</h2>
+      <p>{nightRoutes.length ? 'Daytime routes first, night routes below' : 'Routes leaving soonest come first'} · {h24 ? '24-hour clock' : 'times in 12-hour format'}</p>
+    </div>
+    <div class="by-route" data-sortable>
+      {dayRoutes.map(({ r }) => { const key = `${r.route}|${r.headsign}`; const route = routeOf(r.route); return (
+        <article class="rsec reveal" data-section data-route={key} data-short={r.short || ''} data-color={badgeBg(r.color)} data-text={inkFor(r.color)} data-to={toward(r.headsign)} data-url={`${base}/${r.route}`}>
+          <header>
+            <RouteBadge route={{ short: r.short, color: r.color }} size="md" />
+            <span class="t"><h3><a href={`${base}/${r.route}`}>{labelOf(r)}</a></h3><small>to {toward(r.headsign)}</small></span>
+            <span class="nextchip" data-nextchip></span>
+          </header>
+          <div class="seg" role="tablist" aria-label={`${labelOf(r)}: day of the week`}>
+            {r.days.filter((d) => r.times[d.key]).map((d, i) => <button type="button" role="tab" data-day={d.key} aria-selected={i === 0 ? 'true' : 'false'}>{d.label}</button>)}
+          </div>
+          <p class="next-line" aria-live="polite"></p>
+          {r.days.filter((d) => r.times[d.key]).map((d, i) => (
+            <div class={`panel${i === 0 ? ' on' : ''}`} data-day={d.key} role="tabpanel">
+              <h3>{d.label}, {r.times[d.key].length} {r.times[d.key].length === 1 ? (route ? vehicle(route.type, system) : 'departure') : (route ? plural(vehicle(route.type, system)) : 'departures')}</h3>
+              <table class="hours">
+                <tbody>
+                  {byHour(r.times[d.key], h24).map((h) => (
+                    <tr data-h={h.h}><th>{h.label}{!h24 && <> {h.pm ? 'pm' : 'am'}</>}{h.h >= 24 ? '+' : ''}</th><td>{h.mins.map((mm) => <span data-m={mm.m}>{mm.text}</span>)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+          <a class="full" href={`${base}/${r.route}`}>Full day timetable for {labelOf(r)}</a>
+        </article>
+      ); })}
+    </div>
+    {nightRoutes.length > 0 && (
+      <details class="night reveal">
+        <summary>
+          <span class="stop-icon"><Icon name="clock" /></span>
+          <span style="flex:1"><b>Night service · {nightNames.join(', ')}</b><small>Runs overnight only</small></span>
+          <Icon name="chevron-down" />
+        </summary>
+        <div class="by-route">
+          {nightRoutes.map(({ r }) => { const key = `${r.route}|${r.headsign}`; const route = routeOf(r.route); return (
+            <article class="rsec" data-section data-route={key} data-short={r.short || ''} data-color={badgeBg(r.color)} data-text={inkFor(r.color)} data-to={toward(r.headsign)} data-url={`${base}/${r.route}`}>
+              <header>
+                <RouteBadge route={{ short: r.short, color: r.color }} size="md" />
+                <span class="t"><h3><a href={`${base}/${r.route}`}>{labelOf(r)}</a></h3><small>to {toward(r.headsign)}</small></span>
+                <span class="nextchip" data-nextchip></span>
+              </header>
+              <div class="seg" role="tablist" aria-label={`${labelOf(r)}: day of the week`}>
+                {r.days.filter((d) => r.times[d.key]).map((d, i) => <button type="button" role="tab" data-day={d.key} aria-selected={i === 0 ? 'true' : 'false'}>{d.label}</button>)}
+              </div>
+              <p class="next-line" aria-live="polite"></p>
+              {r.days.filter((d) => r.times[d.key]).map((d, i) => (
+                <div class={`panel${i === 0 ? ' on' : ''}`} data-day={d.key} role="tabpanel">
+                  <h3>{d.label}, {r.times[d.key].length} {r.times[d.key].length === 1 ? (route ? vehicle(route.type, system) : 'departure') : (route ? plural(vehicle(route.type, system)) : 'departures')}</h3>
+                  <table class="hours"><tbody>
+                    {byHour(r.times[d.key], h24).map((h) => (
+                      <tr data-h={h.h}><th>{h.label}{!h24 && <> {h.pm ? 'pm' : 'am'}</>}{h.h >= 24 ? '+' : ''}</th><td>{h.mins.map((mm) => <span data-m={mm.m}>{mm.text}</span>)}</td></tr>
+                    ))}
+                  </tbody></table>
+                </div>
               ))}
-            </tbody>
-          </table>
+              <a class="full" href={`${base}/${r.route}`}>Full overnight timetable for {labelOf(r)}</a>
+            </article>
+          ); })}
         </div>
-      ))}
-    </section>
-    {ri === 0 && stop.routes.length > 1 && <Ad />}
-  </>); })}
+      </details>
+    )}
+    <p class="source" style="margin-top:20px">Read each row as the hour, then the minutes past it: {h24 ? '07 then 05 35 means 07:05 and 07:35.' : '7 am then 05 35 means 7:05 am and 7:35 am.'} A "+" after the hour marks trips after midnight that belong to the day before. Scheduled times from {possessive(system.name)} published {word} data, refreshed {dateFor(system.builtOn, system.cc)}. Not live arrivals.</p>
+  </section>
 
-  <p class="small muted" style="margin-top:1.5rem">Read each row as the hour, then the minutes past it: {h24 ? '07 then 05 35 means 07:05 and 07:35.' : <>7 then 05 35 means 7:05 and 7:35. <b>Bold hours are pm.</b></>} Scheduled times from {possessive(system.name)} official {word} data, refreshed {dateFor(system.builtOn, system.cc)}. Not live arrivals.</p>
+  <Ad />
 
-  <details class="embed-box">
-    <summary><h2>Put these times on your website</h2></summary>
-    <p class="muted small">For a school, club, shop or community site near this {stopW}: paste this code into your page and it shows the next {vs} here, worked out again every 30 seconds. Free, no sign-up.</p>
-    <textarea class="embed-code" readonly rows="4" aria-label="Embed code">{embedCode}</textarea>
-    <button class="btn btn-quiet btn-sm" type="button" data-copy><Icon name="share-network" /><span data-copy-label>Copy code</span></button>
-  </details>
-
-  <Ad slot="9765370376" />
+  <section class="sec twocol">
+    <div class="reveal lede-box">
+      <h2 style="font-size:24px;margin-bottom:10px">About this {stopW}</h2>
+      <p class="lede" style="font-size:16px">{name} is a {modeWord === 'transit' ? 'transit' : modeWord} {stopW} on the {system.name} network (stop {stop.code}), served by {linesText}.{mon ? ` On weekdays ${vs} run from ${t(mon.first)} to ${t(mon.last)}${mon.last >= 1440 ? ' (after midnight)' : ''}.` : ''}{hub ? ` It is one of ${hub.stops.length} stops at ${plain(hub.name)}.` : ''}</p>
+      {near.length > 0 && <>
+        <h2 style="font-size:24px;margin:24px 0 10px">Stops nearby</h2>
+        <ul class="list near-list">
+          {near.map(({ stop: s, m }) => { const body = <><span class="i-tile"><Icon name="map-pin" /></span><span>{plain(s.name)}<span class="meta">{s.code} · about {Math.max(1, Math.round(m / 80))} min walk ({Math.round(m / 10) * 10} m)</span></span></>; return isIndexedStop(system.key, s.code)
+            ? <li><a href={stopHref(s.code)}>{body}<Icon name="arrow-right" class="go-i" /></a></li>
+            : <li><span class="row">{body}</span></li>; })}
+        </ul>
+      </>}
+    </div>
+    <div class="embed-box reveal no-print">
+      <div style="display:flex;align-items:center;gap:10px"><Icon name="code" /><h2>Put these times on your website</h2></div>
+      <p>For a school, club, café or community site near this {stopW}: paste this code into your page and it shows the next {vs} here, worked out again every 30 seconds. Free, no sign-up, with a link back.</p>
+      <textarea class="embed-code" readonly rows="5" aria-label="Embed code">{embedCode}</textarea>
+      <button class="btn btn-primary btn-sm" type="button" data-copy><Icon name="copy" /><span data-copy-label>Copy code</span></button>
+    </div>
+  </section>
 
   <Faq items={faq} title={`Questions about ${name}`} />
   <Source system={system} />
-
-  {near.length > 0 && (
-    <section>
-      <h2>Stops nearby</h2>
-      <ul class="list">
-        {near.map(({ stop: s, m }) => { const body = <><Icon name="map-pin" /><span>{plain(s.name)}<span class="meta">{s.code} · about {Math.max(1, Math.round(m / 80))} min walk ({Math.round(m / 10) * 10} m)</span></span></>; return isIndexedStop(system.key, s.code)
-          ? <li><a href={stopHref(s.code)}>{body}<Icon name="arrow-right" class="go" /></a></li>
-          : <li><span class="row">{body}</span></li>; })}
-      </ul>
-    </section>
-  )}
+  <Ad slot="9765370376" />
 </main>
 <script type="application/json" id="cfg" set:html={JSON.stringify(cfg)} />
 </Base>

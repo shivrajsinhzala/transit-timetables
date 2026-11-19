@@ -3,10 +3,12 @@ import { SITE } from '../lib/site.js';
 import '../styles/global.css';
 import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
+import Flag from '../components/Flag.astro';
 import { SYSTEM_INDEX, COUNTRIES, countries, systemsIn } from '../lib/data.js';
 import { plain } from '../lib/format.js';
 import { indexable } from '../lib/indexing.js';
-import { LANG, countryNames } from '../lib/page.js';
+import { LANG, countryNames, dateFor } from '../lib/page.js';
+import { FEATURED } from '../lib/featured.js';
 
 interface Props {
   title: string;
@@ -40,6 +42,7 @@ const h24 = cc ? COUNTRIES[cc].h24 : false;
 const allCountries = countries();
 const footSystems = cc ? [...systemsIn(cc)].sort((a, b) => b.routes - a.routes).slice(0, 36) : [];
 const credit = system?.attribution;
+const refreshed = system?.builtOn || SYSTEM_INDEX.map((s) => s.builtOn).filter(Boolean).sort().at(-1);
 // The homepage is canonical with its trailing slash: that is the URL in the sitemap, and the
 // one Search Console and the crawl audit compare against.
 const canonical = path ? `${SITE}/${path}` : `${SITE}/`;
@@ -53,6 +56,9 @@ const updated = modified;
 const robotsNoindex = noindex || !indexable(path);
 // Ads only on indexable pages (components/Ad.astro renders nothing elsewhere; app.js reads data-ads).
 const adsOn = !robotsNoindex;
+// Countries by size, as the header and menu list them.
+const byRoutes = [...allCountries].map((c) => ({ ...c, routes: c.systems.reduce((a, s) => a + s.routes, 0) })).sort((a, b) => b.routes - a.routes);
+const popular = FEATURED.map((f) => ({ href: `/${f.key}`, name: SYSTEM_INDEX.find((s) => s.key === f.key)?.name || f.city }));
 
 /*
  * One entity graph for the whole site: the site, the organisation behind it and its founder,
@@ -90,6 +96,7 @@ const AD_CLIENT = 'ca-pub-7164999486301748';
 // Google Analytics 4 property "Stopwatch" (created 4 Nov 2026): where visitors come from. Add the new domain
 // to its web stream rather than making a new property, so history carries over.
 const GA_ID = 'G-N4L1ZYDYGZ';
+const FONTS = 'https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Doto:wght@900&family=Overpass:wght@400;500;600;700;800&display=swap';
 ---
 <!doctype html>
 <html lang={lang} data-h24={h24 ? '' : undefined} data-ads={adsOn ? '' : undefined}>
@@ -100,6 +107,11 @@ const GA_ID = 'G-N4L1ZYDYGZ';
   <meta name="description" content={description} />
   <link rel="canonical" href={canonicalHref} />
   <meta name="robots" content={robotsNoindex ? 'noindex, follow' : 'index, follow, max-image-preview:large, max-snippet:-1'} />
+  {/* Theme before first paint: a saved choice (menu or header toggle) wins over the system setting. */}
+  <script is:inline>try { var th = localStorage.getItem('stopwatch:theme'); if (th === 'light' || th === 'dark') document.documentElement.dataset.theme = th; } catch (e) {} document.documentElement.classList.add('js');</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href={FONTS} />
   {adsOn && <link rel="preconnect" href="https://pagead2.googlesyndication.com" />}
   {adsOn && <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossorigin />}
   <meta property="og:type" content="website" />
@@ -111,8 +123,8 @@ const GA_ID = 'G-N4L1ZYDYGZ';
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#F2F4F5" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0E1726" media="(prefers-color-scheme: dark)" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="icon" href="/favicon-48.png" sizes="48x48" type="image/png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -122,65 +134,140 @@ const GA_ID = 'G-N4L1ZYDYGZ';
       headline back 1.7 s when it loaded here); the meta tag above is what verifies the site. */}
   <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}></script>
   <script is:inline define:vars={{ GA_ID }}>window.dataLayer = window.dataLayer || []; function gtag() { dataLayer.push(arguments); } gtag('js', new Date()); gtag('config', GA_ID);</script>
-  <script is:inline>document.documentElement.classList.add('js')</script>
   {[pageLd, ...(path === '' || path === 'about' ? entityLd : []), ...jsonLd].map((j) => <script type="application/ld+json" set:html={JSON.stringify(j)} />)}
 </head>
 <body>
   <a class="sr" href="#main">Skip to content</a>
+  <div class="offline-bar" role="status"><Icon name="wifi-slash" /> You're offline. Showing the timetable saved on this phone.</div>
   <header class="site-head">
-    <div class="wrap">
-      <a class="brand" href="/" aria-label="Stopwatch home"><Logo /> Stopwatch</a>
-      <nav class="head-nav" aria-label="Site">
-        <a href={cc ? `/${cc}` : '/#countries'} class="hide-sm">{cc ? COUNTRIES[cc].name : 'Countries'}</a>
-        <a href="/about" class="hide-sm">About</a>
-        <button class="search-trigger" type="button" data-search-open aria-label="Search routes and stops">
-          <Icon name="magnifying-glass" /><span class="label">Route, stop or town</span><kbd>/</kbd>
-        </button>
+    <div class="wrap head-row">
+      <a class="brand" href="/" aria-label="Stopwatch home"><Logo /><span class="wordmark"><b>Stopwatch</b><small>TIMETABLES</small></span></a>
+      <button class="head-search" type="button" data-search-open aria-label="Search routes, stops or towns">
+        <Icon name="magnifying-glass" class="mag" /><span>Route, stop or town</span><kbd>/</kbd>
+      </button>
+      <div class="head-gap"></div>
+      <nav class="head-nav" aria-label="Main">
+        <a href={cc ? `/${cc}` : '/#countries'}>
+          {cc ? <span class="mini-flags"><Flag cc={cc} w={22} h={14} /></span> : <span class="mini-flags">{byRoutes.slice(0, 3).map((c) => <Flag cc={c.cc} w={22} h={14} />)}</span>}
+          {cc ? COUNTRIES[cc].name : 'Countries'}
+        </a>
+        <a href="/#saved"><Icon name="star-on" /> Saved</a>
+        <button class="icon-btn theme-btn" type="button" data-theme-toggle aria-label="Switch between light and dark theme"><Icon name="moon" class="moon" /><Icon name="sun" class="sun" /></button>
+        <button type="button" class="icon-btn near" data-near-me><Icon name="crosshair-amber" /> Near me</button>
       </nav>
+      <div class="head-gap m-only"></div>
+      <button class="icon-btn m-only" type="button" data-search-open aria-label="Search routes, stops or towns"><Icon name="magnifying-glass" /></button>
+      <button class="icon-btn m-only" type="button" data-menu-open aria-label="Open menu" aria-controls="menu"><Icon name="menu" /></button>
     </div>
   </header>
 
   <div id="main"><slot /></div>
 
   <footer class="site-foot">
-    <div class="wrap foot-grid">
-      <div>
-        <a class="brand" href="/"><Logo size={26} /> Stopwatch</a>
-        <p style="margin-top:1rem">
-          {SYSTEM_INDEX.length} transit systems in {allCountries.length} countries, every timetable on one screen with the next departure first.
-          {credit
-            ? <> {system.name} times come from <a href={credit.url} rel="nofollow">{plain(credit.text)}</a> open data{credit.license && <>, used under {/licen[cs]e|terms/i.test(credit.license) ? 'the ' : ''}<a href={credit.licenseUrl} rel="nofollow license">{plain(credit.license)}</a></>}.</>
-            : <> Built from the open schedule data that operators and transport authorities publish; every timetable page names its source and licence.</>}
-        </p>
-        <p>
-          Stopwatch is independent. It is not run by, affiliated with or endorsed by {credit ? plain(credit.text) : 'any transit operator'} or any
-          government. Times are scheduled, not live; disruptions and alerts are on the operator’s own channels.
-        </p>
-        <p><a href="/about">About</a> · <a href="/privacy">Privacy</a> · <a href="https://headway.shivrajsinh.in" target="_blank" rel="noopener">Headway Timetables</a></p>
+    <div class="wrap foot-cta">
+      <h2>Where are you going next?</h2>
+      <div class="foot-search">
+        <button class="field" type="button" data-search-open>Route, stop or town</button>
+        <button class="btn btn-primary" type="button" data-search-open>Find times</button>
       </div>
-      <nav aria-label="Countries and systems">
-        <ul class="foot-countries">
-          {allCountries.map((c) => <li><a href={`/${c.cc}`} aria-current={c.cc === cc ? 'true' : undefined}>{c.name} <small>{c.systems.length}</small></a></li>)}
-        </ul>
-        {footSystems.length > 0 && (
-          <ul class="foot-towns">
-            {footSystems.map((t) => <li><a href={`/${t.key}`}>{t.name}</a></li>)}
-          </ul>
-        )}
+    </div>
+    <div class="wrap"><div class="foot-rule"></div></div>
+    <div class="wrap foot-cols">
+      <nav aria-label="Countries">
+        <h3>Countries</h3>
+        {byRoutes.map((c) => <a href={`/${c.cc}`} aria-current={c.cc === cc ? 'true' : undefined}><Flag cc={c.cc} />{c.name}<small>{c.systems.length}</small></a>)}
       </nav>
+      <nav aria-label="Popular cities">
+        <h3>Popular cities</h3>
+        {popular.map((p) => <a href={p.href}>{p.name}</a>)}
+      </nav>
+      <nav aria-label="Stopwatch">
+        <h3>Stopwatch</h3>
+        <a href="/about">About</a>
+        <a href="/about#how-to-read">How to read a timetable</a>
+        <a href="/privacy">Privacy</a>
+        <a href="https://headway.shivrajsinh.in" target="_blank" rel="noopener">Headway Timetables</a>
+      </nav>
+      <div>
+        <h3>About the data</h3>
+        <p><Icon name="shield" /><span>Independent. Not run by, affiliated with or endorsed by {credit ? plain(credit.text) : 'any transit operator'} or any government.</span></p>
+        <p><Icon name="clock" /><span>Scheduled times, not live. Disruptions and alerts are on the operator's own channels.</span></p>
+        <p><Icon name="database" /><span>
+          {credit
+            ? <>{system.name} times come from <a href={credit.url} rel="nofollow">{plain(credit.text)}</a> open data{credit.license && <>, used under {/licen[cs]e|terms/i.test(credit.license) ? 'the ' : ''}<a href={credit.licenseUrl} rel="nofollow license">{plain(credit.license)}</a></>}.</>
+            : <>Built from the open GTFS data that operators publish. Each timetable page names its source and licence.</>}
+          {refreshed && <> Refreshed weekly, last on {dateFor(refreshed, cc || 'uk')}.</>}
+        </span></p>
+      </div>
+    </div>
+    {footSystems.length > 0 && (
+      <div class="wrap">
+        <nav class="foot-towns" aria-label={`Transit systems in ${COUNTRIES[cc].name}`}>
+          {footSystems.map((t) => <a href={`/${t.key}`}>{t.name}</a>)}
+        </nav>
+      </div>
+    )}
+    <div class="wrap" aria-hidden="true"><div class="giant">On the clock<i>.</i></div></div>
+    <div class="wrap foot-base">
+      <span>© 2026 Stopwatch, stopwatchtimetables.com · {SYSTEM_INDEX.length} transit systems in {allCountries.length} countries</span>
+      <span>Made for people standing at the stop.</span>
     </div>
   </footer>
+
+  <nav class="bottom-bar" aria-label="Quick actions">
+    <button type="button" data-search-open><Icon name="magnifying-glass" />Search</button>
+    <button type="button" data-near-me><Icon name="crosshair-amber" />Near me</button>
+    <a href="/#saved"><Icon name="star-on" />Saved</a>
+  </nav>
+
+  <dialog class="menu" id="menu" aria-label="Menu">
+    <div class="menu-head">
+      <a class="brand" href="/" aria-label="Stopwatch home"><Logo /><span class="wordmark"><b>Stopwatch</b></span></a>
+      <div class="head-gap"></div>
+      <button class="icon-btn" type="button" data-menu-close aria-label="Close menu"><Icon name="x" /></button>
+    </div>
+    <div class="menu-body">
+      <button class="menu-search" type="button" data-search-open><Icon name="magnifying-glass" class="mag" />Route, stop or town</button>
+      <div class="menu-tiles">
+        <button class="amber" type="button" data-near-me><Icon name="navigation-arrow" />Stops near me</button>
+        <a href="/#saved"><Icon name="star" /><span>Saved stops<small data-saved-count>On this phone</small></span></a>
+      </div>
+      <section aria-labelledby="mm-c">
+        <h2 id="mm-c">Countries</h2>
+        <ul class="menu-countries">
+          {byRoutes.map((c) => <li><a href={`/${c.cc}`}><Flag cc={c.cc} w={30} h={15} />{c.name}</a></li>)}
+        </ul>
+      </section>
+      <ul class="menu-links">
+        <li><a href="/about#how-to-read">How to read a timetable<Icon name="chevron-right" /></a></li>
+        <li><a href="/about">About Stopwatch<Icon name="chevron-right" /></a></li>
+        <li><a href="/privacy">Privacy<Icon name="chevron-right" /></a></li>
+      </ul>
+      <div class="appearance">
+        <span id="mm-th">Appearance</span>
+        <div class="seg" role="radiogroup" aria-labelledby="mm-th">
+          <button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button>
+          <button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button>
+          <button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button>
+        </div>
+      </div>
+      <p class="menu-note">Stopwatch is independent and not affiliated with any transit operator. Timetables come from each operator's published GTFS data.</p>
+    </div>
+  </dialog>
 
   <dialog class="search" id="search" aria-label="Search">
     <div class="search-box">
       <label for="search-input"><Icon name="magnifying-glass" /><span class="sr">Search</span></label>
-      <input id="search-input" type="search" autocomplete="off" spellcheck="false" placeholder="Route 96, Kelowna, Abingdon Street…" />
-      <button class="btn btn-sm btn-quiet" type="button" data-search-close aria-label="Close search"><Icon name="x" /></button>
+      <input id="search-input" type="search" autocomplete="off" spellcheck="false" placeholder="Route 63, Ossington Station, Brighton…" />
+      <button class="icon-btn" type="button" data-search-close aria-label="Close search"><Icon name="x" /></button>
+    </div>
+    <div class="search-tools">
+      <button class="btn btn-primary btn-sm" type="button" data-near-me><Icon name="navigation-arrow" /> Stops near me</button>
     </div>
     <ul class="search-results" id="search-results" role="listbox" aria-label="Results"></ul>
     <div class="search-foot">
-      <button class="btn btn-sm btn-quiet" type="button" data-near-me><Icon name="navigation-arrow" /> Stops near me</button>
       <span>Enter to open · Esc to close</span>
+      <span>Scheduled times from operators' published GTFS</span>
     </div>
   </dialog>
 

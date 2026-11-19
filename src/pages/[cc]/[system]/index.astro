@@ -7,6 +7,7 @@ import Ad from '../../../components/Ad.astro';
 import RouteBadge from '../../../components/RouteBadge.astro';
 import Faq from '../../../components/Faq.astro';
 import Source from '../../../components/Source.astro';
+import Crumbs from '../../../components/Crumbs.astro';
 import { shardSystems, pageStops, busiestDay, hubs, regionOf, journeyPlaces, isIndexedStop } from '../../../lib/data.js';
 import { every, shortDate, routeLabel, plain, possessive, modeName, vehicle, plural, cap, stopWord } from '../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../lib/page.js';
@@ -76,92 +77,123 @@ const jsonLd = [{
 }];
 const lede = `${system.name} is ${byMode ? 'a transit network' : `a ${mode === 'transit' ? 'transit' : mode} network`} serving ${system.area}${reg.name !== x.c.name ? `, ${reg.name}` : ''}, with ${modeText} in the current ${word}. On weekdays the first ${veh} leaves at ${t(Math.min(...firsts))} and the last at ${t(Math.max(...lasts))}${frequent.length ? `, and ${frequent.length} ${routeWord}${frequent.length === 1 ? ' runs' : 's run'} every 15 minutes or better` : ''}. Open a ${routeWord} for the whole day in both directions, with the next ${veh} highlighted.`;
 const heading = `${what} ${routeWord}s and ${word}s`;
+
+// ---- redesign ----
+const modeOf = (r) => modeName(r.type, system);
+const modeChips = byMode ? byMode.map((b) => b.m) : [];
+const iconFor = (mm) => (/subway|metro/.test(mm) ? 'subway' : /tram|streetcar/.test(mm) ? 'tram' : /ferry/.test(mm) ? 'ferry' : /train|rail/.test(mm) ? 'rail' : 'bus');
+const searchText = (r) => `${r.short || ''} ${plain(r.label || r.name || routeLabel(r))}`.toLowerCase();
+
 ---
 <Base title={title} description={description} path={base.slice(1)} jsonLd={jsonLd} og={system.key} pageType="CollectionPage" speakable={['.lede', '.faq .answer']} system={system}>
 <main class="wrap">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › {system.name}</nav>
-  <h1>{heading.charAt(0).toUpperCase() + heading.slice(1)}</h1>
-  <p class="lede">{lede}</p>
-  <div class="actions">
-    <button class="btn btn-primary" type="button" data-search-open><Icon name="magnifying-glass" /> Find a {routeWord} or {stopW}</button>
-    <button class="btn btn-quiet" type="button" data-near-me><Icon name="navigation-arrow" /> {cap(stopW)}s near me</button>
-  </div>
-  {towns.length > 0 && <JourneyPicker system={system} heading={`Town to town on ${system.name}`} />}
+  <Crumbs cc={system.cc} items={[{ name: x.c.name, href: `/${system.cc}` }, { name: system.name }]} />
 
-  <section data-saved={`${base}/`} hidden>
-    <h2>Your saved {system.name} {stopW}s</h2>
-    <ul class="list"></ul>
+  <section class="sys-hero in">
+    <div class="copy">
+      <h1>{heading.charAt(0).toUpperCase() + heading.slice(1)}</h1>
+      <p class="lede">{lede}</p>
+      <div class="chips">
+        <span class="chip"><b>{n}</b> {routeWord}{n === 1 ? '' : 's'}</span>
+        {frequent.length > 0 && <span class="chip"><b>{frequent.length}</b> every 15 min or better</span>}
+        <span class="chip">{x.h24 ? '24-hour times' : 'am / pm times'}</span>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" type="button" data-search-open><Icon name="magnifying-glass" /> Find a {routeWord} or {stopW}</button>
+        <button class="btn btn-outline" type="button" data-near-me><Icon name="crosshair-amber" /> {cap(stopW)}s near me</button>
+      </div>
+    </div>
+    <div style="flex:1 1 420px;min-width:0" class="mapcard">
+      <div class="map" data-map={`/geo/${system.key}.json`}>
+        <button class="map-open" type="button"><Icon name="map-trifold" />Show all {n} {routeWord}s on a map</button>
+      </div>
+      <div class="cap"><span>{system.name} {routeWord} map</span><span>OpenStreetMap</span></div>
+    </div>
   </section>
 
   {(holidays.length > 0 || system.changesOn) && (
-    <div class="notice"><Icon name="calendar-check" /><div>
+    <aside class="notice reveal" aria-label="Timetable changes"><Icon name="calendar-check" /><div>
       {holidays.length > 0 && <p><b>Coming up:</b> {holidays.map((e) => `${e.holiday}, ${shortDate(e.date)}`).join(' and ')}. Each {routeWord} page says which {word} it runs that day.</p>}
-      {system.changesOn && <p><b>{Word} change on {dateFor(system.changesOn, system.cc)}.</b> These pages show the current {word}.</p>}
-    </div></div>
+      {system.changesOn && <p><b>{Word} change from {dateFor(system.changesOn, system.cc)}</b> on some {system.name} {routeWord}s. These pages show the current {word}.</p>}
+    </div></aside>
   )}
 
-  {frequent.length > 0 && (
-    <section>
-      <h2>Frequent {routeWord}s</h2>
-      <p class="muted">A {veh === 'departure' ? 'service' : veh} every 15 minutes or better on weekday daytimes.</p>
-      <ul class="list">
-        {frequent.map((r) => { const s = mainOf(r); return (
-          <li><a href={`${base}/${r.slug}`}><RouteBadge route={r} /><span>{plain(r.label || r.name || routeLabel(r))}<span class="meta">{byMode ? `${cap(modeName(r.type, system))} · ` : ''}{every(s.gap)} · {t(s.first)} to {t(s.last)}</span></span><Icon name="arrow-right" class="go" /></a></li>
-        ); })}
-      </ul>
-    </section>
-  )}
-
-  <section>
-    <h2>{frequent.length ? `All other ${routeWord}s` : `All ${routeWord}s`}</h2>
-    <div class="list-cols">
-      {[others.slice(0, Math.ceil(others.length / 2)), others.slice(Math.ceil(others.length / 2))].map((col) => col.length > 0 && (
-        <ul class="list">
-          {col.map((r) => { const d = r.days[0]; const s = r.summary[d.key]; return (
-            <li><a href={`${base}/${r.slug}`}><RouteBadge route={r} /><span>{plain(r.label || r.name || routeLabel(r))}<span class="meta">{byMode ? `${cap(modeName(r.type, system))} · ` : ''}{r.days.map((dd) => dd.label).join(', ')}{s && `. From ${t(s.first)}`}</span></span><Icon name="arrow-right" class="go" /></a></li>
-          ); })}
-        </ul>
-      ))}
-    </div>
+  <section class="sec" data-saved={`${base}/`} hidden>
+    <h2 style="font-size:28px;margin-bottom:14px">Your saved {system.name} {stopW}s</h2>
+    <ul class="saved-list"></ul>
   </section>
 
-  <section>
-    <h2>{system.name} {routeWord} map</h2>
-    <div class="map" data-map={`/geo/${system.key}.json`}>
-      <button class="map-open" type="button"><Icon name="map-trifold" />Show all {n} {routeWord}s on a map</button>
+  <section class="sec" aria-labelledby="rf-h" data-finder>
+    <div class="sec-head reveal">
+      <h2 id="rf-h">Find a {routeWord}</h2>
+      <p class="js-only"><span data-finder-count>{n}</span> {routeWord}s shown</p>
     </div>
+    <div class="finder js-only">
+      <div class="field"><Icon name="magnifying-glass" /><label for="rf-q" class="sr">{cap(routeWord)} number or name</label><input id="rf-q" type="search" placeholder={`${cap(routeWord)} number or name`} data-finder-q /></div>
+      {modeChips.length > 1 && (
+        <div class="seg" role="group" aria-label="Mode">
+          <button type="button" data-finder-mode="" aria-pressed="true">All</button>
+          {modeChips.map((mm) => <button type="button" data-finder-mode={mm} aria-pressed="false"><Icon name={iconFor(mm)} />{cap(mm)}</button>)}
+        </div>
+      )}
+      {frequent.length > 0 && <button type="button" class="switch" role="switch" aria-checked="false" data-finder-freq><span class="track"></span>Frequent only</button>}
+    </div>
+
+    {frequent.length > 0 && <>
+      <h3 class="sub-h reveal">Frequent {routeWord}s · every 15 min or better on weekdays</h3>
+      <ul class="rgrid" style="grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr))">
+        {frequent.map((r) => { const s = mainOf(r); return (
+          <li data-q={searchText(r)} data-mode={modeOf(r)} data-freq><a class="rcard card" href={`${base}/${r.slug}`}><RouteBadge route={r} size="md" /><span class="t">{plain(r.label || r.name || routeLabel(r))}<small>{cap(modeOf(r))} · {t(s.first)} to {t(s.last)}</small></span><span class="freq">{every(s.gap)}</span></a></li>
+        ); })}
+      </ul>
+    </>}
+
+    {others.length > 0 && <>
+      <h3 class="sub-h reveal" data-others-h>{frequent.length ? `All other ${routeWord}s` : `All ${routeWord}s`}</h3>
+      <ul class="rgrid auto">
+        {others.map((r) => { const d = r.days[0]; const s = r.summary[d.key]; return (
+          <li data-q={searchText(r)} data-mode={modeOf(r)}><a class="rcard card" href={`${base}/${r.slug}`}><RouteBadge route={r} /><span class="t">{plain(r.label || r.name || routeLabel(r))}<small>{r.days.map((dd) => dd.label).join(', ')}{s && `. From ${t(s.first)}`}</small></span></a></li>
+        ); })}
+      </ul>
+    </>}
+    <p class="muted js-only" data-finder-none hidden>No {routeWord}s match. Try the number only, or clear the filters.</p>
   </section>
 
   <Ad />
 
-  {hubList.length > 0 && (
-    <section>
-      <h2>Stations, interchanges and hubs</h2>
-      <ul class="list">
-        {hubList.map((h) => <li><a href={`${base}/hub/${h.slug}`}><Icon name="bus" /><span>{plain(h.name)}<span class="meta">{h.stops.length} {stopW === 'station' ? 'platforms' : 'bays and stops'} · all departures in one place</span></span><Icon name="arrow-right" class="go" /></a></li>)}
-      </ul>
+  {(hubList.length > 0 || towns.length > 0) && (
+    <section class="sec twocol">
+      {hubList.length > 0 && (
+        <div class="reveal" role="region" aria-labelledby="hub-h">
+          <h2 id="hub-h" style="font-size:30px;margin-bottom:14px">Stations, interchanges and hubs</h2>
+          <ul class="list">
+            {hubList.map((h) => <li><a href={`${base}/hub/${h.slug}`}><span class="i-tile"><Icon name="stop-post" /></span><span>{plain(h.name)}<span class="meta">{h.stops.length} {stopW === 'station' ? 'platforms' : 'bays and stops'} · all departures in one place</span></span><Icon name="arrow-right" class="go-i" /></a></li>)}
+          </ul>
+        </div>
+      )}
+      {towns.length > 0 && <div class="reveal"><JourneyPicker system={system} heading="From here to there" /></div>}
     </section>
   )}
 
   {busiest.length > 0 && (
-    <section>
-      <h2>Busiest {stopW}s</h2>
-      <ul class="list">
-        {busiest.map((st) => <li><a href={`${base}/stop/${encodeURIComponent(st.code)}`}><Icon name="map-pin" /><span>{plain(st.name)}<span class="meta">{cap(stopW)} {st.code} · {busiestDay(st)} {vehs} on its busiest day</span></span><Icon name="arrow-right" class="go" /></a></li>)}
+    <section class="sec reveal" aria-labelledby="busy-h">
+      <h2 id="busy-h" style="font-size:30px;margin-bottom:14px">Busiest {stopW}s</h2>
+      <ul class="list list-cols" style="display:grid">
+        {busiest.map((st) => <li><a href={`${base}/stop/${encodeURIComponent(st.code)}`}><span class="i-tile"><Icon name="map-pin" /></span><span>{plain(st.name)}<span class="meta">{cap(stopW)} {st.code} · {busiestDay(st)} {vehs} on its busiest day</span></span><Icon name="arrow-right" class="go-i" /></a></li>)}
       </ul>
     </section>
   )}
 
   {towns.length > 0 && (
-    <section>
-      <h2>Town to town</h2>
+    <section class="sec reveal" aria-labelledby="town-h">
+      <h2 id="town-h" style="font-size:30px;margin-bottom:6px">Town to town</h2>
       <p class="muted">Direct {vehs} between the places {system.name} serves: every departure, how long it takes and where to catch it.</p>
-      <ul class="list">
-        {towns.slice(0, 12).map((p) => <li><a href={`${base}/from/${p.slug}`}><Icon name="map-pin" /><span>{cap(vehs)} from {p.name}<span class="meta">{p.out.length} direct {p.out.length === 1 ? 'destination' : 'destinations'} · {p.daily} departures a day</span></span><Icon name="arrow-right" class="go" /></a></li>)}
+      <ul class="list list-cols" style="display:grid">
+        {towns.slice(0, 12).map((p) => <li><a href={`${base}/from/${p.slug}`}><span class="i-tile"><Icon name="path" /></span><span>{cap(vehs)} from {p.name}<span class="meta">{p.out.length} direct {p.out.length === 1 ? 'destination' : 'destinations'} · {p.daily} departures a day</span></span><Icon name="arrow-right" class="go-i" /></a></li>)}
       </ul>
       {towns.length > 12 && (
         <details class="more-towns">
-          <summary class="btn btn-quiet btn-sm">All {towns.length} places</summary>
+          <summary class="btn btn-sm">All {towns.length} places</summary>
           <p class="town-index">{towns.slice(12).map((p, i) => <>{i > 0 && ' · '}<a href={`${base}/from/${p.slug}`}>{p.name}</a></>)}</p>
         </details>
       )}

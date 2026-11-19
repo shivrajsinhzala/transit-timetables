@@ -6,6 +6,7 @@ import Ad from '../../../../components/Ad.astro';
 import RouteBadge from '../../../../components/RouteBadge.astro';
 import Faq from '../../../../components/Faq.astro';
 import Source from '../../../../components/Source.astro';
+import Crumbs from '../../../../components/Crumbs.astro';
 import { shardSystems, hubs, routeBadges, busiestDay, isIndexedStop } from '../../../../lib/data.js';
 import { inkFor, place, plain, possessive, routeLabel, sharedVehicle, plural, stopWord, toward } from '../../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../../lib/page.js';
@@ -72,34 +73,35 @@ const jsonLd = [
 ---
 <Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} speakable={['.lede', '.faq .answer']} system={system}>
 <main class="wrap">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a> › {name}</nav>
-  <div class="page-head">
-    <Icon name="bus" class="lg" />
-    <div>
-      <h1>{name}</h1>
+  <Crumbs cc={system.cc} items={[{ name: x.c.name, href: `/${system.cc}` }, { name: system.name, href: base }, { name }]} />
+  <section class="page-head in">
+    <span class="stop-icon"><Icon name="stop-post" /></span>
+    <div class="ph-main">
+      <h1>{name} departures</h1>
       <p class="sub">{system.name} · {hub.stops.length} {bays} · {allRoutes.length} routes</p>
     </div>
-  </div>
-  <div class="actions">
+  <div class="actions no-print">
     <button class="btn btn-quiet btn-sm" type="button" data-fav={`hub:${system.key}/${hub.slug}`} data-name={name} data-sub={system.name}><Icon name="star" /><span data-fav-label>Save</span></button>
     <button class="btn btn-quiet btn-sm" type="button" data-share><Icon name="share-network" /><span data-share-label>Share</span></button>
     {hub.stops[0].lat && <a class="btn btn-quiet btn-sm" href={`https://www.google.com/maps/search/?api=1&query=${hub.stops[0].lat},${hub.stops[0].lon}`} rel="nofollow"><Icon name="map-trifold" /> Directions</a>}
   </div>
+  </section>
 
   <p class="lede" style="margin-top:1.2rem">{name} is a {system.name} interchange with {hub.stops.length} {bays} served by {allRoutes.length} route{allRoutes.length === 1 ? '' : 's'}. The board shows the next scheduled departures from all of them, and the list below says which {bays.slice(0, -1)} each route uses.</p>
 
-  <div class="board" data-board data-rows="8" style="margin-top:1.4rem" aria-label={`Next scheduled ${vs} at ${name}`}>
-    <div class="board-head"><strong>Departures, all {bays}</strong><span class="board-clock" data-clock></span></div>
-    <ol><li class="empty">Loading the next {vs}…</li></ol>
-    <p class="board-foot">Scheduled times, with the {bays.slice(0, -1)} each one leaves from. Up to {total} departures on a busy day.</p>
+  <section class="nx" data-board data-rows="8" data-merged aria-label={`Next scheduled ${vs} at ${name}`} style="margin-top:24px">
+    <div class="nx-head"><h2><span class="dot"></span>Departures, all {bays}</h2><span class="nx-now js-only">Now <span data-clock></span></span></div>
+    <ol class="merged static"><li>{allRoutes.length} routes leave from {hub.stops.length} {bays} here, up to {total} departures on a busy day. The list below says which {bays.slice(0, -1)} each route uses.</li></ol>
+    <button class="nx-more" type="button" hidden>Show more <Icon name="chevron-down" /></button>
+    <p class="nx-foot">Scheduled times, with the {bays.slice(0, -1)} each one leaves from. Not live tracking.</p>
     <script type="application/json" set:html={JSON.stringify(board)} />
-  </div>
+  </section>
 
   <h2>Which {bays.slice(0, -1)} for which route</h2>
   <ul class="list">
     {hub.stops.map((s) => (
       <li>{(() => { const body = <>
-        <span class="badge" style="background:var(--fill);color:var(--ink)">{bay(s).replace(/^(Bay|Stand|Stop|Platform)\s+/i, '').slice(0, 4)}</span>
+        <span class="badge">{bay(s).replace(/^(Bay|Stand|Stop|Platform)\s+/i, '').slice(0, 4)}</span>
         <span>{bay(s)} <span class="meta">{s.code} · {[...new Map(s.routes.map((r) => [r.route + r.headsign, r])).values()].slice(0, 12).map((r) => `${r.short || plain(r.name)} to ${toward(r.headsign)}`).join(', ')}</span></span>
       </>; return isIndexedStop(system.key, s.code) ? <a href={stopHref(s.code)}>{body}<Icon name="arrow-right" class="go" /></a> : <span class="row">{body}</span>; })()}</li>
     ))}

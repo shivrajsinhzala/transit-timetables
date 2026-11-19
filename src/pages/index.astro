@@ -3,11 +3,11 @@ import Base from '../layouts/Base.astro';
 import Icon from '../components/Icon.astro';
 import Ad from '../components/Ad.astro';
 import Faq from '../components/Faq.astro';
+import Flag from '../components/Flag.astro';
 import RouteBadge from '../components/RouteBadge.astro';
-import PopularRoutes from '../components/PopularRoutes.astro';
-import { SYSTEM_INDEX, countries, getSystem } from '../lib/data.js';
-import { clock, shortDate, place, plain, sharedMode, plural } from '../lib/format.js';
-import { FEATURED } from '../lib/featured.js';
+import { SYSTEM_INDEX, countries, getSystem, busiestRoutes, COUNTRIES } from '../lib/data.js';
+import { plain, routeLabel, every, cap, modeName, toward } from '../lib/format.js';
+import { FEATURED, boardFor } from '../lib/featured.js';
 import { countryNames } from '../lib/page.js';
 
 const routes = SYSTEM_INDEX.reduce((a, s) => a + s.routes, 0);
@@ -16,150 +16,186 @@ const systems = SYSTEM_INDEX.length;
 const all = countries();
 const nf = (n) => n.toLocaleString('en');
 
-// Country tiles: counts and the three biggest systems in each.
+// Country cards: counts, the three biggest systems and the local time format.
 const tiles = all.map((c) => {
   const list = [...c.systems].sort((a, b) => b.routes - a.routes);
-  return { cc: c.cc, name: c.name, word: c.word, systems: list.length, routes: list.reduce((a, s) => a + s.routes, 0), top: list.slice(0, 3).map((s) => s.name) };
+  return { cc: c.cc, name: c.name, systems: list.length, routes: list.reduce((a, s) => a + s.routes, 0), top: list.slice(0, 3).map((s) => s.name), fmt: COUNTRIES[c.cc].h24 ? '24-hour' : 'am / pm' };
 }).sort((a, b) => b.routes - a.routes);
 
-// The biggest networks, each with its own colours.
-const big = [...SYSTEM_INDEX].sort((a, b) => b.routes - a.routes).slice(0, 8).map((s) => {
-  const sys = getSystem(s.key);
-  return { key: s.key, name: s.name, area: s.area, routes: s.routes, country: all.find((c) => c.cc === s.cc)?.name, mode: sharedMode(sys.routes, sys), colors: sys.routes.map((r) => r.color).filter(Boolean).slice(0, 10) };
+// The biggest networks, as bars against the biggest.
+const big = [...SYSTEM_INDEX].sort((a, b) => b.routes - a.routes).slice(0, 8);
+const bigMax = big[0]?.routes || 1;
+const countryName = (cc) => all.find((c) => c.cc === cc)?.name;
+
+// The departure board starts on the first featured city and switches by the visitor's timezone
+// (src/scripts/app.js). Its first rows are rendered here from the timetable, so the board is never
+// an empty "Loading" box: the script replaces them with the live countdowns.
+const boards = FEATURED.map((f) => ({ key: f.key, city: f.city, cc: f.key.slice(0, 2), tz: f.tz, src: `/boards/${f.key.replace('/', '-')}.json` }));
+const first = boardFor(boards[0].key);
+const gapOf = (times) => {
+  const day = [...(times || [])].filter((m) => m >= 420 && m <= 1140).sort((a, b) => a - b);
+  const gaps = day.slice(1).map((m, i) => m - day[i]).filter((g) => g > 0).sort((a, b) => a - b);
+  return gaps.length >= 3 ? gaps[Math.floor(gaps.length / 2)] : null;
+};
+const firstRows = (first?.rows || []).map((r) => ({ ...r, gap: gapOf(r.times[r.days[0]?.key]) })).slice(0, 4);
+
+// Popular routes: the busiest in the first featured city, then two from each other city.
+const firstSys = getSystem(boards[0].key);
+const popular = busiestRoutes(boards[0].key, 4).map(({ route, url }) => {
+  const s = route.summary[route.days[0].key];
+  return { route, url, name: plain(route.name) || routeLabel(route), sub: `${cap(modeName(route.type, firstSys))} timetable${s?.gap ? `, ${every(s.gap)}` : ''}` };
 });
+const more = boards.slice(1).flatMap((b) => busiestRoutes(b.key, 2).map(({ route, url }) => ({ route, url, city: b.city })));
 
-// A real excerpt for the "whole day" preview: Kelowna Route 8's first weekday departures.
-const kelowna = getSystem('ca/kelowna');
-const r8 = kelowna?.routes.find((r) => r.slug === 'route-8');
-const r8dir = r8?.directions[0];
-const r8key = r8?.days[0].key;
-const previewCols = r8dir ? r8dir.columns.slice(0, 4) : [];
-const previewRows = r8dir ? r8dir.schedules[r8key].filter((row) => row[0] != null).slice(0, 6).map((row) => row.slice(0, 4)) : [];
-
-// A real holiday line for the "holidays" preview, from Dublin Bus if it has one coming up.
-const holidaySys = ['ie/dublin-bus', 'ca/kelowna', 'uk/brighton-hove-bus'].map(getSystem).find((s) => s?.routes.some((r) => r.exceptions.some((e) => e.holiday)));
-const holidayRoute = holidaySys?.routes.find((r) => r.exceptions.some((e) => e.holiday));
-const holiday = holidayRoute?.exceptions.find((e) => e.holiday);
-const runsLabel = holiday ? (holidayRoute.days.find((d) => d.key === holiday.runs)?.label || 'a special') : '';
-
-const boards = FEATURED.map((f) => ({ key: f.key, city: f.city, tz: f.tz, src: `/boards/${f.key.replace('/', '-')}.json` }));
 const countryList = countryNames(all);
 // The meta description has 160 characters: "UK" and "US", as riders write them.
 const shortName = (c) => ({ uk: 'the UK', us: 'the US' }[c.cc] || c.name);
 const shortList = `${all.slice(0, -1).map(shortName).join(', ')} and ${shortName(all.at(-1))}`;
+const h1Words = `Bus, tram and train timetables for ${systems} transit systems`.split(' ');
 
 const faq = [
-  ['What is Stopwatch?', `Stopwatch is a free, independent website with the full timetable for ${nf(routes)} bus, tram, train and ferry routes from ${systems} transit systems in ${countryList}. Every route and stop page highlights the next scheduled departure, and pages work offline once opened.`],
-  ['Is Stopwatch an official transit site?', 'No. Stopwatch is independent. It is built from the open timetable data that operators and transport authorities publish, and each page names its source. For fares, disruptions and service alerts, use the operator’s own channels.'],
-  ['Are these live times?', 'They are the published timetable. The next departure is worked out from that timetable and your phone’s clock, so a bus running late will not show as late.'],
-  ['Which cities are covered?', `${systems} systems including Toronto, Melbourne, Dublin, Phoenix, Victoria, Kelowna, Brighton, Oxford, Nottingham, Cardiff and Dunedin. Pick a country below to see them all.`],
+  ['What is Stopwatch?', `Stopwatch is a free, independent website with the full timetable for ${nf(routes)} bus, tram, train and ferry routes and ${nf(stops)} stops from ${systems} transit systems in ${countryList}. Every route and stop page shows the next scheduled departure first, and pages work offline once opened.`],
+  ['Is Stopwatch an official transit site?', 'No. Stopwatch is independent and not affiliated with any operator. It is built from the open timetable data (GTFS) that operators and transport authorities publish, and each page names its source. For fares, disruptions and service alerts, check with the operator.'],
+  ['Are these live times?', 'No. The next departure is worked out from the published timetable and your phone’s clock, so delays are not included.'],
+  ['Which cities are covered?', `${systems} systems including Toronto, Melbourne, Dublin, Phoenix, Victoria, Kelowna, Brighton, Oxford, Nottingham, Cardiff and Dunedin. Pick a country to see them all.`],
   ['Does it work without signal?', 'Yes, for timetables you have opened before on this phone. Add Stopwatch to your home screen and they open like an app.'],
-  ['How often are the timetables updated?', 'Every week, from the data each operator publishes. Each page says when its timetable was last refreshed.'],
+  ['How often are the timetables updated?', 'Every week, from the data each operator publishes. Every timetable page says when it was last refreshed and names its data source and licence.'],
 ];
 ---
-<Base title="Stopwatch: Bus, Tram and Train Timetables in 6 Countries" description={`Timetables for ${nf(routes)} bus, tram, train and ferry routes in ${shortList}. Next departure first, no app needed.`} path="" speakable={['.hero h1', '.hero .lede']}>
-<main class="wrap" style="padding-top:0">
+<Base title="Stopwatch: Bus, Train & Transit Schedules and Timetables" description={`Bus, train, tram and transit schedules and timetables for ${nf(routes)} routes in ${shortList}. Next departure first, full-day tables, works offline.`} path="" speakable={['.hero h1', '.hero .lede']}>
+<main style="padding-bottom:0">
   <section class="hero">
-    <div>
-      <h1>Every bus, tram and train, <em>on the clock</em>.</h1>
-      <p class="lede">Full timetables for {nf(routes)} routes and {nf(stops)} stops in {systems} transit systems across {all.length} countries, with your next departure first. No app, no PDF, works offline.</p>
-      <button class="hero-search" type="button" data-search-open>
-        <Icon name="magnifying-glass" /><span>Route, stop or town</span><span class="btn btn-primary btn-sm">Search</span>
-      </button>
-      <div class="actions">
-        <button class="btn btn-quiet" type="button" data-near-me><Icon name="navigation-arrow" /> Stops near me</button>
+    <div class="wrap hero-in">
+      <div class="hero-copy">
+        <p class="pill in"><i></i>Scheduled times · works offline · updated weekly</p>
+        <h1>{h1Words.map((w, i) => <><span class="w"><span style={`--d:${i + 1}`}>{w}</span></span>{i < h1Words.length - 1 ? ' ' : ''}</>)}</h1>
+        <p class="lede in" style="animation-delay:.55s">Every bus, tram and train, on the clock: full timetables for {nf(routes)} routes and {nf(stops)} stops in {all.length} countries. The next departure first, no app, and it works offline.</p>
+        <div class="hero-search in" style="animation-delay:.65s">
+          <button class="hero-field" type="button" data-search-open><Icon name="magnifying-glass" class="mag" /><span>Route 63, Ossington Station, Brighton…</span></button>
+          <button class="btn btn-primary near-cta" type="button" data-near-me><Icon name="navigation-arrow" /> Stops near me</button>
+        </div>
+        <nav class="flags in" aria-label="Countries" style="animation-delay:.75s">
+          {tiles.map((c) => <a href={`/${c.cc}`}><Flag cc={c.cc} w={26} h={17} />{c.name}</a>)}
+        </nav>
       </div>
+
+      <section class="board in" aria-labelledby="board-h" data-board data-rows="4" data-boards={JSON.stringify(boards)} style="animation-delay:.35s">
+        <div class="board-top">
+          <div>
+            <p class="eyebrow">Next departures</p>
+            <h2 class="board-title" id="board-h"><a data-board-name href={first?.url || `/${boards[0].key}`}>{boards[0].city}</a></h2>
+            <span class="board-hint" data-board-hint>{first ? `${first.name}, ${first.system}` : ''}</span>
+          </div>
+          <div class="led-clock" data-clock aria-label="Current time"></div>
+        </div>
+        <div class="cities" role="group" aria-label="Show departures in another city">
+          {boards.map((b, i) => <button type="button" class="city" data-city={b.key} aria-pressed={i === 0 ? 'true' : 'false'}><Flag cc={b.cc} w={18} h={12} />{b.city}</button>)}
+        </div>
+        <ol aria-live="polite">
+          {firstRows.map((r, i) => (
+            <li style={`--i:${i}`}>
+              <RouteBadge route={r} size="md" />
+              <a class="to" href={r.url}><span class="dest">To {r.to}</span><small>{r.gap ? `Every ${r.gap} min in the daytime` : 'Scheduled service'}</small></a>
+              <span class="when"><span class="due" aria-hidden="true">--:--</span></span>
+            </li>
+          ))}
+        </ol>
+        <p class="board-foot" data-board-foot><Icon name="info" /> Scheduled from the published timetable, not live tracking.</p>
+      </section>
     </div>
-    <div>
-      <div class="board" data-board data-rows="6" data-boards={JSON.stringify(boards)} aria-label="Next scheduled departures">
-        <div class="board-head"><strong><a data-board-name href={`/${boards[0].key}`}>{boards[0].city}</a></strong><span class="board-clock" data-clock></span></div>
-        <ol><li class="empty">Loading the next departures…</li></ol>
-        <p class="board-foot" data-board-foot>Scheduled departures, from the published timetable.</p>
-      </div>
-      <div class="cities" role="group" aria-label="Show departures in another city">
-        {boards.map((b, i) => <button type="button" class="city" data-city={b.key} aria-pressed={i === 0 ? 'true' : 'false'}>{b.city}</button>)}
-      </div>
-    </div>
+    <svg class="band-svg" aria-hidden="true" viewBox="0 0 1440 120" preserveAspectRatio="xMidYMid slice">
+      <path class="draw" d="M-20 28 H380 Q410 28 430 48 L462 80 Q480 98 510 98 H1460" fill="none" stroke="#F5B700" stroke-width="10" stroke-linecap="round" />
+      <path class="draw" d="M-20 62 H820 Q850 62 868 44 L880 32 Q894 18 922 18 H1460" fill="none" stroke="var(--ink)" stroke-width="10" stroke-linecap="round" style="animation-delay:.6s" />
+      <path class="draw" d="M-20 98 H300 Q330 98 348 80 L384 44 Q400 28 430 28 H1100 Q1130 28 1148 46 L1150 48 Q1166 62 1192 62 H1460" fill="none" stroke="var(--line)" stroke-width="10" stroke-linecap="round" style="animation-delay:.8s" />
+      <g class="veh">
+        <rect x="-11" y="-6" width="22" height="12" rx="4" fill="#14233B" stroke="#F5B700" stroke-width="2.5"><animateMotion dur="14s" repeatCount="indefinite" rotate="auto" path="M-20 28 H380 Q410 28 430 48 L462 80 Q480 98 510 98 H1460" /></rect>
+        <rect x="-11" y="-6" width="22" height="12" rx="4" fill="#F5B700" stroke="#14233B" stroke-width="2.5"><animateMotion dur="18s" begin="-6s" repeatCount="indefinite" rotate="auto" path="M-20 62 H820 Q850 62 868 44 L880 32 Q894 18 922 18 H1460" /></rect>
+        <rect x="-11" y="-6" width="22" height="12" rx="4" fill="#F5B700" stroke="#14233B" stroke-width="2.5"><animateMotion dur="22s" begin="-11s" repeatCount="indefinite" rotate="auto" path="M-20 98 H300 Q330 98 348 80 L384 44 Q400 28 430 28 H1100 Q1130 28 1148 46 L1150 48 Q1166 62 1192 62 H1460" /></rect>
+      </g>
+      <rect x="190" y="16" width="20" height="94" rx="10" fill="#FFFFFF" stroke="#14233B" stroke-width="3.5" />
+      <rect x="1310" y="6" width="20" height="104" rx="10" fill="#FFFFFF" stroke="#14233B" stroke-width="3.5" />
+      <circle cx="650" cy="62" r="7" fill="#FFFFFF" stroke="#14233B" stroke-width="3.5" />
+      <circle cx="760" cy="98" r="7" fill="#FFFFFF" stroke="#14233B" stroke-width="3.5" />
+      <circle cx="1000" cy="28" r="7" fill="#FFFFFF" stroke="#14233B" stroke-width="3.5" />
+    </svg>
   </section>
 
-  <section data-saved="" hidden>
-    <h2>Your saved stops</h2>
-    <ul class="list"></ul>
-  </section>
-
-  <section class="reveal" id="countries">
-    <h2>Pick your country</h2>
-    <div class="countries">
-      {tiles.map((c) => (
-        <a class="country" href={`/${c.cc}`}>
-          <span class="cc" aria-hidden="true">{c.cc.toUpperCase()}</span>
-          <strong>{c.name}</strong>
-          <span>{`${c.systems} system${c.systems === 1 ? '' : 's'} · ${nf(c.routes)} routes`}</span>
-          <small>{c.top.join(', ')}</small>
-        </a>
-      ))}
-    </div>
-  </section>
-
-  <section class="reveal">
-    <h2>The biggest networks</h2>
-    <div class="towns">
-      {big.map((t) => (
-        <a class="tile" href={`/${t.key}`}>
-          <span class="stripes" aria-hidden="true">{t.colors.map((col) => <i style={`background:${col}`} />)}</span>
-          <strong>{t.name}</strong>
-          <span>{`${t.routes} ${t.mode === 'transit' ? '' : `${t.mode} `}routes · ${t.country}`}</span>
-        </a>
-      ))}
-    </div>
-  </section>
-
-  <PopularRoutes title="Popular routes" keys={FEATURED.map((f) => f.key)} />
-
-  <Ad />
-
-  {r8 && (
-    <section class="feature reveal">
-      <div>
-        <h2>The whole day, on one screen</h2>
-        <p>Every departure for every route, laid out like the printed timetable at the stop, but readable on a phone. The departure you can still catch is highlighted.</p>
-        <a class="btn btn-quiet" href="/ca/kelowna/route-8">See Kelowna Route 8 <Icon name="arrow-right" /></a>
+  <div class="wrap">
+    <section id="saved" class="sec reveal" style="padding-top:48px" data-saved="" aria-labelledby="saved-h">
+      <div class="saved-empty" data-saved-empty>
+        <span class="star-tile"><Icon name="star-plus" /></span>
+        <div>
+          <h2 id="saved-h">Your saved stops</h2>
+          <p>Tap <b>Save</b> on any stop or route to pin it here. Saved stops open first and keep working offline. No account needed.</p>
+        </div>
+        {first && <a class="btn btn-outline" href={first.url}>See an example stop <Icon name="arrow-right" /></a>}
       </div>
-      <div class="preview" aria-label="Excerpt from the Kelowna Route 8 timetable">
-        <p class="small muted" style="margin:0 0 .6rem;display:flex;gap:.5rem;align-items:center"><RouteBadge route={r8} /> {plain(r8.name)}, {r8.days[0].label}</p>
-        <div class="tt-wrap" style="margin:0;max-height:none">
-          <table class="tt">
-            <thead><tr>{previewCols.map((c) => <th scope="col">{place(c.name)}</th>)}</tr></thead>
-            <tbody>{previewRows.map((row) => <tr>{row.map((m) => m == null ? <td class="no">·</td> : <td class={clock(m).pm ? 'pm' : undefined}>{clock(m).text}</td>)}</tr>)}</tbody>
-          </table>
+      <ul class="saved-list" hidden></ul>
+    </section>
+
+    <Ad />
+
+    <section id="countries" class="sec" aria-labelledby="countries-h" style="padding-top:72px">
+      <div class="sec-head reveal">
+        <div><p class="eyebrow">01 · Countries</p><h2 id="countries-h" style="font-size:clamp(40px,4.6vw,60px)">Timetables by country</h2></div>
+        <p>Times use the local format: 24-hour in the UK and Ireland; am/pm in Canada, the US, Australia and New Zealand.</p>
+      </div>
+      <div class="cgrid">
+        {tiles.map((k) => (
+          <a class="ccard card reveal" href={`/${k.cc}`}>
+            <div class="top"><Flag cc={k.cc} w={64} h={40} class="bigflag" /><span class="go"><Icon name="arrow-right" /></span></div>
+            <div><h3>{k.name}</h3><p>{k.top.join(', ')}</p></div>
+            <div class="chips"><span class="chip"><b>{k.systems}</b> systems</span><span class="chip"><b>{nf(k.routes)}</b> routes</span><span class="chip">{k.fmt}</span></div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="sec" style="padding-top:88px;display:flex;flex-wrap:wrap;gap:48px">
+      <div role="region" aria-labelledby="nets-h" class="reveal" style="flex:1 1 440px;min-width:0">
+        <p class="eyebrow">02 · Scale</p>
+        <h2 id="nets-h" style="margin-bottom:22px">The biggest networks</h2>
+        <ol class="nets">
+          {big.map((s) => (
+            <li><a href={`/${s.key}`}>
+              <Flag cc={s.cc} alt={countryName(s.cc)} />
+              <span class="n">{s.name}<span class="bar"><i style={`width:${Math.round(s.routes / bigMax * 100)}%`}></i></span></span>
+              <b>{s.routes}</b>
+            </a></li>
+          ))}
+        </ol>
+      </div>
+      <div role="region" aria-labelledby="pop-h" class="reveal" style="flex:1.35 1 560px;min-width:0">
+        <p class="eyebrow">03 · Popular</p>
+        <h2 id="pop-h" style="margin-bottom:22px">Popular routes in {boards[0].city}</h2>
+        <ul class="rgrid">
+          {popular.map((p) => <li><a class="rcard card" href={p.url}><RouteBadge route={p.route} size="md" /><span class="t">{p.name}<small>{p.sub}</small></span></a></li>)}
+        </ul>
+        <h3 style="margin:28px 0 12px;font-size:18px;text-transform:uppercase;color:var(--muted)">More cities</h3>
+        <div class="more-chips">
+          {more.map((m) => <a href={m.url}><RouteBadge route={m.route} size="sm" />{m.city} {routeLabel(m.route)}</a>)}
         </div>
       </div>
     </section>
-  )}
 
-  {holiday && (
-    <section class="feature flip reveal">
-      <div>
-        <h2>It knows tomorrow is a holiday</h2>
-        <p>Public holidays and one-off days are read from each country’s calendar and the timetable itself, so every route says what it really runs that day instead of a generic warning.</p>
-      </div>
-      <div class="preview">
-        <div class="notice" style="margin:0"><Icon name="calendar-check" /><p><b>{holiday.holiday}, {shortDate(holiday.date)}:</b> {holidaySys.name} Route {holidayRoute.short} runs the {runsLabel} timetable.</p></div>
+    <section class="sec" aria-labelledby="why-h" style="padding-top:88px">
+      <div class="why reveal">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:20px">
+          <h2 id="why-h">Built for standing at the stop, with one bar of signal</h2>
+          <ul class="modes" aria-label="Transit modes covered">
+            <li><Icon name="bus" />Bus</li><li><Icon name="tram" />Tram</li><li><Icon name="subway" />Subway</li><li><Icon name="rail" />Light rail</li><li><Icon name="ferry" />Ferry</li>
+          </ul>
+        </div>
+        <div class="why-grid">
+          <div><Icon name="clock" size={36} /><h3>Next departure first</h3><p>The answer is at the top of every route and stop page, before any text.</p></div>
+          <div><Icon name="wifi-slash" size={36} /><h3>Works offline</h3><p>Every timetable you've opened stays on your phone, signal or not.</p></div>
+          <div><Icon name="device-mobile" size={36} /><h3>No app, no PDF</h3><p>Tap a search result and the times are there. Add it to your home screen if you like.</p></div>
+          <div><Icon name="printer" size={36} /><h3>Print or PDF</h3><p>A clean timetable for the fridge or the office noticeboard.</p></div>
+        </div>
       </div>
     </section>
-  )}
 
-  <section class="band reveal">
-    <h2>Built for standing at the stop</h2>
-    <p>Fast on a weak signal, no account, nothing to install.</p>
-    <div class="band-points">
-      <div><Icon name="wifi-slash" /><p><strong>Works offline</strong><span>Timetables you have opened stay on your phone.</span></p></div>
-      <div><Icon name="star" /><p><strong>Save your stops</strong><span>Your regular stops, one tap from the home page.</span></p></div>
-      <div><Icon name="navigation-arrow" /><p><strong>Stops near me</strong><span>Your location stays in your browser.</span></p></div>
-      <div><Icon name="printer" /><p><strong>Print any timetable</strong><span>Or save it as a PDF for the fridge.</span></p></div>
-    </div>
-  </section>
-
-  <div class="reveal"><Faq items={faq} title="Questions about Stopwatch" ld={false} /></div>
+    <Faq items={faq} title="Common questions" ld={false} />
+  </div>
 </main>
 </Base>

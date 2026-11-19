@@ -1,9 +1,9 @@
 ---
 import { indexable } from '../lib/indexing.js';
 /**
- * One responsive AdSense unit, labelled. Placed between whole sections, never inside a timetable,
- * so an ad can never be mistaken for a departure time. Space is reserved (see .ad ins) so a unit
- * loading late does not push the timetable down.
+ * One responsive AdSense unit in a reserved, labelled slot (300x250 on phones, 728x90 and up on
+ * desktop). Placed between whole sections, never inside a timetable, so an ad can never be
+ * mistaken for a departure time, and the space is held so a late ad does not push content down.
  */
 interface Props {
   slot?: string;
@@ -16,7 +16,7 @@ const CLIENT = 'ca-pub-7164999486301748';
 const pagePath = Astro.url.pathname.replace(/^\/+|\.html$/g, '').replace(/\/$/, '');
 const show = !/^(404|offline|embed)$/.test(pagePath) && indexable(pagePath);
 ---
-{show && <aside class="ad" aria-label="Advertisement">
+{show && <aside class="ad no-print" aria-label="Advertisement">
   <span class="label">Advertisement</span>
   <ins class="adsbygoogle" style="display:block" data-ad-client={CLIENT} data-ad-slot={slot} data-ad-format="auto" data-full-width-responsive="true"></ins>
 </aside>}

@@ -1,11 +1,14 @@
 ---
+import { SITE } from '../../lib/site.js';
 import Base from '../../layouts/Base.astro';
 import Icon from '../../components/Icon.astro';
 import Ad from '../../components/Ad.astro';
 import Faq from '../../components/Faq.astro';
-import PopularRoutes from '../../components/PopularRoutes.astro';
-import { isMain, countries, GROUPS, getSystem } from '../../lib/data.js';
-import { sharedMode, modeName, cap } from '../../lib/format.js';
+import Crumbs from '../../components/Crumbs.astro';
+import Flag from '../../components/Flag.astro';
+import RouteBadge from '../../components/RouteBadge.astro';
+import { isMain, countries, GROUPS, getSystem, busiestRoutes } from '../../lib/data.js';
+import { sharedMode, modeName, cap, plain, routeLabel, every } from '../../lib/format.js';
 import { dateFor, LANG } from '../../lib/page.js';
 
 export function getStaticPaths() {
@@ -67,59 +70,97 @@ const faq = [
   [`Are these live times?`, `No. Stopwatch shows the published ${c.word} and works out the next departure from it and your phone's clock. For disruptions, check the operator.`],
   [`Is my area missing?`, `Stopwatch only publishes ${c.word}s whose data licence allows it. More systems are added as their data is checked.`],
 ];
+
+// ---- redesign ----
+const initials = (nm) => nm.replace(/[^A-Za-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const popular = systems.slice(0, 4).flatMap((s) => busiestRoutes(s.key, 2).map(({ route, url }) => {
+  const sys = getSystem(s.key);
+  const sm = route.summary[route.days[0].key];
+  return { route, url, name: `${sys.name} ${routeLabel(route)}`, sub: [plain(route.name) && plain(route.name) !== routeLabel(route) ? plain(route.name) : '', sm?.gap ? every(sm.gap) : ''].filter(Boolean).join(' · ') };
+}));
+const regionTabs = sections.length > 1 ? sections : [];
+
 ---
-<Base title={title} description={description} path={c.cc} pageType="CollectionPage" lang={LANG[c.cc]} cc={c.cc} speakable={['.lede', '.faq .answer']}>
+<Base title={title} description={description} path={c.cc} pageType="CollectionPage" lang={LANG[c.cc]} cc={c.cc} speakable={['.lede', '.faq .answer']} jsonLd={[{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Stopwatch', item: `${SITE}/` }, { '@type': 'ListItem', position: 2, name: c.name, item: `${SITE}/${c.cc}` }] }]}>
 <main class="wrap">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Stopwatch</a> › {c.name}</nav>
-  <h1>{c.name} {modeShort} {c.word}s</h1>
-  <p class="lede">Stopwatch has full {c.word}s for {systems.length} transit systems in {inName}: {routes.toLocaleString('en')} {modeList} routes and {stops.toLocaleString('en')} stops, built from the operators' open data and refreshed every week (last on {dateFor(builtOn, c.cc)}). Every route shows the whole day and highlights the next departure.</p>
-  <div class="actions">
-    <button class="btn btn-primary" type="button" data-search-open><Icon name="magnifying-glass" /> Find a route or town</button>
-    <button class="btn btn-quiet" type="button" data-near-me><Icon name="navigation-arrow" /> Stops near me</button>
-  </div>
-  {sections.length > 1 && (
-    <nav class="jump" aria-label="Regions">
-      {sections.map((s) => <a href={`#${s.id}`}>{s.name}<small>{s.systems.length}</small></a>)}
-    </nav>
-  )}
-  {sections.map((sec, i) => (
-    <>
-      <section id={sec.id}>
-        <h2>{sec.name}{sec.region && sec.region !== c.name && <span class="muted" style="font-weight:500"> · {sec.region}</span>}</h2>
-        <div class="towns" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">
-          {sec.systems.map((s) => (
-            <a class="tile" href={`/${s.key}`} style="min-height:120px">
-              <span class="stripes" aria-hidden="true">{info[s.key].colors.map((col) => <i style={`background:${col}`} />)}</span>
-              <strong>{s.name}</strong>
-              <span>{`${s.routes} route${s.routes === 1 ? '' : 's'} · ${s.area}`}</span>
-            </a>
-          ))}
+  <Crumbs items={[{ name: 'Home', href: '/' }, { name: c.name }]} />
+  <section class="sys-hero in" style="gap:28px 48px;padding-top:26px">
+    <Flag cc={c.cc} w={200} h={100} class="big-flag" alt={`Flag of ${inName}`} />
+    <div class="copy">
+      <h1>{c.name} {modeShort} {c.word}s</h1>
+      <p class="lede">Stopwatch has full {c.word}s for {systems.length} transit systems in {inName}: {routes.toLocaleString('en')} {modeList} routes and {stops.toLocaleString('en')} stops, built from the operators' open data and refreshed every week (last on {dateFor(builtOn, c.cc)}). Times use the {c.h24 ? '24-hour clock' : '12-hour clock (am/pm)'}.</p>
+      <div class="hero-search" style="max-width:620px">
+        <button class="hero-field" type="button" data-search-open style="height:56px;font-size:16px"><Icon name="magnifying-glass" class="mag" /><span>Search {short}: route, stop or town</span></button>
+        <button class="btn btn-primary" type="button" data-near-me style="height:56px"><Icon name="navigation-arrow" /> Near me</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="reg-h" style="padding-top:40px">
+    <div class="sec-head reveal">
+      <h2 id="reg-h">Transit systems by region</h2>
+      {regionTabs.length > 0 && (
+        <div class="seg region-tabs js-only" role="group" aria-label="Region">
+          <button type="button" data-region="" aria-pressed="true">All</button>
+          {regionTabs.map((sec) => <button type="button" data-region={sec.id} aria-pressed="false">{sec.name}</button>)}
         </div>
-      </section>
-      {i === 0 && sections.length > 2 && <Ad />}
-    </>
-  ))}
-  {holidays.length > 0 && (
-    <section>
-      <h2>Public holidays coming up</h2>
-      <ul class="list">
-        {holidays.map((h) => (
-          <li><div class="row"><Icon name="calendar-check" /><span>{h.name}, {dateFor(h.date, c.cc)}<span class="meta">{h.none.length === h.systems.length ? `No service on ${listOf(h.none)}` : `A different ${c.word} on ${listOf(h.systems)}${h.none.length ? `; no service on ${listOf(h.none)}` : ''}`}. Each route page says which ${c.word} it runs.</span></span></div></li>
-        ))}
+      )}
+    </div>
+    {sections.map((sec, i) => (
+      <>
+        <div class="region" id={sec.id} data-region-box={sec.id}>
+          {sections.length > 1 && <h3>{sec.name}{sec.region && sec.region !== c.name && <span class="muted" style="font-weight:600"> · {sec.region}</span>}</h3>}
+          <ul class="sys-list">
+            {sec.systems.map((s) => (
+              <li><a class="scard card" href={`/${s.key}`}>
+                <span class="mark">{initials(s.name)}</span>
+                <span class="t">{s.name}<small>{s.area}</small></span>
+                <span class="n">{s.routes} {s.routes === 1 ? 'route' : 'routes'}</span>
+              </a></li>
+            ))}
+          </ul>
+        </div>
+        {i === 0 && sections.length > 2 && <Ad />}
+      </>
+    ))}
+  </section>
+
+  {sections.length <= 2 && <Ad />}
+
+  <section class="sec twocol">
+    {holidays.length > 0 && (
+      <div class="navy-box reveal" role="region" aria-labelledby="hol-h">
+        <h2 id="hol-h">Public holidays coming up</h2>
+        <p>Most operators run a Sunday or special {c.word}. Each route page says what it runs that day.</p>
+        <ul class="hol">
+          {holidays.map((h) => (
+            <li><span class="cal"><b>{h.date.slice(8, 10)}</b><small>{MON[Number(h.date.slice(5, 7)) - 1]}</small></span>
+              <span style="flex:1"><strong>{h.name}</strong><span>{h.none.length === h.systems.length ? `No service on ${listOf(h.none)}` : `A different ${c.word} on ${listOf(h.systems)}${h.none.length ? `; no service on ${listOf(h.none)}` : ''}`}</span></span></li>
+          ))}
+        </ul>
+      </div>
+    )}
+    <div class="reveal" role="region" aria-labelledby="how-h">
+      <h2 id="how-h" style="font-size:30px;margin-bottom:14px">How to read these {c.word}s</h2>
+      <ol class="howto">
+        <li><span class="num">01</span><Icon name="arrows-left-right" /><h3>Pick the direction</h3><p>Choose the way you're travelling, then the day: weekdays, Saturday or Sunday.</p></li>
+        <li><span class="num">02</span><Icon name="map-pin" /><h3>Find your stop</h3><p>On a phone, pick your stop and see its times hour by hour. A dash means that trip does not stop there.</p></li>
+        <li><span class="num">03</span><Icon name="clock" /><h3>{c.h24 ? 'Read 24-hour times' : 'Read am and pm'}</h3><p>{c.h24 ? '17:05 is 5:05 in the afternoon.' : 'Every time says am or pm.'} Times after midnight belong to the evening before.</p></li>
+        <li><span class="num">04</span><Icon name="star" /><h3>Amber means next</h3><p>The next departure is highlighted, worked out from the published {c.word} and your phone's clock. Past times fade back.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  {popular.length > 0 && (
+    <section class="sec reveal" aria-labelledby="pop-h">
+      <h2 id="pop-h" style="font-size:30px;margin-bottom:14px">Popular routes in {inName}</h2>
+      <ul class="rgrid" style="grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr))">
+        {popular.map((p) => <li><a class="rcard card" href={p.url}><RouteBadge route={p.route} size="md" /><span class="t">{p.name}<small>{p.sub}</small></span></a></li>)}
       </ul>
     </section>
   )}
 
-  <section>
-    <h2>How to read these {c.word}s</h2>
-    <ul class="plain-list">
-      <li>{c.h24 ? 'Times use the 24-hour clock: 17:05 is 5:05 in the afternoon.' : 'Times use the 12-hour clock, and pm times are in bold.'} Times after midnight belong to the evening before.</li>
-      <li>Each route shows the main stops the operator times; a dot means that trip does not stop there. The full list of stops is under each direction.</li>
-      <li>The next departure is worked out from the published {c.word} and your phone's clock. These are scheduled times, not live arrivals.</li>
-    </ul>
-  </section>
-
-  <PopularRoutes title={`Popular routes in ${inName}`} keys={systems.slice(0, 4).map((s) => s.key)} per={5} />
   <Faq items={faq} title={`${short} ${c.word} questions`} ld={false} />
 </main>
 </Base>

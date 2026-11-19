@@ -4,12 +4,12 @@ import Icon from '../components/Icon.astro';
 ---
 <Base title="You're offline | Stopwatch" description="No connection. Timetables you have opened before still work." path="offline" noindex>
 <main class="wrap">
-  <div class="page-head" style="margin-top:2rem"><Icon name="wifi-slash" class="lg" /><h1>You’re offline</h1></div>
+  <section class="page-head" style="margin-top:2rem"><span class="stop-icon"><Icon name="wifi-slash" /></span><div class="ph-main"><h1>You’re offline</h1></div></section>
   <p class="lede">Any timetable you opened before still works here. Pick one below, or reconnect to see the rest.</p>
   <ul class="list" id="cached"><li><a href="/">Stopwatch home</a></li></ul>
 </main>
 <script is:inline>
-  caches.open('pages-v1').then((c) => c.keys()).then((keys) => {
+  caches.open('pages-v2').then((c) => c.keys()).then((keys) => {
     const ul = document.getElementById('cached');
     const paths = keys.map((k) => new URL(k.url).pathname).filter((p) => p !== '/offline' && p !== '/');
     for (const p of paths.reverse()) {

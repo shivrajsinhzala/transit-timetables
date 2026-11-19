@@ -12,6 +12,7 @@ import Ad from '../../../../../components/Ad.astro';
 import RouteBadge from '../../../../../components/RouteBadge.astro';
 import Faq from '../../../../../components/Faq.astro';
 import Source from '../../../../../components/Source.astro';
+import Crumbs from '../../../../../components/Crumbs.astro';
 import { shardSystems, getJourneys, journeyPlaces, journeyUrl, pairDaily } from '../../../../../lib/data.js';
 import { plain, vehicle, plural, cap } from '../../../../../lib/format.js';
 import { ctxFor, dateFor } from '../../../../../lib/page.js';
@@ -71,14 +72,14 @@ const faq = [
 ---
 <Base title={title} description={description} path={path} jsonLd={jsonLd} og={system.key} speakable={['.lede', '.faq .answer']} system={system} pageType="CollectionPage" noindex>
 <main class="wrap">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href={`/${system.cc}`}>{x.c.name}</a> › <a href={base}>{system.name}</a> › {cap(vs)} from {A}</nav>
-  <div class="page-head">
-    <Icon name="map-pin" class="lg" />
-    <div>
+  <Crumbs cc={system.cc} items={[{ name: x.c.name, href: `/${system.cc}` }, { name: system.name, href: base }, { name: `${cap(vs)} from ${A}` }]} />
+  <section class="page-head in">
+    <span class="stop-icon"><Icon name="map-pin" /></span>
+    <div class="ph-main">
       <h1>{Vs} from {A}</h1>
       <p class="sub">{system.name} · {out.length} direct {out.length === 1 ? 'destination' : 'destinations'}</p>
     </div>
-  </div>
+  </section>
 
   <p class="lede" style="margin-top:1.2rem">{system.name} {v === 'departure' ? 'services' : vs} go direct from {A} to {out.length} {out.length === 1 ? 'place' : 'places'}{top.length ? `, the busiest to ${listText(top)}` : ''}. Open one for every departure, how long it takes and where to catch it. Updated {dateFor(system.builtOn, system.cc)}.</p>
 
